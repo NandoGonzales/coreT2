@@ -214,6 +214,45 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     }
 }
 
+// Handle JSON Export (for frontend PDF generation)
+if (isset($_GET['export']) && $_GET['export'] === 'json') {
+    header('Content-Type: application/json');
+    try {
+        $search = trim($_GET['search'] ?? '');
+        $start = trim($_GET['start'] ?? '');
+        $end = trim($_GET['end'] ?? '');
+        $status = trim($_GET['status'] ?? '');
+
+        $filterData = buildWhereClause($search, $start, $end, $status);
+        $whereSQL = $filterData['sql'];
+        $params = $filterData['params'];
+        $types = $filterData['types'];
+
+        $sql = "SELECT a.audit_id, a.user_id, a.action_type, a.module_name, a.record_id, a.remarks, a.compliance_status,
+                       DATE_FORMAT(a.action_time, '%Y-%m-%d %h:%i %p') as action_time, a.ip_address, u.full_name, u.username
+                FROM audit_trail a LEFT JOIN users u ON a.user_id = u.user_id 
+                $whereSQL ORDER BY a.action_time DESC";
+
+        $stmt = $conn->prepare($sql);
+        if ($types !== '') {
+            $stmt->bind_param($types, ...$params);
+        }
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $rows = [];
+        while ($row = $result->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        echo json_encode(['status' => 'success', 'rows' => $rows]);
+        $stmt->close();
+        exit;
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'msg' => $e->getMessage()]);
+        exit;
+    }
+}
+
 // Handle PDF Export
 if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     // Avoid PHP warning/notice output corrupting PDF stream
