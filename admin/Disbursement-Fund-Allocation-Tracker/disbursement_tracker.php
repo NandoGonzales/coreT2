@@ -448,6 +448,9 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <button id="exportPdfBtn" class="btn btn-sm btn-danger">
                             <i class="bi bi-file-earmark-pdf"></i> Export PDF
                         </button>
+                        <button id="exportExcelBtn" class="btn btn-sm btn-success">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel
+                        </button>
                         <button id="reloadBtn" class="btn btn-sm btn-outline-light">
                             <i class="bi bi-arrow-clockwise"></i> Reload
                         </button>
@@ -1046,6 +1049,80 @@ include(__DIR__ . '/../inc/sidebar.php');
                     icon: 'success',
                     title: 'PDF Exported',
                     text: 'Use your entered password to open the PDF.',
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Export Failed',
+                    text: error.message
+                });
+            } finally {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            }
+        });
+
+        // Export Excel/CSV
+        document.getElementById('exportExcelBtn').addEventListener('click', async function() {
+            const passwordPrompt = await Swal.fire({
+                title: 'Protect Excel Export',
+                text: 'Enter a password to encrypt this Excel/CSV export in a ZIP file.',
+                input: 'password',
+                inputLabel: 'Export Password',
+                inputPlaceholder: 'At least 6 characters',
+                showCancelButton: true,
+                confirmButtonText: 'Export Excel',
+                cancelButtonText: 'Cancel',
+                inputValidator: (value) => (!value || value.trim().length < 6) ? 'Please enter at least 6 characters.' : null
+            });
+
+            if (!passwordPrompt.isConfirmed) return;
+            const pdfPassword = passwordPrompt.value;
+
+            const params = new URLSearchParams({
+                export: 'csv',
+                search: currentFilters.search,
+                status: currentFilters.status,
+                fund: currentFilters.fund,
+                date: currentFilters.date,
+                cardFilter: currentFilters.cardFilter,
+                pdf_password: pdfPassword
+            });
+
+            const btn = this;
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
+            btn.disabled = true;
+
+            try {
+                const url = `disbursement_action.php?${params.toString()}`;
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Export failed');
+                
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Export failed');
+                }
+
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                const extension = pdfPassword ? 'zip' : 'csv';
+                a.download = `disbursement_tracker_${new Date().toISOString().split('T')[0]}.${extension}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+                a.remove();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Excel Exported',
+                    text: pdfPassword ? 'The ZIP file is password protected.' : 'File downloaded successfully.',
                     timer: 3000,
                     showConfirmButton: false
                 });

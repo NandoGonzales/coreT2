@@ -247,6 +247,113 @@ try {
         outputPdfDownload($pdf, 'disbursement_tracker_' . date('Y-m-d_His') . '.pdf');
     }
 
+    // Check if it's a CSV export request (GET)
+    if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+        while (ob_get_level() > 0) ob_end_clean();
+        $search = $_GET['search'] ?? '';
+        $status = $_GET['status'] ?? '';
+        $fund = $_GET['fund'] ?? '';
+        $date = $_GET['date'] ?? '';
+        $cardFilter = $_GET['cardFilter'] ?? 'all';
+        $exportPassword = trim($_GET['pdf_password'] ?? '');
+
+        // Use the same filtering logic as PDF
+        $where = ["1=1"];
+        $params = [];
+        $types = "";
+
+        if ($search !== "") {
+            $where[] = "(d.disbursement_id LIKE ? OR d.loan_id LIKE ? OR m.full_name LIKE ? OR d.fund_source LIKE ?)";
+            $s = "%$search%";
+            $params = array_merge($params, [$s, $s, $s, $s]);
+            $types .= "ssss";
+        }
+        if ($status !== "") {
+            $where[] = "d.status = ?";
+            $params[] = $status;
+            $types .= "s";
+        }
+        if ($fund !== "") {
+            $where[] = "d.fund_source = ?";
+            $params[] = $fund;
+            $types .= "s";
+        }
+        if ($date !== "") {
+            $where[] = "d.disbursement_date = ?";
+            $params[] = $date;
+            $types .= "s";
+        }
+        if ($cardFilter !== "all" && $cardFilter !== "") {
+            if ($cardFilter === "released") $where[] = "d.status = 'Released'";
+            elseif ($cardFilter === "pending") $where[] = "d.status = 'Pending'";
+        }
+
+        $sql = "SELECT d.*, m.full_name as member_name, u.full_name as approved_by_name 
+                FROM disbursements d 
+                LEFT JOIN members m ON d.member_id = m.member_id 
+                LEFT JOIN users u ON d.approved_by = u.user_id 
+                WHERE " . implode(" AND ", $where) . " 
+                ORDER BY d.disbursement_id DESC";
+
+        $stmt = $conn->prepare($sql);
+        if ($types !== "") $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        $filename_base = 'disbursements_export_' . date('Y-m-d_His');
+        $csv_filename = $filename_base . '.csv';
+
+        // Create CSV in memory
+        $output = fopen('php://temp', 'r+');
+        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF)); // BOM
+        fputcsv($output, ['ID', 'Loan ID', 'Member', 'Date', 'Amount', 'Fund Source', 'Approved By', 'Status', 'Remarks']);
+        
+        while ($row = $result->fetch_assoc()) {
+            fputcsv($output, [
+                $row['disbursement_id'],
+                $row['loan_id'],
+                $row['member_name'] ?? 'N/A',
+                $row['disbursement_date'],
+                $row['amount'],
+                $row['fund_source'] ?? '-',
+                $row['approved_by_name'] ?? '-',
+                $row['status'],
+                $row['remarks'] ?? ''
+            ]);
+        }
+        rewind($output);
+        $csv_content = stream_get_contents($output);
+        fclose($output);
+        $stmt->close();
+
+        if ($exportPassword !== '') {
+            if (class_exists('ZipArchive')) {
+                $zip = new ZipArchive();
+                $zip_filename = $filename_base . '.zip';
+                $temp_file = tempnam(sys_get_temp_dir(), 'zip');
+                if ($zip->open($temp_file, ZipArchive::CREATE) === TRUE) {
+                    $zip->addFromString($csv_filename, $csv_content);
+                    if (method_exists($zip, 'setEncryptionName')) {
+                        $zip->setEncryptionName($csv_filename, ZipArchive::EM_AES_256, $exportPassword);
+                    }
+                    $zip->close();
+                    header('Content-Type: application/zip');
+                    header('Content-Disposition: attachment; filename="' . $zip_filename . '"');
+                    header('Content-Length: ' . filesize($temp_file));
+                    readfile($temp_file);
+                    unlink($temp_file);
+                    exit;
+                }
+            }
+        }
+
+        // Standard CSV download
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $csv_filename . '"');
+        echo $csv_content;
+        exit;
+    }
+
     $action = $_POST['action'] ?? '';
     $disbursementId = $_POST['id'] ?? '';
     

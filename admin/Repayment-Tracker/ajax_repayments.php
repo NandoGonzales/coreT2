@@ -281,6 +281,118 @@ try {
         outputPdfDownload($pdf, 'repayment_tracker_' . date('Y-m-d_His') . '.pdf');
     }
 
+    // --- CSV EXPORT (EXCEL) ---
+    if ($export === 'csv') {
+        // Build WHERE clause (reuse logic from start of file if possible, or just build it)
+        $whereClauses = [];
+        if ($search !== '') {
+            $s = $conn->real_escape_string($search);
+            $whereClauses[] = "(lp.loan_id LIKE '%$s%' OR m.full_name LIKE '%$s%' OR lp.loan_type LIKE '%$s%')";
+        }
+        if ($statusFilter !== '') {
+            $st = $conn->real_escape_string($statusFilter);
+            $whereClauses[] = "lp.status = '$st'";
+        }
+        if ($typeFilter !== '') {
+            $tp = $conn->real_escape_string($typeFilter);
+            $whereClauses[] = "lp.loan_type = '$tp'";
+        }
+        if ($cardFilter === 'active') $whereClauses[] = "lp.status = 'Active'";
+        if ($cardFilter === 'overdue') {
+            $whereClauses[] = "lp.loan_id IN (SELECT loan_id FROM loan_schedule WHERE status = 'Overdue')";
+        }
+        if ($cardFilter === 'at_risk') {
+            $whereClauses[] = "(lp.status = 'Defaulted' OR lp.loan_id IN (SELECT loan_id FROM loan_schedule WHERE status = 'Overdue' GROUP BY loan_id HAVING COUNT(*) >= 3))";
+        }
+
+        $whereSql = count($whereClauses) > 0 ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
+
+        $sql = "
+            SELECT 
+                lp.loan_id,
+                m.full_name as member_name,
+                lp.loan_type,
+                lp.principal_amount,
+                lp.interest_rate,
+                lp.loan_term,
+                lp.start_date,
+                lp.status,
+                CASE 
+                    WHEN lp.status = 'Defaulted' THEN 'High'
+                    WHEN COALESCE(ls.overdue_count, 0) >= 3 THEN 'High'
+                    WHEN COALESCE(ls.overdue_count, 0) BETWEEN 1 AND 2 THEN 'Medium'
+                    ELSE 'Low'
+                END as risk_level
+            FROM loan_portfolio lp
+            LEFT JOIN members m ON lp.member_id = m.member_id
+            LEFT JOIN (
+                SELECT loan_id, COUNT(*) as overdue_count
+                FROM loan_schedule 
+                WHERE status = 'Overdue'
+                GROUP BY loan_id
+            ) ls ON lp.loan_id = ls.loan_id
+            $whereSql
+            ORDER BY lp.loan_id DESC
+        ";
+        
+        $result = $conn->query($sql);
+        $filename_base = 'repayment_export_' . date('Y-m-d_His');
+        $csv_filename = $filename_base . '.csv';
+
+        // Create CSV in memory
+        $output = fopen('php://temp', 'r+');
+        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF)); // BOM
+        fputcsv($output, ['Loan ID', 'Member', 'Loan Type', 'Principal', 'Rate (%)', 'Term (mo)', 'Start Date', 'Status', 'Risk Level']);
+        
+        if ($result && $result->num_rows > 0) {
+            while ($row = $result->fetch_assoc()) {
+                fputcsv($output, [
+                    $row['loan_id'],
+                    $row['member_name'] ?? 'N/A',
+                    $row['loan_type'],
+                    $row['principal_amount'],
+                    $row['interest_rate'],
+                    $row['loan_term'],
+                    $row['start_date'],
+                    $row['status'],
+                    $row['risk_level']
+                ]);
+            }
+        }
+        rewind($output);
+        $csv_content = stream_get_contents($output);
+        fclose($output);
+
+        if ($pdfPassword !== '') {
+            if (class_exists('ZipArchive')) {
+                $zip = new ZipArchive();
+                $zip_filename = $filename_base . '.zip';
+                $temp_file = tempnam(sys_get_temp_dir(), 'zip');
+                if ($zip->open($temp_file, ZipArchive::CREATE) === TRUE) {
+                    $zip->addFromString($csv_filename, $csv_content);
+                    if (method_exists($zip, 'setEncryptionName')) {
+                        $zip->setEncryptionName($csv_filename, ZipArchive::EM_AES_256, $pdfPassword);
+                    }
+                    $zip->close();
+                    
+                    while (ob_get_level() > 0) ob_end_clean();
+                    header('Content-Type: application/zip');
+                    header('Content-Disposition: attachment; filename="' . $zip_filename . '"');
+                    header('Content-Length: ' . filesize($temp_file));
+                    readfile($temp_file);
+                    unlink($temp_file);
+                    exit;
+                }
+            }
+        }
+
+        while (ob_get_level() > 0) ob_end_clean();
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $csv_filename . '"');
+        echo $csv_content;
+        exit;
+    }
+
     // --- SUMMARY CARDS ---
     $summary = [
         'total_loans' => 0,
