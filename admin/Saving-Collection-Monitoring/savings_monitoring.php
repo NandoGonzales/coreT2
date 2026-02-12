@@ -417,9 +417,12 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <button id="syncCore1Btn" class="btn btn-sm btn-outline-light btn-sync" title="Pull latest savings from Core1">
                             <i class="bi bi-arrow-repeat"></i> Sync Core1
                         </button>
-                        <a id="exportCsvBtn" class="btn btn-sm btn-success" href="#">
+                        <button id="exportPdfBtn" class="btn btn-sm btn-danger">
+                            <i class="bi bi-file-earmark-pdf"></i> Export PDF
+                        </button>
+                        <button id="exportCsvBtn" class="btn btn-sm btn-success">
                             <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
-                        </a>
+                        </button>
                         <button class="btn btn-sm btn-primary" id="addTxBtn">
                             <i class="bi bi-plus-circle"></i> New Transaction
                         </button>
@@ -793,8 +796,83 @@ document.addEventListener('DOMContentLoaded', () => {
     const rowsPerPage = document.getElementById('rowsPerPage');
     const clearFilters = document.getElementById('clearFilters');
 
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
     const exportCsvBtn = document.getElementById('exportCsvBtn');
     const addTxBtn = document.getElementById('addTxBtn');
+
+    async function handleExport(format) {
+        const passwordPrompt = await Swal.fire({
+            title: `Protect ${format.toUpperCase()} Export`,
+            text: `Enter a password before exporting this ${format.toUpperCase()}.`,
+            input: 'password',
+            inputLabel: 'Export Password',
+            inputPlaceholder: 'At least 6 characters',
+            showCancelButton: true,
+            confirmButtonText: `Export ${format.toUpperCase()}`,
+            cancelButtonText: 'Cancel',
+            inputValidator: (value) => (!value || value.trim().length < 6) ? 'Please enter at least 6 characters.' : null
+        });
+
+        if (!passwordPrompt.isConfirmed) return;
+        const pdfPassword = passwordPrompt.value;
+
+        const params = new URLSearchParams({
+            export: format,
+            search: currentSearch,
+            search_by: searchBy ? searchBy.value : 'auto',
+            filter: currentCardFilter,
+            type: typeFilter.value,
+            member_id: memberFilter.value,
+            recorded_by: recordedByFilter.value,
+            date_from: dateFrom.value,
+            date_to: dateTo.value,
+            pdf_password: pdfPassword
+        });
+
+        const btn = format === 'pdf' ? exportPdfBtn : exportCsvBtn;
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
+        btn.disabled = true;
+
+        try {
+            const url = `savings_action.php?${params.toString()}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error('Export failed');
+
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const errorData = await response.json();
+                throw new Error(errorData.msg || 'Export failed');
+            }
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            const extension = format === 'pdf' ? 'pdf' : (pdfPassword ? 'zip' : 'csv');
+            a.download = `savings_export_${new Date().toISOString().split('T')[0]}.${extension}`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            a.remove();
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Exported',
+                text: 'Your file has been generated successfully.',
+                timer: 3000,
+                showConfirmButton: false
+            });
+        } catch (error) {
+            Swal.fire({ icon: 'error', title: 'Export Failed', text: error.message });
+        } finally {
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+        }
+    }
+
+    exportPdfBtn.addEventListener('click', () => handleExport('pdf'));
+    exportCsvBtn.addEventListener('click', () => handleExport('csv'));
 
     const filterIndicator = document.getElementById('filterIndicator');
     const recordCount = document.getElementById('recordCount');
@@ -996,17 +1074,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 renderPagination(data.pagination?.current_page || 1, data.pagination?.total_pages || 1);
-
-                exportCsvBtn.href =
-                    `savings_action.php?export=csv` +
-                    `&search=${encodeURIComponent(currentSearch)}` +
-                    `&search_by=${encodeURIComponent(searchBy ? searchBy.value : 'auto')}` +
-                    `&filter=${encodeURIComponent(currentCardFilter)}` +
-                    `&type=${encodeURIComponent(typeFilter.value)}` +
-                    `&member_id=${encodeURIComponent(memberFilter.value)}` +
-                    `&recorded_by=${encodeURIComponent(recordedByFilter.value)}` +
-                    `&date_from=${encodeURIComponent(dateFrom.value)}` +
-                    `&date_to=${encodeURIComponent(dateTo.value)}`;
 
                 updateFilterIndicator();
             })

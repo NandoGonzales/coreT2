@@ -1,3 +1,11 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+
+require_once(__DIR__ . '/../../initialize_coreT2.php');
+require_once(__DIR__ . '/../inc/sess_auth.php');
+require_once __DIR__ . '/../inc/check_auth.php';
+
 // ----------------------------------------------------------------------
 // Load TCPDF only when needed to avoid fatal errors if library is missing
 // ----------------------------------------------------------------------
