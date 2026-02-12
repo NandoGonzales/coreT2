@@ -680,7 +680,7 @@ include(__DIR__ . '/../inc/sidebar.php');
             }
 
             try {
-                const response = await fetch('send_ai_message.php', {
+                const response = await fetch('/admin/Repayment-Tracker/send_ai_message.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
