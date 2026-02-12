@@ -56,63 +56,44 @@ function buildWhereClause($search, $start, $end, $status)
     return ['sql' => $whereSQL, 'params' => $params, 'types' => $types];
 }
 
-/**
- * Load TCPDF library from various possible locations
- */
+// ----------------------------------------------------------------------
+// Load TCPDF only when needed to avoid fatal errors if library is missing
+// ----------------------------------------------------------------------
 function loadTCPDF()
 {
-    if (class_exists('TCPDF')) {
-        return true;
-    }
+    if (class_exists('TCPDF')) return true;
 
-    // Possible autoload paths (relative to coreT2 root)
-    $autoloadPaths = [
+    $paths = [
         __DIR__ . '/../../vendor/autoload.php',
-        __DIR__ . '/../../../vendor/autoload.php',
-        __DIR__ . '/../../../../vendor/autoload.php',
-    ];
-
-    // Possible direct TCPDF paths
-    $tcpdfPaths = [
         __DIR__ . '/../../vendor/tecnickcom/tcpdf/tcpdf.php',
         __DIR__ . '/../../libs/tcpdf/tcpdf.php',
         __DIR__ . '/../libs/tcpdf/tcpdf.php',
+        __DIR__ . '/libs/tcpdf/tcpdf.php'
     ];
 
-    // Try autoload first (preferred method)
-    foreach ($autoloadPaths as $path) {
+    foreach ($paths as $path) {
         if (file_exists($path)) {
             require_once($path);
-            if (class_exists('TCPDF')) {
-                return true;
-            }
+            if (class_exists('TCPDF')) return true;
         }
     }
-
-    // Try direct TCPDF include as fallback
-    foreach ($tcpdfPaths as $path) {
-        if (file_exists($path)) {
-            require_once($path);
-            if (class_exists('TCPDF')) {
-                return true;
-            }
-        }
-    }
-
     return false;
 }
 
 /**
  * Send PDF as clean binary download to avoid corruption.
  */
-function outputPdfDownload(TCPDF $pdf, string $filename): void
+function outputPdfDownload($pdf, string $filename): void
 {
-    // Remove any buffered output that can corrupt PDF binary
+    // Clear any previous output buffers to avoid corrupting PDF binary
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
-
+    
+    // Ensure no output happens before or after this
+    ob_start();
     $binary = $pdf->Output($filename, 'S');
+    ob_end_clean();
 
     if ($binary === '') {
         throw new Exception('Generated PDF content is empty.');
@@ -122,55 +103,13 @@ function outputPdfDownload(TCPDF $pdf, string $filename): void
         header('Content-Type: application/pdf');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Content-Transfer-Encoding: binary');
-        header('Accept-Ranges: bytes');
         header('Content-Length: ' . strlen($binary));
-        header('Cache-Control: private, no-transform, no-store, no-cache, must-revalidate, max-age=0');
+        header('Cache-Control: private, max-age=0, must-revalidate');
         header('Pragma: public');
-        header('Expires: 0');
-        header('X-Content-Type-Options: nosniff');
     }
 
     echo $binary;
     exit;
-}
-
-
-class ComplianceExportPDF extends TCPDF
-{
-    public function Header(): void
-    {
-        $leftMargin = 10;
-        $top = 8;
-        $width = 277;
-
-        // Dark green company header band
-        $this->SetFillColor(20, 83, 45);
-        $this->SetDrawColor(20, 83, 45);
-        $this->RoundedRect($leftMargin, $top, $width, 20, 2, '1111', 'FD');
-
-        // Company logo (if available)
-        $logoPath = __DIR__ . '/../../dist/img/logo.jpg';
-        if (is_file($logoPath)) {
-            $this->Image($logoPath, $leftMargin + 3, $top + 2, 16, 16, 'JPG');
-        }
-
-        $this->SetTextColor(255, 255, 255);
-        $this->SetXY($leftMargin + 22, $top + 4);
-        $this->SetFont('helvetica', 'B', 13);
-        $this->Cell(0, 6, 'Golden Horizons Cooperative', 0, 1, 'L');
-
-        $this->SetX($leftMargin + 22);
-        $this->SetFont('helvetica', '', 9);
-        $this->Cell(0, 5, 'Compliance & Audit Trail Report', 0, 0, 'L');
-    }
-
-    public function Footer(): void
-    {
-        $this->SetY(-12);
-        $this->SetFont('helvetica', 'I', 8);
-        $this->SetTextColor(20, 83, 45);
-        $this->Cell(0, 8, 'Confidential • Compliance Monitoring • Page ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, 0, 'C');
-    }
 }
 
 // Handle CSV Export
@@ -282,14 +221,48 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
 
     // Try to load TCPDF
     if (!loadTCPDF()) {
-        error_log("TCPDF library not found in any expected location");
+        error_log("TCPDF library not found.");
         header('Content-Type: application/json');
         echo json_encode([
             'status' => 'error',
-            'message' => 'Export failed. PDF library not found. No composer needed if you place TCPDF at: admin/libs/tcpdf/tcpdf.php',
-            'msg' => 'Export failed. PDF library not found. No composer needed if you place TCPDF at: admin/libs/tcpdf/tcpdf.php'
+            'msg' => 'PDF export failed: TCPDF library not found. Please ensure the library is installed in the libs/ folder.'
         ]);
         exit;
+    }
+
+    // Define the export class dynamically to avoid fatal errors if TCPDF is missing during parsing
+    if (!class_exists('ComplianceExportPDF')) {
+        class ComplianceExportPDF extends TCPDF
+        {
+            public function Header(): void
+            {
+                $leftMargin = 10;
+                $top = 8;
+                $width = 277;
+                $this->SetFillColor(20, 83, 45);
+                $this->SetDrawColor(20, 83, 45);
+                $this->RoundedRect($leftMargin, $top, $width, 20, 2, '1111', 'FD');
+                $logoPath = __DIR__ . '/../../dist/img/logo.jpg';
+                if (is_file($logoPath)) {
+                    $this->Image($logoPath, $leftMargin + 3, $top + 2, 16, 16, 'JPG');
+                }
+                $this->SetTextColor(255, 255, 255);
+                $this->SetXY($leftMargin + 22, $top + 4);
+                $this->SetFont('helvetica', 'B', 13);
+                $this->Cell(0, 6, 'Golden Horizons Cooperative', 0, 1, 'L');
+                $this->SetX($leftMargin + 22);
+                $this->SetFont('helvetica', '', 9);
+                $this->Cell(0, 5, 'Compliance & Audit Trail Report', 0, 0, 'L');
+            }
+
+            public function Footer(): void
+            {
+                $this->SetY(-12);
+                $this->SetFont('helvetica', 'I', 8);
+                $this->SetTextColor(20, 83, 45);
+                $this->Cell(0, 8, 'Confidential • Page ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, 0, 'C');
+            }
+        }
     }
 
     try {
@@ -301,11 +274,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
 
         if (strlen($pdfPassword) < 6) {
             header('Content-Type: application/json');
-            echo json_encode([
-                'status' => 'error',
-                'message' => 'Export failed. PDF password must be at least 6 characters.',
-                'msg' => 'Export failed. PDF password must be at least 6 characters.'
-            ]);
+            echo json_encode(['status' => 'error', 'msg' => 'PDF password must be at least 6 characters.']);
             exit;
         }
 
@@ -355,11 +324,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
 
         $pdf->SetCreator('Compliance System');
         $pdf->SetAuthor('Admin');
-        $pdf->SetTitle('Compliance & Audit Trail Logs - Golden Horizons Cooperative');
-        $pdf->SetSubject('Audit Trail Report');
+        $pdf->SetTitle('Compliance & Audit Trail Logs');
 
         // Security: require password before opening exported PDF
-        $pdf->SetProtection(['print', 'copy'], $pdfPassword, null, 0, null);
+        // Set an owner password to ensure the user password works correctly as an access lock
+        $ownerPassword = md5(uniqid(mt_rand(), true));
+        $pdf->SetProtection(['print', 'copy'], $pdfPassword, $ownerPassword, 0, null);
 
         $pdf->SetMargins(10, 32, 10);
         $pdf->SetAutoPageBreak(TRUE, 15);
