@@ -1,6 +1,6 @@
 <?php
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0);
 
 // Start session first
 if (session_status() === PHP_SESSION_NONE) {
@@ -9,12 +9,13 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once(__DIR__ . '/../../initialize_coreT2.php');
 
-header('Content-Type: application/json; charset=utf-8');
+// Header will be set per action
 
 // CHECK AUTHENTICATION - Your system uses $_SESSION['userdata']
 if (!isset($_SESSION['userdata']) || empty($_SESSION['userdata'])) {
     error_log("disbursement_action.php - Authentication failed - no userdata in session");
     http_response_code(401);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'status' => 'error', 
         'msg' => 'Unauthorized - Please login again'
@@ -31,6 +32,7 @@ if (isset($_SESSION['last_activity'])) {
 if (!isset($conn)) {
     error_log("disbursement_action.php - Database connection not found");
     http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'status' => 'error',
         'msg' => 'Database connection failed'
@@ -97,8 +99,6 @@ function outputPdfDownload($pdf, string $filename): void
 try {
     // Check if it's a PDF export request (GET)
     if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
-        header('Content-Type: application/json; charset=utf-8');
-        
         $search = isset($_GET['search']) ? trim($_GET['search']) : '';
         $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
         $fundFilter = isset($_GET['fund']) ? trim($_GET['fund']) : '';
@@ -448,6 +448,7 @@ try {
             
             error_log("disbursement_action.php - Disbursement {$disbursementId} approved successfully by user {$userId}");
             
+            header('Content-Type: application/json; charset=utf-8');
             echo json_encode([
                 'status' => 'ok', 
                 'msg' => 'Disbursement approved successfully'
@@ -466,6 +467,7 @@ try {
 } catch (Exception $e) {
     error_log("disbursement_action.php - Error: " . $e->getMessage());
     http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'status' => 'error', 
         'msg' => $e->getMessage()
