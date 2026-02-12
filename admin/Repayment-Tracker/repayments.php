@@ -680,7 +680,7 @@ include(__DIR__ . '/../inc/sidebar.php');
             }
 
             try {
-                const response = await fetch('send_notification.php', {
+                const response = await fetch('send_ai_message.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
