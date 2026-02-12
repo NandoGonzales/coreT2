@@ -612,50 +612,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                 });
         }
 
-        // Helper functions for PDF branding
-        function loadImageAsDataUrl(url) {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => {
-                    try {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = img.naturalWidth;
-                        canvas.height = img.naturalHeight;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0);
-                        resolve(canvas.toDataURL('image/jpeg'));
-                    } catch (e) {
-                        reject(e);
-                    }
-                };
-                img.onerror = reject;
-                img.src = url;
-            });
-        }
-
-        async function addCompanyPdfHeader(doc, reportTitle) {
-            doc.setFillColor(20, 83, 45);
-            doc.roundedRect(10, 8, 277, 20, 2, 2, 'F');
-
-            try {
-                // Adjust path as needed based on file location
-                const logoData = await loadImageAsDataUrl('../../dist/img/logo.jpg');
-                doc.addImage(logoData, 'JPEG', 13, 10.5, 15, 15);
-            } catch (_) {}
-
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(13);
-            doc.text('Golden Horizons Cooperative', 32, 16);
-            doc.setFontSize(10);
-            doc.text(reportTitle, 32, 22);
-            doc.setFontSize(9);
-            doc.text(`Generated: ${new Date().toLocaleString()}`, 240, 22, {
-                align: 'right'
-            });
-        }
-
-        // Export PDF function (Frontend Generation)
+        // Export PDF function (Server-side Generation)
         if (exportPdfBtn) {
             exportPdfBtn.addEventListener('click', async function(e) {
                 e.preventDefault();
@@ -686,11 +643,12 @@ include(__DIR__ . '/../inc/sidebar.php');
                 const pdfPassword = passwordPrompt.value;
 
                 const params = new URLSearchParams({
-                    export: 'json',
+                    export: 'pdf',
                     search: searchInput.value || '',
                     start: startInput.value || '',
                     end: endInput.value || '',
-                    status: statusInput.value || ''
+                    status: statusInput.value || '',
+                    pdf_password: pdfPassword
                 });
 
                 const originalHTML = exportPdfBtn.innerHTML;
@@ -698,82 +656,16 @@ include(__DIR__ . '/../inc/sidebar.php');
                 exportPdfBtn.disabled = true;
 
                 try {
-                    // Fetch all data for PDF
-                    const response = await fetch('compliance_logs_action.php?' + params.toString());
-                    const data = await response.json();
-
-                    if (data.status === 'error') throw new Error(data.msg);
-
-                    const {
-                        jsPDF
-                    } = window.jspdf;
-                    const doc = new jsPDF('l', 'mm', 'a4');
-                    
-                    // Encryption check
-                    let hasEncryption = false;
-                    if (typeof doc.setEncryption === 'function') {
-                        doc.setEncryption({
-                            userPassword: pdfPassword,
-                            ownerPassword: pdfPassword
-                        });
-                        hasEncryption = true;
-                    }
-
-                    await addCompanyPdfHeader(doc, 'Compliance & Audit Trail Report');
-
-                    const rows = data.rows || [];
-                    const tableData = rows.map((r, i) => [
-                        i + 1,
-                        r.full_name || r.username || 'System',
-                        r.action_type,
-                        r.module_name,
-                        r.remarks || '-',
-                        r.compliance_status,
-                        r.action_time,
-                        r.ip_address || '-'
-                    ]);
-
-                    doc.autoTable({
-                        startY: 32,
-                        head: [
-                            ['#', 'User', 'Action', 'Module', 'Description', 'Status', 'Date/Time', 'IP Address']
-                        ],
-                        body: tableData,
-                        styles: {
-                            fontSize: 8,
-                            cellPadding: 2
-                        },
-                        headStyles: {
-                            fillColor: [20, 83, 45],
-                            textColor: 255,
-                            fontStyle: 'bold'
-                        },
-                        alternateRowStyles: {
-                            fillColor: [241, 245, 249]
-                        }
-                    });
-
-                    // Footer with page numbers
-                    const pageCount = doc.internal.getNumberOfPages();
-                    for (let i = 1; i <= pageCount; i++) {
-                        doc.setPage(i);
-                        doc.setFontSize(8);
-                        doc.setTextColor(120);
-                        doc.text(`Confidential • Page ${i} of ${pageCount}`, doc.internal.pageSize.width / 2, doc.internal.pageSize.height - 8, {
-                            align: 'center'
-                        });
-                    }
-
-                    doc.save(`compliance_logs_${new Date().toISOString().split('T')[0]}.pdf`);
+                    const url = 'compliance_logs_action.php?' + params.toString();
+                    await downloadFile(url, `compliance_logs_${new Date().toISOString().split('T')[0]}.pdf`);
 
                     Swal.fire({
-                        icon: hasEncryption ? 'success' : 'warning',
-                        title: hasEncryption ? 'PDF Exported' : 'PDF Exported Without Lock',
-                        text: hasEncryption ? 'Use your password to open the file.' : 'Frontend PDF export currenty doesn\'t support password locking, but the file is generated successfully.',
-                        timer: 4000,
+                        icon: 'success',
+                        title: 'PDF Exported',
+                        text: 'Use your password to open the file.',
+                        timer: 3000,
                         showConfirmButton: false
                     });
-
                 } catch (error) {
                     toastError(error.message || 'Failed to export PDF.');
                 }
@@ -782,6 +674,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                 exportPdfBtn.disabled = false;
             });
         }
+
 
         // Export CSV function
         if (exportCsvBtn) {
