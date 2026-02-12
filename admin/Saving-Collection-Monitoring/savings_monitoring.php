@@ -11,7 +11,6 @@ include(__DIR__ . '/../inc/navbar.php');
 include(__DIR__ . '/../inc/sidebar.php');
 ?>
 
-<!-- Add jsPDF Libraries for PDF Export -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
@@ -469,12 +468,21 @@ include(__DIR__ . '/../inc/sidebar.php');
                 </div>
             </div>
 
-            <!-- FILTERS -->
             <div class="filter-section">
                 <div class="row g-3 align-items-end">
+
                     <div class="col-md-4">
                         <label class="form-label">Search</label>
-                        <input id="searchInput" class="form-control" placeholder="Search by member ID, type, or date...">
+                        <div class="input-group">
+                            <select id="searchBy" class="form-select" style="max-width: 150px;">
+                                <option value="auto" selected>Auto</option>
+                                <option value="member_id">Member ID</option>
+                                <option value="transaction_type">Type</option>
+                                <option value="transaction_date">Date</option>
+                                <option value="recorded_by_name">Recorded By</option>
+                            </select>
+                            <input id="searchInput" class="form-control" placeholder="Type here...">
+                        </div>
                     </div>
 
                     <div class="col-md-2">
@@ -518,10 +526,6 @@ include(__DIR__ . '/../inc/sidebar.php');
                             <option value="50">50</option>
                             <option value="100">100</option>
                         </select>
-                    </div>
-
-                    <div class="col-md-1">
-                        <button id="breakdownFilterBtn" class="btn btn-outline-primary w-100" type="button">Breakdown</button>
                     </div>
 
                     <div class="col-md-1">
@@ -775,49 +779,6 @@ include(__DIR__ . '/../inc/sidebar.php');
     </div>
 </div>
 
-<!-- Breakdown Filters Modal -->
-<div class="modal fade" id="filtersModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title"><i class="bi bi-funnel me-2"></i>Breakdown Filters</h5>
-        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-
-      <div class="modal-body">
-        <div class="mb-2">
-          <label class="form-label">Sort By</label>
-          <select id="sortBy" class="form-select">
-            <option value="transaction_date">Date</option>
-            <option value="amount">Amount</option>
-            <option value="balance">Balance</option>
-            <option value="member_id">Member ID</option>
-            <option value="saving_id">ID</option>
-          </select>
-        </div>
-
-        <div class="mb-2">
-          <label class="form-label">Sort Direction</label>
-          <select id="sortDir" class="form-select">
-            <option value="DESC">Descending</option>
-            <option value="ASC">Ascending</option>
-          </select>
-        </div>
-
-        <div class="d-flex gap-2 mt-3">
-          <button class="btn btn-outline-secondary w-100" id="quickToday" type="button">Today</button>
-          <button class="btn btn-outline-secondary w-100" id="quickThisWeek" type="button">This Week</button>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">Close</button>
-        <button class="btn btn-success" id="applyBreakdownFilters" type="button">Apply</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <?php include(__DIR__ . '/../inc/footer.php'); ?>
 
 <script>
@@ -825,34 +786,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const tbody = document.querySelector('#savingsTable tbody');
     const paginationControls = document.getElementById('paginationControls');
     const paginationInfo = document.getElementById('paginationInfo');
+
+    const searchBy = document.getElementById('searchBy');
     const searchInput = document.getElementById('searchInput');
+
     const typeFilter = document.getElementById('typeFilter');
     const memberFilter = document.getElementById('memberFilter');
     const recordedByFilter = document.getElementById('recordedByFilter');
+
     const dateFrom = document.getElementById('dateFrom');
     const dateTo = document.getElementById('dateTo');
     const rowsPerPage = document.getElementById('rowsPerPage');
     const clearFilters = document.getElementById('clearFilters');
+
     const exportCsvBtn = document.getElementById('exportCsvBtn');
     const exportPdfBtn = document.getElementById('exportPdfBtn');
     const addTxBtn = document.getElementById('addTxBtn');
+
     const filterIndicator = document.getElementById('filterIndicator');
     const recordCount = document.getElementById('recordCount');
 
-    const breakdownFilterBtn = document.getElementById('breakdownFilterBtn');
-    const filtersModalEl = document.getElementById('filtersModal');
-    const filtersModal = filtersModalEl ? new bootstrap.Modal(filtersModalEl) : null;
-    const sortBy = document.getElementById('sortBy');
-    const sortDir = document.getElementById('sortDir');
-    const applyBreakdownFilters = document.getElementById('applyBreakdownFilters');
-    const quickToday = document.getElementById('quickToday');
-    const quickThisWeek = document.getElementById('quickThisWeek');
-
     const txModal = new bootstrap.Modal(document.getElementById('txModal'));
     const viewModal = new bootstrap.Modal(document.getElementById('viewTxModal'));
+    const breakdownModal = new bootstrap.Modal(document.getElementById('breakdownModal'));
+
     const txForm = document.getElementById('txForm');
 
-    const breakdownModal = new bootstrap.Modal(document.getElementById('breakdownModal'));
     let currentMemberData = null;
 
     let currentPage = 1;
@@ -863,7 +822,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let allTransactionsData = [];
     let summaryData = {};
 
-    // Sync Core1
+    // ─── Sync Core1 Handler ───
     document.getElementById('syncCore1Btn').addEventListener('click', function () {
         const btn = this;
         btn.disabled = true;
@@ -875,13 +834,15 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(res => {
                 if (res.success) {
                     showSyncToast(res.message, 'success');
-                    loadData();
                     loadFilterMeta();
+                    loadData();
                 } else {
                     showSyncToast('Sync failed: ' + res.message, 'error');
                 }
             })
-            .catch(err => showSyncToast('Sync failed: ' + err.message, 'error'))
+            .catch(err => {
+                showSyncToast('Sync failed: ' + err.message, 'error');
+            })
             .finally(() => {
                 btn.disabled = false;
                 btn.classList.remove('syncing');
@@ -894,8 +855,8 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(r => r.json())
             .then(res => {
                 if (res.success && !res.skipped) {
-                    loadData();
                     loadFilterMeta();
+                    loadData();
                 }
             })
             .catch(() => {});
@@ -975,14 +936,13 @@ document.addEventListener('DOMContentLoaded', () => {
             page: currentPage,
             limit: limit,
             search: currentSearch,
+            search_by: searchBy ? searchBy.value : 'auto',
             filter: currentCardFilter,
             type: typeFilter.value,
             member_id: memberFilter.value,
             recorded_by: recordedByFilter.value,
             date_from: dateFrom.value,
-            date_to: dateTo.value,
-            sort_by: sortBy ? sortBy.value : 'transaction_date',
-            sort_dir: sortDir ? sortDir.value : 'DESC'
+            date_to: dateTo.value
         });
 
         tbody.innerHTML = '<tr><td colspan="8" class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
@@ -1043,7 +1003,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 renderPagination(data.pagination?.current_page || 1, data.pagination?.total_pages || 1);
-                exportCsvBtn.href = `savings_action.php?export=csv&search=${encodeURIComponent(currentSearch)}&filter=${encodeURIComponent(currentCardFilter)}&type=${encodeURIComponent(typeFilter.value)}&member_id=${encodeURIComponent(memberFilter.value)}&recorded_by=${encodeURIComponent(recordedByFilter.value)}&date_from=${encodeURIComponent(dateFrom.value)}&date_to=${encodeURIComponent(dateTo.value)}&sort_by=${encodeURIComponent(sortBy ? sortBy.value : 'transaction_date')}&sort_dir=${encodeURIComponent(sortDir ? sortDir.value : 'DESC')}`;
+
+                exportCsvBtn.href =
+                    `savings_action.php?export=csv` +
+                    `&search=${encodeURIComponent(currentSearch)}` +
+                    `&search_by=${encodeURIComponent(searchBy ? searchBy.value : 'auto')}` +
+                    `&filter=${encodeURIComponent(currentCardFilter)}` +
+                    `&type=${encodeURIComponent(typeFilter.value)}` +
+                    `&member_id=${encodeURIComponent(memberFilter.value)}` +
+                    `&recorded_by=${encodeURIComponent(recordedByFilter.value)}` +
+                    `&date_from=${encodeURIComponent(dateFrom.value)}` +
+                    `&date_to=${encodeURIComponent(dateTo.value)}`;
 
                 updateFilterIndicator();
             })
@@ -1074,7 +1044,6 @@ document.addEventListener('DOMContentLoaded', () => {
         paginationControls.appendChild(next);
     }
 
-    // Cards filter
     document.querySelectorAll('.stat-card').forEach(card => {
         card.addEventListener('click', function() {
             const filter = this.dataset.filter;
@@ -1091,7 +1060,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // PDF Export
     exportPdfBtn.addEventListener('click', function() {
         if (allTransactionsData.length === 0) {
             Swal.fire('No Data', 'No transactions available to export', 'info');
@@ -1149,7 +1117,6 @@ document.addEventListener('DOMContentLoaded', () => {
         doc.save(`Savings_Report_${new Date().toISOString().slice(0,10)}.pdf`);
     });
 
-    // Add Transaction
     addTxBtn.addEventListener('click', () => {
         txForm.reset();
         document.getElementById('transaction_date').valueAsDate = new Date();
@@ -1167,8 +1134,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (resp.status === 'success') {
                     Swal.fire('Saved', resp.msg, 'success');
                     txModal.hide();
-                    loadData();
                     loadFilterMeta();
+                    loadData();
                 } else {
                     Swal.fire('Error', resp.msg, 'error');
                 }
@@ -1176,10 +1143,8 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(() => Swal.fire('Error', 'Failed to save transaction', 'error'));
     });
 
-    // Member Breakdown
     function loadMemberBreakdown(memberId) {
         breakdownModal.show();
-
         document.getElementById('breakdownTableBody').innerHTML = `
             <tr>
                 <td colspan="5" class="text-center py-4">
@@ -1260,7 +1225,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Export member CSV
     document.getElementById('exportMemberBtn').addEventListener('click', () => {
         if (!currentMemberData) {
             Swal.fire('Error', 'No member data to export', 'warning');
@@ -1292,7 +1256,6 @@ document.addEventListener('DOMContentLoaded', () => {
         Swal.fire({ title:'Export Successful', text:'Member transaction data has been exported', icon:'success', timer:2000, showConfirmButton:false });
     });
 
-    // Table buttons: view + breakdown
     tbody.addEventListener('click', e => {
         const viewBtn = e.target.closest('.viewBtn');
         if (viewBtn) {
@@ -1328,12 +1291,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Filters
     searchInput.addEventListener('input', debounce(() => {
         currentSearch = searchInput.value.trim();
         currentPage = 1;
         loadData();
     }, 500));
+
+    if (searchBy) {
+        searchBy.addEventListener('change', () => {
+            currentPage = 1;
+            loadData();
+        });
+    }
 
     typeFilter.addEventListener('change', () => { currentPage = 1; loadData(); });
     memberFilter.addEventListener('change', () => { currentPage = 1; loadData(); });
@@ -1347,58 +1316,13 @@ document.addEventListener('DOMContentLoaded', () => {
         loadData();
     });
 
-    // Breakdown filter modal
-    if (breakdownFilterBtn && filtersModal) {
-        breakdownFilterBtn.addEventListener('click', () => filtersModal.show());
-    }
-    if (applyBreakdownFilters && filtersModal) {
-        applyBreakdownFilters.addEventListener('click', () => {
-            currentPage = 1;
-            filtersModal.hide();
-            loadData();
-        });
-    }
-
-    if (quickToday) {
-        quickToday.addEventListener('click', () => {
-            const d = new Date();
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth()+1).padStart(2,'0');
-            const dd = String(d.getDate()).padStart(2,'0');
-            const today = `${yyyy}-${mm}-${dd}`;
-            dateFrom.value = today;
-            dateTo.value = today;
-        });
-    }
-
-    if (quickThisWeek) {
-        quickThisWeek.addEventListener('click', () => {
-            const now = new Date();
-            const day = now.getDay();
-            const diffToMonday = (day === 0 ? 6 : day - 1);
-            const monday = new Date(now);
-            monday.setDate(now.getDate() - diffToMonday);
-            const sunday = new Date(monday);
-            sunday.setDate(monday.getDate() + 6);
-
-            const toYMD = (x) => {
-                const yyyy = x.getFullYear();
-                const mm = String(x.getMonth()+1).padStart(2,'0');
-                const dd = String(x.getDate()).padStart(2,'0');
-                return `${yyyy}-${mm}-${dd}`;
-            };
-
-            dateFrom.value = toYMD(monday);
-            dateTo.value = toYMD(sunday);
-        });
-    }
-
     clearFilters.addEventListener('click', () => {
         currentSearch = '';
         currentCardFilter = 'all';
         currentPage = 1;
 
         searchInput.value = '';
+        if (searchBy) searchBy.value = 'auto';
         typeFilter.value = '';
         memberFilter.value = '';
         recordedByFilter.value = '';
@@ -1407,14 +1331,10 @@ document.addEventListener('DOMContentLoaded', () => {
         rowsPerPage.value = '10';
         limit = 10;
 
-        if (sortBy) sortBy.value = 'transaction_date';
-        if (sortDir) sortDir.value = 'DESC';
-
         document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
         loadData();
     });
 
-    // Initial
     loadFilterMeta();
     autoSync();
     loadData();
