@@ -863,7 +863,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                         formData.append('skip_db', '1');
                     }
 
-                    const response = await fetch('<?= $base_url ?>/inc/upload_profile_photo.php', {
+                    const response = await fetch('<?= base_url ?>admin/inc/upload_profile_photo.php', {
                         method: 'POST',
                         body: formData
                     });
@@ -929,7 +929,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
             try {
                 if (isSuperAdmin) {
                     // Super Admin: Direct update
-                    const response = await fetch('<?= $base_url ?>/inc/update_profile_direct.php', {
+                    const response = await fetch('<?= base_url ?>admin/inc/update_profile.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -973,7 +973,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     fd.append('request_type', 'profile_update');
                     fd.append('request_data', requestData);
 
-                    const response = await fetch('<?= $base_url ?>/User-Management-Role-Based-Access/approval_action.php', {
+                    const response = await fetch('<?= base_url ?>admin/User-Management-Role-Based-Access/approval_action.php', {
                         method: 'POST',
                         body: fd
                     });
@@ -1017,7 +1017,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     fd.append('request_type', 'termination');
                     fd.append('request_data', JSON.stringify({ reason: 'User initiated deactivation' }));
 
-                    const response = await fetch('<?= $base_url ?>/User-Management-Role-Based-Access/approval_action.php', {
+                    const response = await fetch('<?= base_url ?>admin/User-Management-Role-Based-Access/approval_action.php', {
                         method: 'POST',
                         body: fd
                     });

@@ -161,6 +161,16 @@ try {
                 exit;
             }
             
+            $where = "WHERE ar.status = 'pending'";
+            if ($current_role === 'Admin') {
+                $where .= " AND u.role = 'Staff'";
+            } elseif ($current_role === 'Super Admin') {
+                $where .= " AND u.role IN ('Admin', 'Staff')";
+            } else {
+                // Other roles shouldn't see anything, but just in case
+                $where .= " AND 1=0";
+            }
+
             $stmt = $conn->prepare("
                 SELECT 
                     ar.request_id,
@@ -169,7 +179,7 @@ try {
                     u.username,
                     u.full_name,
                     u.email,
-                    u.role AS current_role,
+                    u.role AS u_role,
                     ar.request_data,
                     ar.current_data,
                     ar.status,
@@ -178,7 +188,7 @@ try {
                 FROM approval_requests ar
                 LEFT JOIN users u ON ar.user_id = u.user_id
                 LEFT JOIN users rb ON ar.requested_by = rb.user_id
-                WHERE ar.status = 'pending'
+                $where
                 ORDER BY ar.created_at DESC
             ");
             $stmt->execute();
@@ -213,7 +223,12 @@ try {
             }
             
             // Get request details
-            $stmt = $conn->prepare("SELECT ar.*, u.email, u.full_name FROM approval_requests ar LEFT JOIN users u ON ar.user_id = u.user_id WHERE ar.request_id = ?");
+            $stmt = $conn->prepare("
+                SELECT ar.*, u.email, u.full_name, u.role as target_role 
+                FROM approval_requests ar 
+                LEFT JOIN users u ON ar.user_id = u.user_id 
+                WHERE ar.request_id = ?
+            ");
             $stmt->bind_param("i", $request_id);
             $stmt->execute();
             $request = $stmt->get_result()->fetch_assoc();
@@ -232,6 +247,18 @@ try {
             if ($request['user_id'] == $current_user_id) {
                 echo json_encode(['status' => 'error', 'msg' => 'You cannot approve your own request. Please wait for another administrator to review it.']);
                 exit;
+            }
+
+            // Hierarchical Rule: 
+            // - Admin can only approve Staff
+            // - Super Admin can approve Admin and Staff
+            $target_role = $request['target_role'];
+            if ($current_role === 'Admin' && $target_role !== 'Staff') {
+                echo json_encode(['status' => 'error', 'msg' => 'Admins can only approve Staff profile changes. Admin changes require Super Admin approval.']);
+                exit;
+            }
+            if ($current_role === 'Super Admin' && !in_array($target_role, ['Admin', 'Staff'])) {
+                // Potentially allow other roles too, but for now stick to request
             }
             
             // Parse request data
