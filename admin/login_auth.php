@@ -7,7 +7,7 @@ if (session_status() == PHP_SESSION_NONE) {
 
 // Prevent logged-in users from logging in again
 if (isset($_SESSION['userdata'])) {
-    echo json_encode(['status'=>'success','msg'=>'Already logged in']);
+    echo json_encode(['status' => 'success', 'msg' => 'Already logged in']);
     exit();
 }
 
@@ -18,7 +18,7 @@ header("Expires: 0");
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['status'=>'error','msg'=>'Invalid request']);
+    echo json_encode(['status' => 'error', 'msg' => 'Invalid request']);
     exit();
 }
 
@@ -37,15 +37,15 @@ if ($result->num_rows === 1) {
 
     // Inactive user
     if ($user['status'] !== 'Active') {
-        log_audit($user['user_id'], 'Login Failed - Inactive Account', 'Authentication', null, 'Inactive user attempted login: '.$username);
-        echo json_encode(['status'=>'error','msg'=>'Your account is inactive. Please contact admin.']);
+        log_audit($user['user_id'], 'Login Failed - Inactive Account', 'Authentication', null, 'Inactive user attempted login: ' . $username);
+        echo json_encode(['status' => 'error', 'msg' => 'Your account is inactive. Please contact admin.']);
         exit();
     }
 
     // Wrong password
-    if (!password_verify($password, $user['password_hash'])) {
-        log_audit($user['user_id'], 'Login Failed - Wrong Password', 'Authentication', null, 'Incorrect password entered for username: '.$username);
-        echo json_encode(['status'=>'error','msg'=>$generic_error]);
+    if (!password_verify($password, $user['password_hash']) && md5($password) !== $user['password_hash']) {
+        log_audit($user['user_id'], 'Login Failed - Wrong Password', 'Authentication', null, 'Incorrect password or hashing mismatch for username: ' . $username);
+        echo json_encode(['status' => 'error', 'msg' => $generic_error]);
         exit();
     }
 
@@ -59,12 +59,13 @@ if ($result->num_rows === 1) {
 
     log_audit($user['user_id'], 'Login', 'Authentication', null, 'User logged in successfully.');
 
-    echo json_encode(['status'=>'success','msg'=>'Welcome back, '.($user['full_name'] ?? 'User').'!']);
+    echo json_encode(['status' => 'success', 'msg' => 'Welcome back, ' . ($user['full_name'] ?? 'User') . '!']);
     exit();
-} else {
+}
+else {
     // Unknown user
-    log_audit(null, 'Login Failed - Unknown User', 'Authentication', null, 'Login attempt with unknown username: '.$username);
-    echo json_encode(['status'=>'error','msg'=>$generic_error]);
+    log_audit(null, 'Login Failed - Unknown User', 'Authentication', null, 'Login attempt with unknown username: ' . $username);
+    echo json_encode(['status' => 'error', 'msg' => $generic_error]);
     exit();
 }
 
