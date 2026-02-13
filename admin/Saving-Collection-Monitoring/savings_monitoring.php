@@ -265,9 +265,6 @@ body {
 .modal-header.bg-info { background: linear-gradient(135deg, #3b82f6, #2563eb) !important; }
 .modal-footer { border-top: 2px solid #f3f4f6; }
 
-#syncToast { animation: slideInRight 0.3s ease; }
-@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
 .spinner-border-sm { width: 1rem; height: 1rem; }
 .bg-gradient-primary { background: linear-gradient(135deg, #3b82f6, #2563eb) !important; }
 #breakdownTable thead { position: sticky; top: 0; z-index: 10; }
@@ -518,14 +515,17 @@ body {
                             </div>
                             <div class="col-md-4 text-end">
                                 <div class="badge bg-success fs-6 px-3 py-2">
-                                    Current Balance: ₱<span id="bd_current_balance">0.00</span>
+                                    Total Balance: ₱<span id="bd_current_balance">0.00</span>
+                                </div>
+                                <div class="small text-success mt-1 fw-bold">
+                                    + Interest: ₱<span id="bd_interest_earned">0.00</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Top 4 cards -->
+                <!-- Top cards: Deposits, Withdrawals, Interest, Total Tx -->
                 <div class="row g-3 mb-3">
                     <div class="col-md-3">
                         <div class="card border-success h-100">
@@ -547,19 +547,16 @@ body {
                             </div>
                         </div>
                     </div>
-
-                    <!-- NEW: Interest card -->
                     <div class="col-md-3">
                         <div class="card border-warning h-100">
                             <div class="card-body text-center">
                                 <i class="bi bi-cash-coin text-warning fs-2"></i>
                                 <h6 class="mt-2 mb-1 text-muted small">Total Interest Earned</h6>
-                                <h4 class="mb-1" id="bd_total_interest">₱0.00</h4>
+                                <h4 class="mb-1 text-dark" id="bd_total_interest">₱0.00</h4>
                                 <small class="text-muted"><span id="bd_interest_count">0</span> transactions</small>
                             </div>
                         </div>
                     </div>
-
                     <div class="col-md-3">
                         <div class="card border-primary h-100">
                             <div class="card-body text-center">
@@ -572,13 +569,13 @@ body {
                     </div>
                 </div>
 
-                <!-- Net change full width -->
+                <!-- Net change big card -->
                 <div class="card border-info mb-4">
                     <div class="card-body text-center">
                         <i class="bi bi-calculator text-info fs-2"></i>
-                        <h6 class="mt-2 mb-1 text-muted small">Net Change</h6>
-                        <h3 class="mb-1" id="bd_net_change">₱0.00</h3>
-                        <small class="text-muted">Deposits - Withdrawals (Interest shown separately)</small>
+                        <h6 class="mt-2 mb-1 text-muted small">Net Change (Base Balance)</h6>
+                        <h4 class="mb-1" id="bd_net_change">₱0.00</h4>
+                        <small class="text-muted">Deposits - Withdrawals</small>
                     </div>
                 </div>
 
@@ -749,14 +746,15 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(r => r.json())
             .then(res => {
                 if (res.success) {
-                    showSyncToast(res.message, 'success');
                     loadFilterMeta();
                     loadData();
                 } else {
-                    showSyncToast('Sync failed: ' + res.message, 'error');
+                    Swal.fire('Error', 'Sync failed: ' + res.message, 'error');
                 }
             })
-            .catch(err => showSyncToast('Sync failed: ' + err.message, 'error'))
+            .catch(err => {
+                Swal.fire('Error', 'Sync failed: ' + err.message, 'error');
+            })
             .finally(() => {
                 btn.disabled = false;
                 btn.classList.remove('syncing');
@@ -774,33 +772,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             })
             .catch(() => {});
-    }
-
-    function showSyncToast(message, type) {
-        const existing = document.getElementById('syncToast');
-        if (existing) existing.remove();
-
-        const toast = document.createElement('div');
-        toast.id = 'syncToast';
-        toast.className = 'position-fixed top-0 end-0 p-3';
-        toast.style.zIndex = '9999';
-        toast.innerHTML = `
-            <div class="toast align-items-center text-bg-${type === 'success' ? 'success' : 'danger'} border-0 show" role="alert">
-                <div class="d-flex">
-                    <div class="toast-body">
-                        <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
-                        ${message}
-                    </div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="document.getElementById('syncToast').remove()"></button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(toast);
-
-        setTimeout(() => {
-            const t = document.getElementById('syncToast');
-            if (t) t.remove();
-        }, 4000);
     }
 
     function updateFilterIndicator() {
@@ -873,6 +844,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('card_total_tx').textContent = data.summary.total || 0;
                 document.getElementById('card_total_deposit').textContent = data.summary.total_deposits || 0;
                 document.getElementById('card_total_withdraw').textContent = data.summary.total_withdrawals || 0;
+
+                // Keep using last_balance from API (global)
                 document.getElementById('card_balance').textContent =
                     '₱' + parseFloat(data.summary.last_balance || 0).toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 });
 
@@ -884,16 +857,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 tbody.innerHTML = '';
                 if (data.rows && data.rows.length > 0) {
                     data.rows.forEach(r => {
-                        let typeBadge = 'badge-withdrawal';
-                        if (r.transaction_type === 'Deposit') typeBadge = 'badge-deposit';
-                        if (r.transaction_type === 'Interest') typeBadge = 'badge-interest';
+                        let badgeClass = 'badge-withdrawal';
+                        if (r.transaction_type === 'Deposit') badgeClass = 'badge-deposit';
+                        if (r.transaction_type === 'Interest') badgeClass = 'badge-interest';
 
                         tbody.innerHTML += `
                             <tr>
                                 <td>${r.saving_id}</td>
                                 <td>${r.member_id}</td>
                                 <td>${r.transaction_date}</td>
-                                <td><span class="badge ${typeBadge}">${r.transaction_type}</span></td>
+                                <td><span class="badge ${badgeClass}">${r.transaction_type}</span></td>
                                 <td>₱${Number(r.amount).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
                                 <td>₱${Number(r.balance).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
                                 <td>${r.recorded_by_name || '-'}</td>
@@ -999,8 +972,15 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('bd_member_id').textContent = member_info.member_id;
         document.getElementById('bd_member_name').textContent = member_info.name;
 
+        // ✅ FIXED: Show balance + interest separately and clearly
+        const baseBalance = Number(summary.current_balance_with_interest ?? summary.current_balance ?? 0);
+        const interestEarned = Number(summary.total_interest || 0);
+        
         document.getElementById('bd_current_balance').textContent =
-            Number(summary.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits:2 });
+            baseBalance.toLocaleString(undefined, { minimumFractionDigits:2 });
+        
+        document.getElementById('bd_interest_earned').textContent =
+            interestEarned.toLocaleString(undefined, { minimumFractionDigits:2 });
 
         document.getElementById('bd_total_deposits').textContent =
             '₱' + Number(summary.total_deposits || 0).toLocaleString(undefined, { minimumFractionDigits:2 });
@@ -1010,9 +990,8 @@ document.addEventListener('DOMContentLoaded', () => {
             '₱' + Number(summary.total_withdrawals || 0).toLocaleString(undefined, { minimumFractionDigits:2 });
         document.getElementById('bd_withdrawal_count').textContent = summary.withdrawal_count || 0;
 
-        // NEW: interest
         document.getElementById('bd_total_interest').textContent =
-            '₱' + Number(summary.total_interest || 0).toLocaleString(undefined, { minimumFractionDigits:2 });
+            '₱' + interestEarned.toLocaleString(undefined, { minimumFractionDigits:2 });
         document.getElementById('bd_interest_count').textContent = summary.interest_count || 0;
 
         const netChange = Number(summary.total_deposits || 0) - Number(summary.total_withdrawals || 0);

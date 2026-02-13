@@ -99,7 +99,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             } else {
                 $where[] = "(CAST(s.member_id AS CHAR) LIKE ? OR s.transaction_type LIKE ? OR s.transaction_date LIKE ?)";
                 $s = "%$search%";
-                $params[] = $s; $params[] = $s; $params[] = $s;
+                $params[] = $s;
+                $params[] = $s;
+                $params[] = $s;
                 $types .= 'sss';
             }
         }
@@ -164,8 +166,13 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     fputcsv($out, ['ID', 'Member ID', 'Date', 'Type', 'Amount', 'Balance', 'Recorded By']);
     foreach ($csv_data as $r) {
         fputcsv($out, [
-            $r['saving_id'], $r['member_id'], $r['transaction_date'], $r['transaction_type'],
-            $r['amount'], $r['balance'], $r['recorded_by_name'] ?? '-'
+            $r['saving_id'],
+            $r['member_id'],
+            $r['transaction_date'],
+            $r['transaction_type'],
+            $r['amount'],
+            $r['balance'],
+            $r['recorded_by_name'] ?? '-'
         ]);
     }
     rewind($out);
@@ -289,7 +296,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
             } else {
                 $where[] = "(CAST(s.member_id AS CHAR) LIKE ? OR s.transaction_type LIKE ? OR s.transaction_date LIKE ?)";
                 $s = "%$search%";
-                $params[] = $s; $params[] = $s; $params[] = $s;
+                $params[] = $s;
+                $params[] = $s;
+                $params[] = $s;
                 $types .= 'sss';
             }
         }
@@ -299,11 +308,31 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     if ($filter === 'deposit') $where[] = "(s.transaction_type='Deposit' OR s.transaction_type='Interest')";
     elseif ($filter === 'withdrawal') $where[] = "s.transaction_type='Withdrawal'";
 
-    if ($type !== '') { $where[] = "s.transaction_type=?"; $params[] = $type; $types .= 's'; }
-    if ($member_id > 0) { $where[] = "s.member_id=?"; $params[] = $member_id; $types .= 'i'; }
-    if ($recorded_by > 0) { $where[] = "s.recorded_by=?"; $params[] = $recorded_by; $types .= 'i'; }
-    if ($date_from !== '') { $where[] = "s.transaction_date >= ?"; $params[] = $date_from; $types .= 's'; }
-    if ($date_to !== '') { $where[] = "s.transaction_date <= ?"; $params[] = $date_to; $types .= 's'; }
+    if ($type !== '') {
+        $where[] = "s.transaction_type=?";
+        $params[] = $type;
+        $types .= 's';
+    }
+    if ($member_id > 0) {
+        $where[] = "s.member_id=?";
+        $params[] = $member_id;
+        $types .= 'i';
+    }
+    if ($recorded_by > 0) {
+        $where[] = "s.recorded_by=?";
+        $params[] = $recorded_by;
+        $types .= 'i';
+    }
+    if ($date_from !== '') {
+        $where[] = "s.transaction_date >= ?";
+        $params[] = $date_from;
+        $types .= 's';
+    }
+    if ($date_to !== '') {
+        $where[] = "s.transaction_date <= ?";
+        $params[] = $date_to;
+        $types .= 's';
+    }
 
     $whereSql = count($where) ? "WHERE " . implode(' AND ', $where) : '';
     $sql = "SELECT s.*, u.full_name AS recorded_by_name FROM savings s LEFT JOIN users u ON s.recorded_by = u.user_id $whereSql ORDER BY s.transaction_date DESC, s.saving_id DESC";
@@ -516,7 +545,9 @@ try {
                     } else {
                         $where[] = "(CAST(s.member_id AS CHAR) LIKE ? OR s.transaction_type LIKE ? OR s.transaction_date LIKE ?)";
                         $s = "%$search%";
-                        $params[] = $s; $params[] = $s; $params[] = $s;
+                        $params[] = $s;
+                        $params[] = $s;
+                        $params[] = $s;
                         $types .= 'sss';
                     }
                 } elseif ($search_by === 'member_id') {
@@ -640,24 +671,24 @@ try {
             }
 
             $memberStmt = $conn->prepare("
-                SELECT member_id,
-                       CONCAT('Member #', member_id) as name
-                FROM savings
-                WHERE member_id = ?
-                LIMIT 1
-            ");
+        SELECT member_id,
+               CONCAT('Member #', member_id) as name
+        FROM savings
+        WHERE member_id = ?
+        LIMIT 1
+    ");
             $memberStmt->bind_param("i", $member_id);
             $memberStmt->execute();
             $memberInfo = $memberStmt->get_result()->fetch_assoc();
             $memberStmt->close();
 
             $stmt = $conn->prepare("
-                SELECT s.*, u.full_name AS recorded_by_name
-                FROM savings s
-                LEFT JOIN users u ON s.recorded_by = u.user_id
-                WHERE s.member_id = ?
-                ORDER BY s.transaction_date DESC, s.saving_id DESC
-            ");
+        SELECT s.*, u.full_name AS recorded_by_name
+        FROM savings s
+        LEFT JOIN users u ON s.recorded_by = u.user_id
+        WHERE s.member_id = ?
+        ORDER BY s.transaction_date DESC, s.saving_id DESC
+    ");
             $stmt->bind_param("i", $member_id);
             $stmt->execute();
             $res = $stmt->get_result();
@@ -666,15 +697,15 @@ try {
             while ($r = $res->fetch_assoc()) $transactions[] = $r;
             $stmt->close();
 
-            // ✅ FIX: Proper interest fields
             $memberSummary = [
                 'total_deposits' => 0,        // amount (Deposit only)
                 'total_withdrawals' => 0,     // amount
-                'total_interest' => 0,        // amount
-                'deposit_count' => 0,         // count (Deposit only)
+                'total_interest' => 0,        // amount (Interest only)
+                'deposit_count' => 0,         // count
                 'withdrawal_count' => 0,      // count
                 'interest_count' => 0,        // count
-                'current_balance' => 0,
+                'current_balance' => 0,       // latest balance field value
+                'current_balance_with_interest' => 0, // ✅ balance + interest (always shown)
                 'total_transactions' => count($transactions)
             ];
 
@@ -693,9 +724,16 @@ try {
                 }
             }
 
+            // Latest balance from database
             if (!empty($transactions)) {
                 $memberSummary['current_balance'] = floatval($transactions[0]['balance']);
             }
+
+            // ✅ ALWAYS show: current_balance + total_interest
+            // This ensures users see the complete picture including accumulated interest
+            $memberSummary['current_balance_with_interest'] = 
+                floatval($memberSummary['current_balance']) + 
+                floatval($memberSummary['total_interest']);
 
             echo json_encode([
                 'status' => 'success',
