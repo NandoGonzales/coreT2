@@ -7,8 +7,8 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 
 // Redirect if already logged in
 if (isset($_SESSION['userdata'])) {
-    header("Location: /admin/dashboard.php");
-    exit();
+  header("Location: /admin/dashboard.php");
+  exit();
 }
 
 $error_message = "";
@@ -16,122 +16,123 @@ $show_session_expired = isset($_GET['auto']) && isset($_GET['timeout']);
 $show_logout_success = isset($_GET['logout']);
 
 // Helper function to log to BOTH tables
-function log_to_both_tables($user_id, $action, $module, $remarks, $status = 'Success') {
-    global $conn;
-    
-    log_audit_trial($user_id, $action, $module, $remarks);
-    
-    try {
-        $stmt = $conn->prepare("
+function log_to_both_tables($user_id, $action, $module, $remarks, $status = 'Success')
+{
+  global $conn;
+
+  log_audit_trial($user_id, $action, $module, $remarks);
+
+  try {
+    $stmt = $conn->prepare("
             INSERT INTO permission_logs (user_id, module_name, action_name, action_status, action_time)
             VALUES (?, ?, ?, ?, NOW())
         ");
-        $stmt->bind_param('isss', $user_id, $module, $action, $status);
-        $stmt->execute();
-        $stmt->close();
-    } catch (Exception $e) {
-        error_log("Permission log error: " . $e->getMessage());
-    }
+    $stmt->bind_param('isss', $user_id, $module, $action, $status);
+    $stmt->execute();
+    $stmt->close();
+  } catch (Exception $e) {
+    error_log("Permission log error: " . $e->getMessage());
+  }
 }
 
 // Login processing
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username_or_email = trim($_POST['username'] ?? '');
-    $password = trim($_POST['password'] ?? '');
+  $username_or_email = trim($_POST['username'] ?? '');
+  $password = trim($_POST['password'] ?? '');
 
-    if ($username_or_email === '' || $password === '') {
-        $error_message = "Please enter both username/email and password.";
-    } else {
-        // Check if input is email or username
-        $stmt = $conn->prepare("SELECT * FROM users WHERE username=? OR email=? LIMIT 1");
-        $stmt->bind_param("ss", $username_or_email, $username_or_email);
-        $stmt->execute();
-        $result = $stmt->get_result();
+  if ($username_or_email === '' || $password === '') {
+    $error_message = "Please enter both username/email and password.";
+  } else {
+    // Check if input is email or username
+    $stmt = $conn->prepare("SELECT * FROM users WHERE username=? OR email=? LIMIT 1");
+    $stmt->bind_param("ss", $username_or_email, $username_or_email);
+    $stmt->execute();
+    $result = $stmt->get_result();
 
-        if ($result->num_rows === 1) {
-            $user = $result->fetch_assoc();
+    if ($result->num_rows === 1) {
+      $user = $result->fetch_assoc();
 
-            if ($user['status'] !== 'Active') {
-                $error_message = "Your account is inactive. Please contact admin.";
-                log_to_both_tables(
-                    $user['user_id'], 
-                    'Login Failed - Inactive', 
-                    'Authentication', 
-                    'Inactive user tried login',
-                    'Failed'
-                );
-            } elseif (!password_verify($password, $user['password_hash'])) {
-                $error_message = "Invalid username/email or password.";
-                log_to_both_tables(
-                    $user['user_id'], 
-                    'Login Failed - Wrong Password', 
-                    'Authentication', 
-                    'Incorrect password from IP: ' . $_SERVER['REMOTE_ADDR'],
-                    'Failed'
-                );
-            } else {
-                if (empty($user['email'])) {
-                    $error_message = "No email address found for this account. Please contact admin.";
-                    log_to_both_tables(
-                        $user['user_id'], 
-                        'Login Failed - No Email', 
-                        'Authentication', 
-                        'User has no email for OTP',
-                        'Failed'
-                    );
-                } else {
-                    $otp = generateOTP(6);
-                    
-                    if (storeOTP($user['user_id'], $otp, $conn)) {
-                        if (sendOTPEmail($user['email'], $user['full_name'], $otp)) {
-                            $_SESSION['otp_user_id'] = $user['user_id'];
-                            $_SESSION['otp_username'] = $user['username'];
-                            $_SESSION['otp_sent_time'] = time();
-                            
-                            log_to_both_tables(
-                                $user['user_id'],
-                                'OTP Sent',
-                                'Authentication',
-                                'OTP sent to email: ' . $user['email'],
-                                'Success'
-                            );
-                            
-                            header("Location: verify_otp.php");
-                            exit();
-                        } else {
-                            $error_message = "Failed to send OTP email. Please try again.";
-                            log_to_both_tables(
-                                $user['user_id'],
-                                'OTP Send Failed',
-                                'Authentication',
-                                'Email sending failed',
-                                'Failed'
-                            );
-                        }
-                    } else {
-                        $error_message = "Failed to generate OTP. Please try again.";
-                        log_to_both_tables(
-                            $user['user_id'],
-                            'OTP Generation Failed',
-                            'Authentication',
-                            'Database error storing OTP',
-                            'Failed'
-                        );
-                    }
-                }
-            }
+      if ($user['status'] !== 'Active') {
+        $error_message = "Your account is inactive. Please contact admin.";
+        log_to_both_tables(
+          $user['user_id'],
+          'Login Failed - Inactive',
+          'Authentication',
+          'Inactive user tried login',
+          'Failed'
+        );
+      } elseif (!password_verify($password, $user['password_hash'])) {
+        $error_message = "Invalid username/email or password.";
+        log_to_both_tables(
+          $user['user_id'],
+          'Login Failed - Wrong Password',
+          'Authentication',
+          'Incorrect password from IP: ' . $_SERVER['REMOTE_ADDR'],
+          'Failed'
+        );
+      } else {
+        if (empty($user['email'])) {
+          $error_message = "No email address found for this account. Please contact admin.";
+          log_to_both_tables(
+            $user['user_id'],
+            'Login Failed - No Email',
+            'Authentication',
+            'User has no email for OTP',
+            'Failed'
+          );
         } else {
-            $error_message = "Invalid username/email or password.";
-            log_to_both_tables(
-                0, 
-                'Login Failed - Unknown User', 
-                'Authentication', 
-                'Unknown username/email: ' . $username_or_email . ' from IP: ' . $_SERVER['REMOTE_ADDR'],
+          $otp = generateOTP(6);
+
+          if (storeOTP($user['user_id'], $otp, $conn)) {
+            if (sendOTPEmail($user['email'], $user['full_name'], $otp)) {
+              $_SESSION['otp_user_id'] = $user['user_id'];
+              $_SESSION['otp_username'] = $user['username'];
+              $_SESSION['otp_sent_time'] = time();
+
+              log_to_both_tables(
+                $user['user_id'],
+                'OTP Sent',
+                'Authentication',
+                'OTP sent to email: ' . $user['email'],
+                'Success'
+              );
+
+              header("Location: verify_otp.php");
+              exit();
+            } else {
+              $error_message = "Failed to send OTP email. Please try again.";
+              log_to_both_tables(
+                $user['user_id'],
+                'OTP Send Failed',
+                'Authentication',
+                'Email sending failed',
                 'Failed'
+              );
+            }
+          } else {
+            $error_message = "Failed to generate OTP. Please try again.";
+            log_to_both_tables(
+              $user['user_id'],
+              'OTP Generation Failed',
+              'Authentication',
+              'Database error storing OTP',
+              'Failed'
             );
+          }
         }
-        $stmt->close();
+      }
+    } else {
+      $error_message = "Invalid username/email or password.";
+      log_to_both_tables(
+        0,
+        'Login Failed - Unknown User',
+        'Authentication',
+        'Unknown username/email: ' . $username_or_email . ' from IP: ' . $_SERVER['REMOTE_ADDR'],
+        'Failed'
+      );
     }
+    $stmt->close();
+  }
 }
 ?>
 <!DOCTYPE html>
@@ -368,7 +369,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       margin-bottom: 0.75rem;
     }
 
-    .terms-section p, .terms-section ul {
+    .terms-section p,
+    .terms-section ul {
       color: #6c757d;
       font-size: 0.9rem;
       line-height: 1.6;
@@ -401,11 +403,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <!-- Left Panel -->
       <section class="col-lg-6 d-none d-lg-flex align-items-center justify-content-center p-5 text-white">
         <div class="d-flex flex-column align-items-center w-100 py-5">
-          
+
           <!-- Logo and Title -->
           <div class="text-center mb-4">
-            <img src="<?= validate_image($_settings->info('logo') ?? '../dist/img/logo.png') ?>" 
-                 alt="System Logo" class="mb-3" style="width:112px;height:112px;">
+            <img src="<?= validate_image($_settings->info('logo') ?? '../dist/img/logo.png') ?>"
+              alt="System Logo" class="mb-3" style="width:112px;height:112px;">
             <h1 class="display-5 fw-bold mb-2"><?= $_settings->info('system_name') ?? 'Microfinance HR' ?></h1>
             <p class="text-white-50 mb-0"><?= $_settings->info('system_tagline') ?? 'Human Resource III' ?></p>
           </div>
@@ -442,14 +444,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
           <!-- Login Form -->
           <form id="login-form" method="POST" action="">
-            
+
             <!-- Username or Email -->
             <div class="mb-3">
               <label class="form-label fw-medium text-secondary" for="username">Username or Email</label>
               <div class="input-group">
                 <span class="input-group-text">@</span>
-                <input type="text" class="form-control py-3" id="username" name="username" 
-                       placeholder="Enter your username or email" required autofocus>
+                <input type="text" class="form-control py-3" id="username" name="username"
+                  placeholder="Enter your username or email" autocomplete="username" required autofocus>
               </div>
             </div>
 
@@ -460,25 +462,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <span class="input-group-text">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M12 11c1.657 0 3 1.343 3 3v2a2 2 0 01-2 2H9a2 2 0 01-2-2v-2c0-1.657 1.343-3 3-3h2zm4-1V7a4 4 0 00-8 0v3h8z">
+                      d="M12 11c1.657 0 3 1.343 3 3v2a2 2 0 01-2 2H9a2 2 0 01-2-2v-2c0-1.657 1.343-3 3-3h2zm4-1V7a4 4 0 00-8 0v3h8z">
                     </path>
                   </svg>
                 </span>
-                <input type="password" class="form-control py-3" id="password" name="password" 
-                       placeholder="Enter your password" required>
+                <input type="password" class="form-control py-3" id="password" name="password"
+                  placeholder="Enter your password" autocomplete="current-password" required>
                 <button class="btn btn-outline-secondary btn-password-toggle" type="button" id="password-toggle">
                   <!-- Eye Open -->
                   <svg id="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
                     </path>
                   </svg>
                   <!-- Eye Closed -->
                   <svg id="eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" class="d-none">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.269-2.943-9.543-7a9.966 9.966 0 012.257-3.592m3.086-2.16A9.956 9.956 0 0112 5c4.478 0 8.269 2.943 9.543 7a9.97 9.97 0 01-4.043 5.197M15 12a3 3 0 00-4.5-2.598M9 12a3 3 0 004.5 2.598M3 3l18 18">
+                      d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.269-2.943-9.543-7a9.966 9.966 0 012.257-3.592m3.086-2.16A9.956 9.956 0 0112 5c4.478 0 8.269 2.943 9.543 7a9.97 9.97 0 01-4.043 5.197M15 12a3 3 0 00-4.5-2.598M9 12a3 3 0 004.5 2.598M3 3l18 18">
                     </path>
                   </svg>
                 </button>
@@ -495,8 +497,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <input type="checkbox" class="form-check-input mt-1" id="terms-check">
               <label class="form-check-label text-secondary small" for="terms-check">
                 I agree to the
-                <button type="button" class="btn btn-link p-0 link-brand" id="terms-link" 
-                        style="vertical-align: baseline; text-decoration: none;">
+                <button type="button" class="btn btn-link p-0 link-brand" id="terms-link"
+                  style="vertical-align: baseline; text-decoration: none;">
                   Terms and Conditions
                 </button>
               </label>
@@ -526,7 +528,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body" style="max-height: 70vh;">
-          
+
           <div class="terms-section">
             <h6>1. Acceptance of Terms</h6>
             <p>By accessing and using the <?= $_settings->info('system_name') ?? 'Microfinance HR' ?> system, you acknowledge that you have read, understood, and agree to be bound by these Terms and Conditions. If you do not agree with any part of these terms, you must not use this system.</p>
@@ -617,9 +619,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     (function() {
       const slides = document.querySelectorAll('.login-svg');
       if (!slides.length) return;
-      
+
       let currentIndex = 0;
-      
+
       setInterval(() => {
         slides[currentIndex].classList.remove('active');
         currentIndex = (currentIndex + 1) % slides.length;
