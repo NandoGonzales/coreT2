@@ -12,7 +12,6 @@ include(__DIR__ . '/../inc/sidebar.php');
 ?>
 
 <style>
-/* --- YOUR STYLES (UNCHANGED) --- */
 :root {
     --brand-primary: #059669;
     --brand-primary-hover: #047857;
@@ -695,8 +694,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const downloadUrl = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = downloadUrl;
-            const extension = format === 'pdf' ? 'pdf' : (pdfPassword ? 'zip' : 'csv');
+
+            const extension = format === 'pdf' ? 'pdf' : 'zip';
             a.download = `savings_export_${new Date().toISOString().split('T')[0]}.${extension}`;
+
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(downloadUrl);
