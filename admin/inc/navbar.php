@@ -16,14 +16,22 @@ $user_phone = '';
 $user_company = '';
 
 if ($user_id && isset($conn)) {
-    $stmt = $conn->prepare("SELECT email, profile_photo, phone, company FROM users WHERE user_id=? LIMIT 1");
+    $stmt = $conn->prepare("SELECT full_name, role, email, profile_photo, phone, company FROM users WHERE user_id=? LIMIT 1");
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $res = $stmt->get_result()->fetch_assoc();
-    $user_email = $res['email'] ?? '';
-    $user_photo = $res['profile_photo'] ?? '';
-    $user_phone = $res['phone'] ?? '';
-    $user_company = $res['company'] ?? '';
+    if ($res) {
+        $user_name = $res['full_name'] ?? $user_name;
+        $user_role = $res['role'] ?? $user_role;
+        $user_email = $res['email'] ?? '';
+        $user_photo = $res['profile_photo'] ?? '';
+        $user_phone = $res['phone'] ?? '';
+        $user_company = $res['company'] ?? '';
+        
+        // Update session to keep it in sync (optional but good)
+        $_SESSION['userdata']['full_name'] = $user_name;
+        $_SESSION['userdata']['role'] = $user_role;
+    }
     $stmt->close();
 }
 
@@ -616,8 +624,8 @@ $isSuperAdmin = ($user_role === 'Super Admin');
 
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                     <li>
-                        <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#profileModal">
-                            <i class="bi bi-person-circle"></i> Edit Profile
+                        <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#profileModal" id="btnOpenProfile">
+                            <i class="bi bi-person-circle"></i> View Profile
                         </a>
                     </li>
                     <li><hr class="dropdown-divider"></li>
@@ -641,131 +649,143 @@ $isSuperAdmin = ($user_role === 'Super Admin');
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="profileModalLabel">Edit Your Profile</h5>
+                <h5 class="modal-title" id="profileModalLabel">My Profile</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <?php if (!$isSuperAdmin): ?>
-                <div class="info-alert">
-                    <i class="bi bi-info-circle"></i>
-                    <p class="info-alert-text">
-                        <strong>Note:</strong> Changes will be sent to Super Admin for approval before taking effect.
-                    </p>
-                </div>
-                <?php endif; ?>
+                <!-- VIEW MODE -->
+                <div id="profileViewMode">
+                    <div class="text-center mb-4">
+                        <div class="position-relative d-inline-block">
+                            <div class="photo-upload-avatar mx-auto mb-3" style="width: 6rem; height: 6rem; font-size: 2.5rem;">
+                                <?php if ($user_photo): ?>
+                                    <img src="<?= htmlspecialchars($user_photo) ?>" alt="Profile" id="viewProfilePhoto">
+                                <?php else: ?>
+                                    <span id="viewProfileInitials"><?= $initials ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <h4 class="mb-1" id="viewProfileName"><?= htmlspecialchars($user_name) ?></h4>
+                        <span class="badge bg-light text-dark border px-3 py-2 rounded-pill"><?= htmlspecialchars($user_role) ?></span>
+                    </div>
 
-                <!-- Photo Upload -->
-                <div class="photo-upload-section">
-                    <div class="photo-upload-avatar" id="photoUploadAvatar">
-                        <?php if ($user_photo): ?>
-                            <img src="<?= htmlspecialchars($user_photo) ?>" alt="Profile" id="photoUploadAvatarImg">
-                        <?php else: ?>
-                            <span id="photoUploadAvatarInitials"><?= $initials ?></span>
-                        <?php endif; ?>
-                        <div class="upload-spinner">
-                            <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                <span class="visually-hidden">Uploading...</span>
+                    <div class="account-details-section">
+                        <div class="account-detail-row">
+                            <span class="account-detail-label"><i class="bi bi-envelope me-2"></i>Email Address</span>
+                            <span class="account-detail-value" id="viewProfileEmail"><?= htmlspecialchars($user_email) ?></span>
+                        </div>
+                        <div class="account-detail-row">
+                            <span class="account-detail-label"><i class="bi bi-telephone me-2"></i>Phone Number</span>
+                            <span class="account-detail-value" id="viewProfilePhone"><?= htmlspecialchars($user_phone ?: 'Not provided') ?></span>
+                        </div>
+                        <div class="account-detail-row">
+                            <span class="account-detail-label"><i class="bi bi-building me-2"></i>Company</span>
+                            <span class="account-detail-value"><?= htmlspecialchars($user_company ?: 'System') ?></span>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="button" class="btn btn-primary w-100 py-2 fw-bold" id="btnEnterEditMode">
+                            <i class="bi bi-pencil-square me-2"></i>Edit Profile
+                        </button>
+                    </div>
+                </div>
+
+                <!-- EDIT MODE (Initially Hidden) -->
+                <div id="profileEditMode" style="display: none;">
+                    <?php if (!$isSuperAdmin): ?>
+                    <div class="info-alert">
+                        <i class="bi bi-info-circle"></i>
+                        <p class="info-alert-text">
+                            <strong>Note:</strong> Changes will be sent to Super Admin for approval before taking effect.
+                        </p>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- Photo Upload -->
+                    <div class="photo-upload-section">
+                        <div class="photo-upload-avatar" id="photoUploadAvatar">
+                            <?php if ($user_photo): ?>
+                                <img src="<?= htmlspecialchars($user_photo) ?>" alt="Profile" id="photoUploadAvatarImg">
+                            <?php else: ?>
+                                <span id="photoUploadAvatarInitials"><?= $initials ?></span>
+                            <?php endif; ?>
+                            <div class="upload-spinner">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Uploading...</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="photo-upload-controls">
+                            <div class="photo-upload-btns">
+                                <label for="profilePhotoInput" class="btn-photo-action btn-upload-photo">
+                                    Upload photo
+                                </label>
+                                <button type="button" class="btn-photo-action btn-remove-photo" id="btnRemovePhoto" <?= !$user_photo ? 'style="display:none;"' : '' ?>>
+                                    Remove photo
+                                </button>
+                            </div>
+                            <div class="photo-upload-hint">JPG, PNG or WEBP (max. 5MB)</div>
+                        </div>
+                    </div>
+                    <input type="file" class="d-none" id="profilePhotoInput" accept="image/*">
+
+                    <!-- Full Name -->
+                    <div class="form-section">
+                        <div class="form-section-title">Full Name</div>
+                        <div class="form-row">
+                            <div class="form-col">
+                                <label class="form-label-modern">First</label>
+                                <input type="text" class="form-control-modern" id="editFirstName" placeholder="Fernando">
+                            </div>
+                            <div class="form-col">
+                                <label class="form-label-modern">Last</label>
+                                <input type="text" class="form-control-modern" id="editLastName" placeholder="Jr.">
                             </div>
                         </div>
                     </div>
-                    <div class="photo-upload-controls">
-                        <div class="photo-upload-btns">
-                            <label for="profilePhotoInput" class="btn-photo-action btn-upload-photo">
-                                Upload photo
-                            </label>
-                            <button type="button" class="btn-photo-action btn-remove-photo" id="btnRemovePhoto" <?= !$user_photo ? 'style="display:none;"' : '' ?>>
-                                Remove photo
-                            </button>
-                        </div>
-                        <div class="photo-upload-hint">JPG, PNG or WEBP (max. 5MB)</div>
-                    </div>
-                </div>
-                <input type="file" class="d-none" id="profilePhotoInput" accept="image/*">
 
-                <!-- Full Name -->
-                <div class="form-section">
-                    <div class="form-section-title">Full Name</div>
-                    <div class="form-row">
-                        <div class="form-col">
-                            <label class="form-label-modern">First</label>
-                            <input type="text" class="form-control-modern" id="editFirstName" placeholder="Fernando">
-                        </div>
-                        <div class="form-col">
-                            <label class="form-label-modern">Last</label>
-                            <input type="text" class="form-control-modern" id="editLastName" placeholder="Jr.">
+                    <!-- Email -->
+                    <div class="form-section">
+                        <div class="form-section-title">Email</div>
+                        <div class="form-row">
+                            <div class="form-col">
+                                <input type="email" class="form-control-modern" id="editEmail" placeholder="user@example.com" value="<?= htmlspecialchars($user_email) ?>">
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Email -->
-                <div class="form-section">
-                    <div class="form-section-title">Email</div>
-                    <div class="form-row">
-                        <div class="form-col">
-                            <input type="email" class="form-control-modern" id="editEmail" placeholder="user@example.com" value="<?= htmlspecialchars($user_email) ?>">
+                    <!-- Phone Number -->
+                    <div class="form-section">
+                        <div class="form-section-title">Phone Number</div>
+                        <div class="form-row">
+                            <div class="form-col">
+                                <input type="tel" class="form-control-modern" id="editPhone" placeholder="+1 (555) 000-0000" value="<?= htmlspecialchars($user_phone) ?>">
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Company -->
-                <div class="form-section">
-                    <div class="form-section-title">Company</div>
-                    <div class="form-row">
-                        <div class="form-col">
-                            <input type="text" class="form-control-modern" id="editCompany" placeholder="Company Name" value="<?= htmlspecialchars($user_company) ?>" disabled>
-                        </div>
+                    <!-- Termination Link -->
+                    <?php if (!$isSuperAdmin): ?>
+                    <div class="mt-4 text-center">
+                        <a href="javascript:void(0)" class="text-danger small fw-bold" id="btnRequestTermination">
+                            Request Account Deactivation
+                        </a>
                     </div>
+                    <?php endif; ?>
                 </div>
-
-                <!-- Position -->
-                <div class="form-section">
-                    <div class="form-section-title">Position</div>
-                    <div class="form-row">
-                        <div class="form-col">
-                            <input type="text" class="form-control-modern" value="<?= htmlspecialchars($user_role) ?>" disabled>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Phone Number -->
-                <div class="form-section">
-                    <div class="form-section-title">Phone Number</div>
-                    <div class="form-row">
-                        <div class="form-col">
-                            <input type="tel" class="form-control-modern" id="editPhone" placeholder="+1 (555) 000-0000" value="<?= htmlspecialchars($user_phone) ?>">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Account Details -->
-                <div class="form-section">
-                    <div class="form-section-title">Account Details</div>
-                    <div class="account-details-section">
-                        <div class="account-detail-row">
-                            <span class="account-detail-label">Log in email address</span>
-                            <span class="account-detail-value"><?= htmlspecialchars($user_email) ?></span>
-                        </div>
-                        <div class="account-detail-row">
-                            <span class="account-detail-label">Password</span>
-                            <span class="account-detail-value">••••••••••</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Termination Link -->
-                <?php if (!$isSuperAdmin): ?>
-                <div class="mt-4 text-center">
-                    <a href="javascript:void(0)" class="text-danger small fw-bold" id="btnRequestTermination">
-                        Request Account Deactivation
-                    </a>
-                </div>
-                <?php endif; ?>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn-modal-action btn-close-modal" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn-modal-action btn-save-changes" id="btnSaveProfileChanges">
-                    <?= $isSuperAdmin ? 'Save Changes' : 'Send for Approval' ?>
-                </button>
+                <!-- Footer buttons switch based on mode via JS -->
+                <div id="footerViewMode" class="w-100">
+                    <button type="button" class="btn btn-light border w-100 py-2 fw-semibold" data-bs-dismiss="modal">Close</button>
+                </div>
+                <div id="footerEditMode" class="w-100" style="display: none; display: flex; gap: 0.75rem;">
+                    <button type="button" class="btn btn-light border flex-grow-1" id="btnCancelEdit">Cancel</button>
+                    <button type="button" class="btn btn-primary flex-grow-1" id="btnSaveProfileChanges">
+                        <?= $isSuperAdmin ? 'Save Changes' : 'Send for Approval' ?>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -826,10 +846,40 @@ $isSuperAdmin = ($user_role === 'Super Admin');
         updateClock();
         setInterval(updateClock, 1000);
 
-        // Populate form when modal opens
+        // Mode Toggling Logic
+        const profileViewMode = document.getElementById('profileViewMode');
+        const profileEditMode = document.getElementById('profileEditMode');
+        const footerViewMode = document.getElementById('footerViewMode');
+        const footerEditMode = document.getElementById('footerEditMode');
+        const profileModalTitle = document.getElementById('profileModalLabel');
+
+        function switchToViewMode() {
+            profileViewMode.style.display = 'block';
+            profileEditMode.style.display = 'none';
+            footerViewMode.style.display = 'block';
+            footerEditMode.style.display = 'none';
+            profileModalTitle.textContent = 'My Profile';
+        }
+
+        function switchToEditMode() {
+            profileViewMode.style.display = 'none';
+            profileEditMode.style.display = 'block';
+            footerViewMode.style.display = 'none';
+            footerEditMode.style.display = 'flex';
+            profileModalTitle.textContent = 'Edit Profile';
+        }
+
+        document.getElementById('btnEnterEditMode').addEventListener('click', switchToEditMode);
+        document.getElementById('btnCancelEdit').addEventListener('click', switchToViewMode);
+
+        // Reset to view mode when modal opens or closes
         document.getElementById('profileModal').addEventListener('show.bs.modal', function() {
-            document.getElementById('editFirstName').value = firstName;
-            document.getElementById('editLastName').value = lastName;
+            switchToViewMode();
+            
+            // Re-parse current data in case it changed (for edit inputs)
+            const currentNameParts = userData.fullName.split(' ');
+            document.getElementById('editFirstName').value = currentNameParts[0] || '';
+            document.getElementById('editLastName').value = currentNameParts.slice(1).join(' ') || '';
             document.getElementById('editEmail').value = userData.email;
             document.getElementById('editPhone').value = userData.phone;
         });
