@@ -123,10 +123,10 @@ body {
 }
 .stat-hint {
     font-size: 0.75rem;
-    opacity: 0.85;
+    opacity: 0.8;
     display: flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.25rem;
 }
 .stat-card[data-filter="all"] { --card-color-1: #3b82f6; --card-color-2: #2563eb; }
 .stat-card[data-filter="deposit"] { --card-color-1: #059669; --card-color-2: #047857; }
@@ -233,6 +233,7 @@ body {
 }
 .badge-deposit { background-color: #10b981; color: white; }
 .badge-withdrawal { background-color: #ef4444; color: white; }
+.badge-interest { background-color: #f59e0b; color: white; }
 
 .btn {
     border-radius: 0.5rem;
@@ -314,20 +315,14 @@ body {
                         <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to view all</div>
                     </div>
                 </div>
-
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="deposit">
                         <div class="stat-card-icon"><i class="bi bi-arrow-down-circle"></i></div>
                         <div class="stat-title">Total Deposits</div>
                         <div id="card_total_deposit" class="stat-value">0</div>
-                        <div class="stat-hint">
-                            <i class="bi bi-cash-coin"></i>
-                            Total Interest: <span id="card_total_interest">0</span>
-                        </div>
                         <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to filter</div>
                     </div>
                 </div>
-
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="withdrawal">
                         <div class="stat-card-icon"><i class="bi bi-arrow-up-circle"></i></div>
@@ -336,7 +331,6 @@ body {
                         <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to filter</div>
                     </div>
                 </div>
-
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="balance">
                         <div class="stat-card-icon"><i class="bi bi-wallet2"></i></div>
@@ -531,6 +525,7 @@ body {
                     </div>
                 </div>
 
+                <!-- Top 4 cards -->
                 <div class="row g-3 mb-3">
                     <div class="col-md-3">
                         <div class="card border-success h-100">
@@ -542,7 +537,6 @@ body {
                             </div>
                         </div>
                     </div>
-
                     <div class="col-md-3">
                         <div class="card border-danger h-100">
                             <div class="card-body text-center">
@@ -554,6 +548,7 @@ body {
                         </div>
                     </div>
 
+                    <!-- NEW: Interest card -->
                     <div class="col-md-3">
                         <div class="card border-warning h-100">
                             <div class="card-body text-center">
@@ -577,16 +572,13 @@ body {
                     </div>
                 </div>
 
-                <div class="row g-3 mb-4">
-                    <div class="col-md-12">
-                        <div class="card border-info h-100">
-                            <div class="card-body text-center">
-                                <i class="bi bi-calculator text-info fs-2"></i>
-                                <h6 class="mt-2 mb-1 text-muted small">Net Change</h6>
-                                <h4 class="mb-1" id="bd_net_change">₱0.00</h4>
-                                <small class="text-muted">Deposits - Withdrawals (Interest shown separately)</small>
-                            </div>
-                        </div>
+                <!-- Net change full width -->
+                <div class="card border-info mb-4">
+                    <div class="card-body text-center">
+                        <i class="bi bi-calculator text-info fs-2"></i>
+                        <h6 class="mt-2 mb-1 text-muted small">Net Change</h6>
+                        <h3 class="mb-1" id="bd_net_change">₱0.00</h3>
+                        <small class="text-muted">Deposits - Withdrawals (Interest shown separately)</small>
                     </div>
                 </div>
 
@@ -764,9 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     showSyncToast('Sync failed: ' + res.message, 'error');
                 }
             })
-            .catch(err => {
-                showSyncToast('Sync failed: ' + err.message, 'error');
-            })
+            .catch(err => showSyncToast('Sync failed: ' + err.message, 'error'))
             .finally(() => {
                 btn.disabled = false;
                 btn.classList.remove('syncing');
@@ -880,17 +870,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                const s = data.summary || {};
-
-                document.getElementById('card_total_tx').textContent = s.total || 0;
-                document.getElementById('card_total_deposit').textContent = s.total_deposits || 0;
-                document.getElementById('card_total_withdraw').textContent = s.total_withdrawals || 0;
-
-                document.getElementById('card_total_interest').textContent =
-                    '₱' + Number(s.total_interest || 0).toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 });
-
+                document.getElementById('card_total_tx').textContent = data.summary.total || 0;
+                document.getElementById('card_total_deposit').textContent = data.summary.total_deposits || 0;
+                document.getElementById('card_total_withdraw').textContent = data.summary.total_withdrawals || 0;
                 document.getElementById('card_balance').textContent =
-                    '₱' + parseFloat(s.last_balance || 0).toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 });
+                    '₱' + parseFloat(data.summary.last_balance || 0).toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 });
 
                 const start = (currentPage - 1) * limit + 1;
                 const end = Math.min(currentPage * limit, data.pagination?.total_records || 0);
@@ -900,8 +884,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 tbody.innerHTML = '';
                 if (data.rows && data.rows.length > 0) {
                     data.rows.forEach(r => {
-                        const isIn = (r.transaction_type === 'Deposit' || r.transaction_type === 'Interest');
-                        const typeBadge = isIn ? 'badge-deposit' : 'badge-withdrawal';
+                        let typeBadge = 'badge-withdrawal';
+                        if (r.transaction_type === 'Deposit') typeBadge = 'badge-deposit';
+                        if (r.transaction_type === 'Interest') typeBadge = 'badge-interest';
 
                         tbody.innerHTML += `
                             <tr>
@@ -1025,6 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
             '₱' + Number(summary.total_withdrawals || 0).toLocaleString(undefined, { minimumFractionDigits:2 });
         document.getElementById('bd_withdrawal_count').textContent = summary.withdrawal_count || 0;
 
+        // NEW: interest
         document.getElementById('bd_total_interest').textContent =
             '₱' + Number(summary.total_interest || 0).toLocaleString(undefined, { minimumFractionDigits:2 });
         document.getElementById('bd_interest_count').textContent = summary.interest_count || 0;
@@ -1047,10 +1033,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         transactions.forEach(txn => {
-            const isIn = (txn.transaction_type === 'Deposit' || txn.transaction_type === 'Interest');
-            const typeClass = isIn ? 'badge-deposit' : 'badge-withdrawal';
-            const amountClass = isIn ? 'text-success' : 'text-danger';
-            const amountIcon = isIn ? '↓' : '↑';
+            let typeClass = 'badge-withdrawal';
+            let amountClass = 'text-danger';
+            let amountIcon = '↑';
+
+            if (txn.transaction_type === 'Deposit') {
+                typeClass = 'badge-deposit';
+                amountClass = 'text-success';
+                amountIcon = '↓';
+            } else if (txn.transaction_type === 'Interest') {
+                typeClass = 'badge-interest';
+                amountClass = 'text-success';
+                amountIcon = '↓';
+            }
 
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -1110,14 +1105,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 const d = res.row;
-                const isIn = (d.transaction_type === 'Deposit' || d.transaction_type === 'Interest');
+
+                let badgeClass = 'badge-withdrawal';
+                if (d.transaction_type === 'Deposit') badgeClass = 'badge-deposit';
+                if (d.transaction_type === 'Interest') badgeClass = 'badge-interest';
+
                 document.getElementById('v_id').textContent = d.saving_id;
                 document.getElementById('v_member').textContent = d.member_id;
                 document.getElementById('v_date').textContent = d.transaction_date;
-                document.getElementById('v_type').innerHTML = `<span class="badge ${isIn ? 'badge-deposit' : 'badge-withdrawal'}">${d.transaction_type}</span>`;
+                document.getElementById('v_type').innerHTML = `<span class="badge ${badgeClass}">${d.transaction_type}</span>`;
                 document.getElementById('v_amount').textContent = Number(d.amount).toLocaleString(undefined, { minimumFractionDigits:2 });
                 document.getElementById('v_balance').textContent = Number(d.balance).toLocaleString(undefined, { minimumFractionDigits:2 });
-                document.getElementById('v_by').textContent = d.recorded_by_name || 'System';
+                document.getElementById('v_by').textContent = d.recorded_by_name || 'Unknown';
                 viewModal.show();
             })
             .catch(() => Swal.fire('Error', 'Failed to load transaction details', 'error'));
