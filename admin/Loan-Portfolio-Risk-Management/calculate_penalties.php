@@ -33,19 +33,39 @@ try {
     // ────────────────────────────────────────────────────────────
     // STEP 1: Check if penalty columns exist in loan_portfolio
     // ────────────────────────────────────────────────────────────
-    $check_columns = $conn->query("SHOW COLUMNS FROM loan_portfolio LIKE 'penalty_rate'");
+    $check_penalty_rate = $conn->query("SHOW COLUMNS FROM loan_portfolio LIKE 'penalty_rate'");
+    $check_late_fee = $conn->query("SHOW COLUMNS FROM loan_portfolio LIKE 'late_fee'");
+    $check_grace = $conn->query("SHOW COLUMNS FROM loan_portfolio LIKE 'grace_period_days'");
+    $check_payment_num = $conn->query("SHOW COLUMNS FROM loan_penalties LIKE 'payment_number'");
     
-    if ($check_columns->num_rows === 0) {
-        // Add penalty columns if they don't exist
-        $conn->query("
-            ALTER TABLE loan_portfolio 
-            ADD COLUMN penalty_rate DECIMAL(5,2) DEFAULT 2.00 COMMENT 'Penalty % of overdue amount',
-            ADD COLUMN late_fee DECIMAL(10,2) DEFAULT 50.00 COMMENT 'Fixed late fee per overdue payment',
-            ADD COLUMN grace_period_days INT DEFAULT 0 COMMENT 'Days before penalty starts'
-        ");
-        
-        $response['errors'][] = "Added penalty columns to loan_portfolio table. Please set penalty rates and run again.";
-        throw new Exception("Penalty columns were missing and have been added. Please configure penalty rates first.");
+    $columns_missing = [];
+    
+    if ($check_penalty_rate->num_rows === 0) {
+        $conn->query("ALTER TABLE loan_portfolio ADD COLUMN penalty_rate DECIMAL(5,2) DEFAULT 2.00 COMMENT 'Penalty % of overdue amount'");
+        $columns_missing[] = 'penalty_rate';
+    }
+    
+    if ($check_late_fee->num_rows === 0) {
+        $conn->query("ALTER TABLE loan_portfolio ADD COLUMN late_fee DECIMAL(10,2) DEFAULT 50.00 COMMENT 'Fixed late fee per overdue payment'");
+        $columns_missing[] = 'late_fee';
+    }
+    
+    if ($check_grace->num_rows === 0) {
+        $conn->query("ALTER TABLE loan_portfolio ADD COLUMN grace_period_days INT DEFAULT 0 COMMENT 'Days before penalty starts'");
+        $columns_missing[] = 'grace_period_days';
+    }
+    
+    if ($check_payment_num->num_rows === 0) {
+        $conn->query("ALTER TABLE loan_penalties ADD COLUMN payment_number INT NULL AFTER loan_code");
+        $columns_missing[] = 'payment_number (in loan_penalties)';
+    }
+    
+    if (!empty($columns_missing)) {
+        $response['success'] = true;
+        $response['message'] = 'Database updated! Added columns: ' . implode(', ', $columns_missing) . '. Please run the script again.';
+        $response['columns_added'] = $columns_missing;
+        echo json_encode($response, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        exit;
     }
     
     // ────────────────────────────────────────────────────────────
