@@ -1052,10 +1052,10 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 
             try {
                 const url = `${API_BASE_URL}?${params.toString()}`;
-                
+
                 const response = await fetch(url);
                 if (!response.ok) throw new Error('Export failed');
-                
+
                 const contentType = response.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
                     const errorData = await response.json();
@@ -1207,7 +1207,16 @@ if (session_status() === PHP_SESSION_NONE) session_start();
                         const l = res.loan;
 
                         const totalInterest = l.principal_amount * (l.interest_rate / 100) * (l.loan_term / 12);
-                        const totalAmountDue = parseFloat(l.principal_amount) + totalInterest;
+
+                        // FIX: Use actual penalties from DB, not hardcoded 0.00
+                        const totalPenalties = parseFloat(l.total_penalties) || 0;
+
+                        const totalAmountDue = parseFloat(l.principal_amount) + totalInterest + totalPenalties;
+
+                        // FIX: Show penalty in red only if > 0, else show ₱0.00 in muted color
+                        const penaltyDisplay = totalPenalties > 0 ?
+                            `<span class="text-danger fw-semibold">₱${totalPenalties.toLocaleString('en-PH', {minimumFractionDigits: 2})}</span>` :
+                            `<span class="text-muted">₱0.00</span>`;
 
                         let html = `
                         <div class="row g-3 mb-4">
@@ -1231,7 +1240,7 @@ if (session_status() === PHP_SESSION_NONE) session_start();
                                     </tr>
                                     <tr>
                                         <td><strong>Penalties:</strong></td>
-                                        <td class="text-end text-danger">₱0.00</td>
+                                        <td class="text-end">${penaltyDisplay}</td>
                                     </tr>
                                     <tr class="table-success">
                                         <td><strong>Total Amount Due:</strong></td>

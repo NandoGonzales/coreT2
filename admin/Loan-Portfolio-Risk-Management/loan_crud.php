@@ -22,7 +22,6 @@ try {
     }
 
     // ─── Fetch loan details ───
-    // Prioritize loan_code, but fall back to loan_id for old records without loan_code
     if (!empty($loan_code)) {
         $stmt = $conn->prepare("
             SELECT 
@@ -73,8 +72,33 @@ try {
         throw new Exception('Loan not found.');
     }
 
+    // ─── FIX: Fetch TOTAL PENALTIES from loan_penalties table ───
+    $total_penalties = 0.00;
+    $loan_code_for_penalty = $loan['loan_code'];
+
+    if (!empty($loan_code_for_penalty)) {
+        // Check if loan_penalties table exists first
+        $table_check = $conn->query("SHOW TABLES LIKE 'loan_penalties'");
+        if ($table_check && $table_check->num_rows > 0) {
+            $pen_stmt = $conn->prepare("
+                SELECT COALESCE(SUM(penalty_amount), 0) AS total_penalties
+                FROM loan_penalties
+                WHERE loan_code = ?
+            ");
+            if ($pen_stmt) {
+                $pen_stmt->bind_param('s', $loan_code_for_penalty);
+                $pen_stmt->execute();
+                $pen_row = $pen_stmt->get_result()->fetch_assoc();
+                $total_penalties = (float) ($pen_row['total_penalties'] ?? 0);
+                $pen_stmt->close();
+            }
+        }
+    }
+
+    // Add total_penalties to loan data so frontend can use it
+    $loan['total_penalties'] = $total_penalties;
+
     // ─── Fetch payment schedules ───
-    // Use loan_code if available, otherwise loan_id
     if (!empty($loan['loan_code'])) {
         $stmt = $conn->prepare("
             SELECT 
