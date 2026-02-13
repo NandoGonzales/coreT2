@@ -774,6 +774,44 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     </div>
                     <?php endif; ?>
                 </div>
+<<<<<<< HEAD
+=======
+
+                <!-- Position -->
+                <div class="form-section">
+                    <div class="form-section-title">Position</div>
+                    <div class="form-row">
+                        <div class="form-col">
+                            <input type="text" class="form-control-modern" value="<?= htmlspecialchars($user_role) ?>" disabled>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Phone Number -->
+                <div class="form-section">
+                    <div class="form-section-title">Phone Number</div>
+                    <div class="form-row">
+                        <div class="form-col">
+                            <input type="tel" class="form-control-modern" id="editPhone" placeholder="+1 (555) 000-0000" value="<?= htmlspecialchars($user_phone) ?>">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Account Details -->
+                <div class="form-section">
+                    <div class="form-section-title">Account Details</div>
+                    <div class="account-details-section">
+                        <div class="account-detail-row">
+                            <span class="account-detail-label">Log in email address</span>
+                            <span class="account-detail-value"><?= htmlspecialchars($user_email) ?></span>
+                        </div>
+                        <div class="account-detail-row">
+                            <span class="account-detail-label">Password</span>
+                            <span class="account-detail-value">••••••••••</span>
+                        </div>
+                    </div>
+                </div>
+>>>>>>> parent of 9529c1f (user management)
             </div>
             <div class="modal-footer">
                 <!-- Footer buttons switch based on mode via JS -->
@@ -825,8 +863,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
             email: '<?= addslashes($user_email) ?>',
             phone: '<?= addslashes($user_phone) ?>',
             company: '<?= addslashes($user_company) ?>',
-            photo: '<?= addslashes($user_photo) ?>',
-            pendingPhoto: null
+            photo: '<?= addslashes($user_photo) ?>'
         };
 
         // Parse name
@@ -909,9 +946,6 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                 try {
                     const formData = new FormData();
                     formData.append('profile_photo', file);
-                    if (!isSuperAdmin) {
-                        formData.append('skip_db', '1');
-                    }
 
                     const response = await fetch('<?= base_url ?>admin/inc/upload_profile_photo.php', {
                         method: 'POST',
@@ -923,10 +957,6 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     if (result.success) {
                         const newPhotoUrl = result.photo_url + '?t=' + Date.now();
                         
-                        if (!isSuperAdmin) {
-                            userData.pendingPhoto = result.photo_url;
-                        }
-
                         const editAvatarImg = document.getElementById('photoUploadAvatarImg');
                         const editAvatarInitials = document.getElementById('photoUploadAvatarInitials');
                         
@@ -936,23 +966,19 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                             editAvatarInitials.outerHTML = `<img src="${newPhotoUrl}" alt="Profile" id="photoUploadAvatarImg">`;
                         }
 
-                        if (isSuperAdmin) {
-                            const navbarAvatar = document.getElementById('navbarAvatar');
-                            if (navbarAvatar) {
-                                navbarAvatar.innerHTML = `<img src="${newPhotoUrl}" alt="Profile">`;
-                            }
-                            Swal.fire('Success', 'Profile photo updated!', 'success');
-                        } else {
-                            Swal.fire('Uploaded', 'Photo uploaded. Send profile changes to apply.', 'info');
+                        const navbarAvatar = document.getElementById('navbarAvatar');
+                        if (navbarAvatar) {
+                            navbarAvatar.innerHTML = `<img src="${newPhotoUrl}" alt="Profile">`;
                         }
 
                         btnRemovePhoto.style.display = 'inline-block';
+                        alert('Profile photo updated successfully!');
                     } else {
-                        Swal.fire('Error', result.message || 'Failed to upload photo', 'error');
+                        alert('Error: ' + (result.message || 'Failed to upload photo'));
                     }
                 } catch (error) {
                     console.error('Upload error:', error);
-                    Swal.fire('Error', 'Error uploading photo. Please try again.', 'error');
+                    alert('Error uploading photo. Please try again.');
                 } finally {
                     photoUploadAvatar.classList.remove('uploading');
                     photoInput.value = '';
@@ -1005,17 +1031,11 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     }
                 } else {
                     // Staff/Admin: Send for approval
-                    const payload = {
+                    const requestData = JSON.stringify({
                         full_name: fullName,
                         email: newEmail,
                         phone: newPhone
-                    };
-                    
-                    if (userData.pendingPhoto) {
-                        payload.profile_photo = userData.pendingPhoto;
-                    }
-
-                    const requestData = JSON.stringify(payload);
+                    });
 
                     const fd = new FormData();
                     fd.append('action', 'submit_request');
@@ -1023,7 +1043,11 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     fd.append('request_type', 'profile_update');
                     fd.append('request_data', requestData);
 
+<<<<<<< HEAD
                     const response = await fetch('<?= base_url ?>admin/User-Management-Role-Based-Access/approval_action.php', {
+=======
+                    const response = await fetch('<?= $base_url ?>/approval_action.php', {
+>>>>>>> parent of 9529c1f (user management)
                         method: 'POST',
                         body: fd
                     });
@@ -1031,10 +1055,10 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     const result = await response.json();
 
                     if (result.status === 'success') {
-                        Swal.fire('Success', 'Profile changes sent to Super Admin for approval!', 'success');
+                        alert('Profile changes sent to Super Admin for approval!');
                         bootstrap.Modal.getInstance(document.getElementById('profileModal')).hide();
                     } else {
-                        Swal.fire('Error', result.msg || 'Failed to send approval request', 'error');
+                        alert('Error: ' + (result.msg || 'Failed to send approval request'));
                     }
                 }
             } catch (error) {
@@ -1045,6 +1069,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                 this.textContent = isSuperAdmin ? 'Save Changes' : 'Send for Approval';
             }
         });
+<<<<<<< HEAD
 
         // Request Termination
         if (document.getElementById('btnRequestTermination')) {
@@ -1084,5 +1109,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                 }
             });
         }
+=======
+>>>>>>> parent of 9529c1f (user management)
     });
 </script>

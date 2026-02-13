@@ -35,6 +35,7 @@ function sendApprovalEmail($to, $subject, $message) {
     return false;
 }
 
+<<<<<<< HEAD
 // Helper function to log activity - aligned with core audit_trail
 function logApprovalActivity($action, $module, $ref_id, $details) {
     global $current_user_id;
@@ -55,6 +56,17 @@ function logApprovalActivity($action, $module, $ref_id, $details) {
             $stmt->execute();
             $stmt->close();
         }
+=======
+// Helper function to log activity (simplified - compatible with your audit_trail)
+function logApprovalActivity($action, $details) {
+    global $conn, $current_user_id;
+    
+    // Check if audit_trail table exists and has basic columns
+    $stmt = $conn->prepare("INSERT INTO audit_trail (user_id, action, details, timestamp) VALUES (?, ?, ?, NOW())");
+    if ($stmt) {
+        $stmt->bind_param("iss", $current_user_id, $action, $details);
+        $stmt->execute();
+>>>>>>> parent of 9529c1f (user management)
     }
 }
 
@@ -123,18 +135,8 @@ try {
                 'full_name' => $current_user['full_name'],
                 'email' => $current_user['email'],
                 'role' => $current_user['role'],
-                'status' => $current_user['status'],
-                'phone' => $current_user['phone'] ?? ''
+                'status' => $current_user['status']
             ]);
-
-            // Rule: Only 1 pending request at a time per user
-            $stmt = $conn->prepare("SELECT request_id FROM approval_requests WHERE user_id = ? AND status = 'pending'");
-            $stmt->bind_param("i", $target_user_id);
-            $stmt->execute();
-            if ($stmt->get_result()->num_rows > 0) {
-                echo json_encode(['status' => 'error', 'msg' => 'You already have a pending request. Please wait for it to be processed.']);
-                exit;
-            }
             
             // Insert approval request
             $stmt = $conn->prepare("INSERT INTO approval_requests (user_id, request_type, request_data, current_data, requested_by, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', NOW())");
@@ -149,10 +151,8 @@ try {
                 
                 // Log activity
                 logApprovalActivity(
-                    'submit_request',
-                    'Approval System',
-                    $request_id,
-                    "Submitted $request_type request for User ID: $target_user_id"
+                    'submit_approval_request',
+                    "Submitted approval request for user ID: $target_user_id, Request ID: $request_id, Type: $request_type"
                 );
                 
                 // Send email to user
@@ -265,6 +265,7 @@ try {
                 echo json_encode(['status' => 'error', 'msg' => 'This request has already been processed']);
                 exit;
             }
+<<<<<<< HEAD
 
             // Rule: Cannot approve your own request
             if ($request['user_id'] == $current_user_id) {
@@ -283,30 +284,28 @@ try {
             if ($current_role === 'Super Admin' && !in_array($target_role, ['Admin', 'Staff'])) {
                 // Potentially allow other roles too, but for now stick to request
             }
+=======
+>>>>>>> parent of 9529c1f (user management)
             
             // Parse request data
             $request_data = json_decode($request['request_data'], true);
             
-            // Handle different request types
+            // Update user record
             $user_id = $request['user_id'];
-            if ($request['request_type'] === 'termination') {
-                // Termination: Deactivate user
-                $stmt = $conn->prepare("UPDATE users SET status='Inactive' WHERE user_id=?");
-                $stmt->bind_param('i', $user_id);
+            $username = $request_data['username'] ?? '';
+            $full_name = $request_data['full_name'] ?? '';
+            $email = $request_data['email'] ?? '';
+            $role = $request_data['role'] ?? '';
+            $status = $request_data['status'] ?? '';
+            
+            // Check if password update was requested
+            if (isset($request_data['password']) && !empty($request_data['password'])) {
+                $password_hash = password_hash($request_data['password'], PASSWORD_DEFAULT);
+                $stmt = $conn->prepare("UPDATE users SET username=?, password_hash=?, full_name=?, email=?, role=?, status=? WHERE user_id=?");
+                $stmt->bind_param('ssssssi', $username, $password_hash, $full_name, $email, $role, $status, $user_id);
             } else {
-                // Profile Update: Update user record
-                $full_name = $request_data['full_name'] ?? $request['full_name'];
-                $email = $request_data['email'] ?? $request['email'];
-                $phone = $request_data['phone'] ?? '';
-                $profile_photo = $request_data['profile_photo'] ?? null;
-                
-                if ($profile_photo) {
-                    $stmt = $conn->prepare("UPDATE users SET full_name=?, email=?, phone=?, profile_photo=? WHERE user_id=?");
-                    $stmt->bind_param('ssssi', $full_name, $email, $phone, $profile_photo, $user_id);
-                } else {
-                    $stmt = $conn->prepare("UPDATE users SET full_name=?, email=?, phone=? WHERE user_id=?");
-                    $stmt->bind_param('sssi', $full_name, $email, $phone, $user_id);
-                }
+                $stmt = $conn->prepare("UPDATE users SET username=?, full_name=?, email=?, role=?, status=? WHERE user_id=?");
+                $stmt->bind_param('sssssi', $username, $full_name, $email, $role, $status, $user_id);
             }
             
             if ($stmt->execute()) {
@@ -322,24 +321,17 @@ try {
                 
                 // Send email confirmation to user
                 if ($request['email']) {
-                    $subject = $request['request_type'] === 'termination' ? 'Account Termination Approved' : 'Profile Update Approved';
-                    $msg_body = $request['request_type'] === 'termination' 
-                        ? "Your account termination request has been approved. Your account has been deactivated."
-                        : "Your profile update request has been approved by an administrator.";
-                    
                     sendApprovalEmail(
                         $request['email'],
-                        $subject,
-                        "Dear {$request['full_name']},\n\n$msg_body\n\n" . (!empty($review_notes) ? "Review Notes: $review_notes\n\n" : "") . "Thank you!"
+                        'Profile Update Approved',
+                        "Dear {$request['full_name']},\n\nYour profile update request has been approved by an administrator.\n\n" . (!empty($review_notes) ? "Review Notes: $review_notes\n\n" : "") . "Thank you!"
                     );
                 }
                 
                 // Log activity
                 logApprovalActivity(
                     'approve_request',
-                    'Approval System',
-                    $request_id,
-                    "Approved {$request['request_type']} request for User ID: $user_id"
+                    "Approved request ID: $request_id for user ID: $user_id"
                 );
                 
                 echo json_encode(['status' => 'success', 'msg' => 'Request approved and user updated successfully']);
@@ -355,12 +347,11 @@ try {
             $request_id = $_POST['request_id'] ?? null;
             $review_notes = $_POST['review_notes'] ?? '';
             
-            // Rule: Rejection requires a reason
-            if (empty($review_notes)) {
-                echo json_encode(['status' => 'error', 'msg' => 'A reason for rejection is required.']);
+            if (!$request_id) {
+                echo json_encode(['status' => 'error', 'msg' => 'Request ID required']);
                 exit;
             }
-
+            
             // Check if user is admin
             if (!in_array($current_role, ['Super Admin', 'Admin'])) {
                 echo json_encode(['status' => 'error', 'msg' => 'Only admins can reject requests']);
@@ -405,9 +396,7 @@ try {
                 // Log activity
                 logApprovalActivity(
                     'reject_request',
-                    'Approval System',
-                    $request_id,
-                    "Rejected {$request['request_type']} request for User ID: {$request['user_id']}. Reason: $review_notes"
+                    "Rejected request ID: $request_id for user ID: {$request['user_id']}"
                 );
                 
                 echo json_encode(['status' => 'success', 'msg' => 'Request rejected successfully']);

@@ -11,9 +11,9 @@ if (defined('SEND_OTP_LOADED')) {
 define('SEND_OTP_LOADED', true);
 error_log("✅ send_otp.php loaded for the first time");
 
-require_once __DIR__ . '/PHPMailer/Exception.php';
-require_once __DIR__ . '/PHPMailer/PHPMailer.php';
-require_once __DIR__ . '/PHPMailer/SMTP.php';
+require_once 'PHPMailer/Exception.php';
+require_once 'PHPMailer/PHPMailer.php';
+require_once 'PHPMailer/SMTP.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -74,17 +74,8 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
         $mail->SMTPAuth   = true;
         $mail->Username   = 'microfinancecore@gmail.com';
         $mail->Password   = 'xmtjeqdoesrujaom';
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // Changed from STARTTLS
-        $mail->Port       = 465; // Changed from 587
-
-        // Bypass SSL verification (common fix for local/misconfigured servers)
-        $mail->SMTPOptions = array(
-            'ssl' => array(
-                'verify_peer' => false,
-                'verify_peer_name' => false,
-                'allow_self_signed' => true
-            )
-        );
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port       = 587;
 
         // Recipients
         $mail->setFrom('microfinancecore@gmail.com', 'CORET2 System');
