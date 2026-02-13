@@ -8,29 +8,52 @@ header('Content-Type: application/json');
 $current_user_id = $_SESSION['userdata']['user_id'] ?? 0;
 $current_role = $_SESSION['userdata']['role'] ?? '';
 
-// Helper function to send email
+// Helper function to send email - made robust to avoid crashing
 function sendApprovalEmail($to, $subject, $message) {
     global $conn;
     
     if (empty($to)) return false;
     
-    // Insert into email_notifications table
-    $stmt = $conn->prepare("INSERT INTO email_notifications (recipient_email, subject, message, status, created_at) VALUES (?, ?, ?, 'pending', NOW())");
-    $stmt->bind_param("sss", $to, $subject, $message);
-    return $stmt->execute();
+    try {
+        // First, check if message column exists (safety fallback)
+        $checkCol = $conn->query("SHOW COLUMNS FROM email_notifications LIKE 'message'");
+        if ($checkCol && $checkCol->num_rows > 0) {
+            $stmt = $conn->prepare("INSERT INTO email_notifications (recipient_email, subject, message, status, created_at) VALUES (?, ?, ?, 'pending', NOW())");
+            if ($stmt) {
+                $stmt->bind_param("sss", $to, $subject, $message);
+                return $stmt->execute();
+            }
+        } else {
+            // Fallback if column is missing or different
+            error_log("Email Notifications Error: Missing 'message' column");
+            return false;
+        }
+    } catch (Exception $e) {
+        error_log("sendApprovalEmail Error: " . $e->getMessage());
+        return false;
+    }
+    return false;
 }
 
-// Helper function to log activity - aligned with core audit_trial
+// Helper function to log activity - aligned with core audit_trail
 function logApprovalActivity($action, $module, $ref_id, $details) {
     global $current_user_id;
     if (function_exists('log_audit')) {
         log_audit($current_user_id, $action, $module, $ref_id, $details);
     } else {
         global $conn;
-        $stmt = $conn->prepare("INSERT INTO audit_trial (user_id, action_type, module, reference_id, details, timestamp) VALUES (?, ?, ?, ?, ?, NOW())");
+        // Try audit_trail first, then fallback
+        $table = 'audit_trail';
+        $stmt = $conn->prepare("INSERT INTO $table (user_id, action_type, module_name, remarks, action_time) VALUES (?, ?, ?, ?, NOW())");
+        if (!$stmt) {
+            $table = 'audit_trial';
+            $stmt = $conn->prepare("INSERT INTO $table (user_id, action_type, module, details, timestamp) VALUES (?, ?, ?, ?, NOW())");
+        }
+        
         if ($stmt) {
-            $stmt->bind_param("issis", $current_user_id, $action, $module, $ref_id, $details);
+            $stmt->bind_param("isss", $current_user_id, $action, $module, $details);
             $stmt->execute();
+            $stmt->close();
         }
     }
 }
