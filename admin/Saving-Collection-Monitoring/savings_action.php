@@ -486,8 +486,22 @@ function getSummary($conn, $where = '', $params = [], $types = '')
         $summary['interest_amount'] = floatval($row['interest_amount'] ?? 0);
     }
 
-    $q = $conn->query("SELECT balance FROM savings ORDER BY saving_id DESC LIMIT 1");
-    $summary['last_balance'] = $q ? ($q->fetch_assoc()['balance'] ?? 0) : 0;
+    // ✅ FIX: Get TOTAL balance across ALL members (sum of each member's latest balance)
+    $balanceQuery = "
+        SELECT SUM(latest_balance) as total_balance
+        FROM (
+            SELECT s.member_id, s.balance as latest_balance
+            FROM savings s
+            INNER JOIN (
+                SELECT member_id, MAX(saving_id) as max_id
+                FROM savings
+                GROUP BY member_id
+            ) latest ON s.member_id = latest.member_id AND s.saving_id = latest.max_id
+        ) member_balances
+    ";
+    
+    $balanceResult = $conn->query($balanceQuery);
+    $summary['last_balance'] = $balanceResult ? ($balanceResult->fetch_assoc()['total_balance'] ?? 0) : 0;
 
     return $summary;
 }
