@@ -349,7 +349,8 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <button class="btn btn-sm btn-primary" id="addUserBtn">
                             <i class="fas fa-plus"></i> Add User
                         </button>
-                        <?php endif; ?>
+                        <?php
+endif; ?>
                         <button class="btn btn-sm btn-outline-light" id="resetFiltersBtn">
                             <i class="fas fa-redo"></i> Reset Filters
                         </button>

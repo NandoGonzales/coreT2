@@ -11,7 +11,8 @@ function json_out($arr)
 }
 
 // Sanitize input to prevent XSS
-function sanitize_input($data) {
+function sanitize_input($data)
+{
     if (is_array($data)) {
         return array_map('sanitize_input', $data);
     }
@@ -28,16 +29,17 @@ $valid_roles = ['Super Admin', 'Admin', 'Staff', 'Client', 'Distributor'];
 switch ($action) {
     case 'list':
         $search = trim($_POST['search'] ?? $_GET['search'] ?? '');
-        
+
         try {
             if ($search !== '') {
                 $stmt = $conn->prepare("SELECT user_id, username, full_name, email, role, status, date_created FROM users WHERE username LIKE ? OR full_name LIKE ? OR email LIKE ? OR user_id LIKE ? ORDER BY user_id DESC");
                 $like = "%$search%";
                 $stmt->bind_param('ssss', $like, $like, $like, $like);
-            } else {
+            }
+            else {
                 $stmt = $conn->prepare("SELECT user_id, username, full_name, email, role, status, date_created FROM users ORDER BY user_id DESC");
             }
-            
+
             $stmt->execute();
             $res = $stmt->get_result();
             $users = [];
@@ -50,23 +52,25 @@ switch ($action) {
                 'Member' => 0,
                 'Client' => 0
             ];
-            
+
             while ($row = $res->fetch_assoc()) {
                 // Format date
                 $row['date_created'] = date('Y-m-d H:i:s', strtotime($row['date_created']));
                 $users[] = $row;
-                
+
                 // Count by status
-                if ($row['status'] === 'Active') $active++;
-                else $inactive++;
-                
+                if ($row['status'] === 'Active')
+                    $active++;
+                else
+                    $inactive++;
+
                 // Count by role
                 if (isset($role_counts[$row['role']])) {
                     $role_counts[$row['role']]++;
                 }
             }
             $stmt->close();
-            
+
             json_out([
                 'status' => 'success',
                 'users' => $users,
@@ -75,7 +79,8 @@ switch ($action) {
                 'inactive_count' => $inactive,
                 'role_counts' => $role_counts
             ]);
-        } catch (Exception $e) {
+        }
+        catch (Exception $e) {
             error_log("Error in list users: " . $e->getMessage());
             json_out(['status' => 'error', 'msg' => 'Failed to load users: ' . $e->getMessage()]);
         }
@@ -83,19 +88,22 @@ switch ($action) {
 
     case 'get':
         $id = intval($_POST['id'] ?? $_GET['id'] ?? 0);
-        if ($id <= 0) json_out(['status' => 'error', 'msg' => 'Invalid user ID']);
-        
+        if ($id <= 0)
+            json_out(['status' => 'error', 'msg' => 'Invalid user ID']);
+
         try {
             $stmt = $conn->prepare("SELECT user_id, username, full_name, email, role, status, date_created FROM users WHERE user_id=?");
             $stmt->bind_param('i', $id);
             $stmt->execute();
             $user = $stmt->get_result()->fetch_assoc();
             $stmt->close();
-            
-            if (!$user) json_out(['status' => 'error', 'msg' => 'User not found']);
-            
+
+            if (!$user)
+                json_out(['status' => 'error', 'msg' => 'User not found']);
+
             json_out($user);
-        } catch (Exception $e) {
+        }
+        catch (Exception $e) {
             error_log("Error getting user: " . $e->getMessage());
             json_out(['status' => 'error', 'msg' => 'Failed to retrieve user: ' . $e->getMessage()]);
         }
@@ -110,14 +118,15 @@ switch ($action) {
         $email = sanitize_input($_POST['email'] ?? '');
         $role = sanitize_input($_POST['role'] ?? '');
         $status = sanitize_input($_POST['status'] ?? '');
-        
+
         // Normalize status
         if ($status === 'on' || $status === '1' || $status === 'Active') {
             $status = 'Active';
-        } else {
+        }
+        else {
             $status = 'Inactive';
         }
-        
+
         // Validation
         if (empty($username)) {
             json_out(['status' => 'error', 'msg' => 'Username is required']);
@@ -131,7 +140,7 @@ switch ($action) {
         if (!in_array($role, $valid_roles)) {
             json_out(['status' => 'error', 'msg' => 'Invalid role selected']);
         }
-        
+
         // Email validation (if provided)
         if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             json_out(['status' => 'error', 'msg' => 'Invalid email format']);
@@ -146,7 +155,7 @@ switch ($action) {
                 if (strlen($password) < 6) {
                     json_out(['status' => 'error', 'msg' => 'Password must be at least 6 characters']);
                 }
-                
+
                 // Check if username exists
                 $stmt = $conn->prepare("SELECT user_id FROM users WHERE username=?");
                 $stmt->bind_param('s', $username);
@@ -156,7 +165,7 @@ switch ($action) {
                     json_out(['status' => 'error', 'msg' => 'Username already exists']);
                 }
                 $stmt->close();
-                
+
                 // Check if email exists (if provided)
                 if (!empty($email)) {
                     $stmt = $conn->prepare("SELECT user_id FROM users WHERE email=? AND email != ''");
@@ -168,49 +177,51 @@ switch ($action) {
                     }
                     $stmt->close();
                 }
-                
+
                 // Get the next available user_id (WORKAROUND for missing AUTO_INCREMENT)
                 $stmt = $conn->prepare("SELECT MAX(user_id) as max_id FROM users");
                 $stmt->execute();
                 $result = $stmt->get_result()->fetch_assoc();
                 $next_id = ($result['max_id'] ?? 0) + 1;
                 $stmt->close();
-                
+
                 // Hash password
                 $hash = password_hash($password, PASSWORD_DEFAULT);
-                
+
                 // role_id set to NULL
                 $role_id = null;
-                
+
                 // Insert new user WITH user_id specified
                 $stmt = $conn->prepare("INSERT INTO users (user_id, role_id, username, password_hash, full_name, email, role, status, date_created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
                 $stmt->bind_param('iissssss', $next_id, $role_id, $username, $hash, $full_name, $email, $role, $status);
                 $ok = $stmt->execute();
-                
+
                 if (!$ok) {
                     $error = $stmt->error;
                     $stmt->close();
                     error_log("Database error on user insert: " . $error);
                     json_out(['status' => 'error', 'msg' => 'Database error: ' . $error]);
                 }
-                
+
                 $new_id = $next_id;
                 $stmt->close();
-                
+
                 if ($ok) {
                     // Log activity
                     error_log("User created: ID $new_id, Username: $username by User ID: $current_user_id");
                     json_out(['status' => 'success', 'msg' => 'User added successfully', 'user_id' => $new_id]);
-                } else {
+                }
+                else {
                     json_out(['status' => 'error', 'msg' => 'Failed to add user']);
                 }
-                
-            } else {
+
+            }
+            else {
                 // Edit existing user
                 if ($id <= 0) {
                     json_out(['status' => 'error', 'msg' => 'Invalid user ID']);
                 }
-                
+
                 // Prevent editing own role/status if not Super Admin
                 if ($id == $current_user_id && $current_role !== 'Super Admin') {
                     $stmt = $conn->prepare("SELECT role, status FROM users WHERE user_id=?");
@@ -218,7 +229,7 @@ switch ($action) {
                     $stmt->execute();
                     $current_data = $stmt->get_result()->fetch_assoc();
                     $stmt->close();
-                    
+
                     if ($current_data['role'] !== $role) {
                         json_out(['status' => 'error', 'msg' => 'You cannot change your own role']);
                     }
@@ -226,7 +237,7 @@ switch ($action) {
                         json_out(['status' => 'error', 'msg' => 'You cannot change your own status']);
                     }
                 }
-                
+
                 // Check if username is taken by another user
                 $stmt = $conn->prepare("SELECT user_id FROM users WHERE username=? AND user_id!=?");
                 $stmt->bind_param('si', $username, $id);
@@ -236,7 +247,7 @@ switch ($action) {
                     json_out(['status' => 'error', 'msg' => 'Username already used by another user']);
                 }
                 $stmt->close();
-                
+
                 // Check if email is taken by another user (if provided)
                 if (!empty($email)) {
                     $stmt = $conn->prepare("SELECT user_id FROM users WHERE email=? AND user_id!=? AND email != ''");
@@ -248,7 +259,7 @@ switch ($action) {
                     }
                     $stmt->close();
                 }
-                
+
                 // Update user
                 if (!empty($password)) {
                     // Password change requested
@@ -258,32 +269,35 @@ switch ($action) {
                     $hash = password_hash($password, PASSWORD_DEFAULT);
                     $stmt = $conn->prepare("UPDATE users SET username=?, password_hash=?, full_name=?, email=?, role=?, status=? WHERE user_id=?");
                     $stmt->bind_param('ssssssi', $username, $hash, $full_name, $email, $role, $status, $id);
-                } else {
+                }
+                else {
                     // No password change
                     $stmt = $conn->prepare("UPDATE users SET username=?, full_name=?, email=?, role=?, status=? WHERE user_id=?");
                     $stmt->bind_param('sssssi', $username, $full_name, $email, $role, $status, $id);
                 }
-                
+
                 $ok = $stmt->execute();
-                
+
                 if (!$ok) {
                     $error = $stmt->error;
                     $stmt->close();
                     error_log("Database error on user update: " . $error);
                     json_out(['status' => 'error', 'msg' => 'Database error: ' . $error]);
                 }
-                
+
                 $stmt->close();
-                
+
                 if ($ok) {
                     // Log activity
                     error_log("User updated: ID $id, Username: $username by User ID: $current_user_id");
                     json_out(['status' => 'success', 'msg' => 'User updated successfully']);
-                } else {
+                }
+                else {
                     json_out(['status' => 'error', 'msg' => 'Failed to update user']);
                 }
             }
-        } catch (Exception $e) {
+        }
+        catch (Exception $e) {
             error_log("Error in add/edit user: " . $e->getMessage());
             json_out(['status' => 'error', 'msg' => 'Database error: ' . $e->getMessage()]);
         }
@@ -291,13 +305,14 @@ switch ($action) {
 
     case 'delete':
         $id = intval($_POST['id'] ?? 0);
-        if ($id <= 0) json_out(['status' => 'error', 'msg' => 'Invalid user ID']);
-        
+        if ($id <= 0)
+            json_out(['status' => 'error', 'msg' => 'Invalid user ID']);
+
         // Prevent self-deletion
         if ($id == $current_user_id) {
             json_out(['status' => 'error', 'msg' => 'You cannot delete your own account']);
         }
-        
+
         try {
             // Get user info before deletion for logging
             $stmt = $conn->prepare("SELECT username, role FROM users WHERE user_id=?");
@@ -305,25 +320,27 @@ switch ($action) {
             $stmt->execute();
             $user_info = $stmt->get_result()->fetch_assoc();
             $stmt->close();
-            
+
             if (!$user_info) {
                 json_out(['status' => 'error', 'msg' => 'User not found']);
             }
-            
+
             // Delete user
             $stmt = $conn->prepare("DELETE FROM users WHERE user_id=?");
             $stmt->bind_param('i', $id);
             $ok = $stmt->execute();
             $stmt->close();
-            
+
             if ($ok) {
                 // Log activity
                 error_log("User deleted: ID $id, Username: {$user_info['username']} by User ID: $current_user_id");
                 json_out(['status' => 'success', 'msg' => 'User deleted successfully']);
-            } else {
+            }
+            else {
                 json_out(['status' => 'error', 'msg' => 'Failed to delete user']);
             }
-        } catch (Exception $e) {
+        }
+        catch (Exception $e) {
             error_log("Error deleting user: " . $e->getMessage());
             json_out(['status' => 'error', 'msg' => 'Failed to delete user: ' . $e->getMessage()]);
         }
@@ -332,34 +349,37 @@ switch ($action) {
     case 'toggle_status':
         $id = intval($_POST['id'] ?? 0);
         $status = sanitize_input($_POST['status'] ?? 'Inactive');
-        
-        if ($id <= 0) json_out(['status' => 'error', 'msg' => 'Invalid user ID']);
-        
+
+        if ($id <= 0)
+            json_out(['status' => 'error', 'msg' => 'Invalid user ID']);
+
         // Normalize status
         if ($status !== 'Active' && $status !== 'Inactive') {
             $status = 'Inactive';
         }
-        
+
         // Prevent changing own status
         if ($id == $current_user_id) {
             json_out(['status' => 'error', 'msg' => 'You cannot change your own status']);
         }
-        
+
         try {
             $stmt = $conn->prepare("UPDATE users SET status=? WHERE user_id=?");
             $stmt->bind_param('si', $status, $id);
             $ok = $stmt->execute();
             $stmt->close();
-            
+
             if ($ok) {
                 // Log activity
                 error_log("User status changed: ID $id to $status by User ID: $current_user_id");
                 $action_word = $status === 'Active' ? 'activated' : 'deactivated';
                 json_out(['status' => 'success', 'msg' => "User $action_word successfully"]);
-            } else {
+            }
+            else {
                 json_out(['status' => 'error', 'msg' => 'Failed to update status']);
             }
-        } catch (Exception $e) {
+        }
+        catch (Exception $e) {
             error_log("Error toggling status: " . $e->getMessage());
             json_out(['status' => 'error', 'msg' => 'Failed to update status: ' . $e->getMessage()]);
         }

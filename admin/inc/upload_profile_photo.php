@@ -86,19 +86,21 @@ try {
     $result = $stmt->get_result()->fetch_assoc();
     $old_photo = $result['profile_photo'] ?? null;
     $stmt->close();
-    
+
     // Delete old file
     if ($old_photo) {
         $old_file = __DIR__ . '/../../' . ltrim($old_photo, '/');
         if (file_exists($old_file)) {
             if (@unlink($old_file)) {
                 error_log("Deleted old photo for user $user_id: $old_file");
-            } else {
+            }
+            else {
                 error_log("Failed to delete old photo for user $user_id: $old_file");
             }
         }
     }
-} catch (Exception $e) {
+}
+catch (Exception $e) {
     // Continue even if deletion fails
     error_log("Failed to delete old photo: " . $e->getMessage());
 }
@@ -135,29 +137,31 @@ try {
     $db = new DBConnection();
     $stmt = $db->conn->prepare("UPDATE users SET profile_photo = ? WHERE user_id = ?");
     $stmt->bind_param("si", $photo_url, $user_id);
-    
+
     if ($stmt->execute()) {
         // Update session data
         if (isset($_SESSION['userdata'])) {
             $_SESSION['userdata']['profile_photo'] = $photo_url;
         }
-        
+
         error_log("Successfully updated profile photo for user $user_id: $photo_url");
-        
+
         echo json_encode([
             'success' => true,
             'photo_url' => $photo_url,
             'message' => 'Profile photo updated successfully'
         ]);
-    } else {
+    }
+    else {
         // Delete uploaded file if database update fails
         @unlink($filepath);
         error_log("Database error for user $user_id: " . $stmt->error);
         echo json_encode(['success' => false, 'message' => 'Database error: ' . $stmt->error]);
     }
-    
+
     $stmt->close();
-} catch (Exception $e) {
+}
+catch (Exception $e) {
     // Delete uploaded file if error occurs
     @unlink($filepath);
     error_log("Exception for user $user_id: " . $e->getMessage());
