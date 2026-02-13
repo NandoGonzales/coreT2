@@ -4,22 +4,25 @@ require_once(__DIR__ . '/inc/log_audit_trial.php');
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
+// ⚠️ DEVELOPMENT MODE - Set to FALSE in production!
+define('DEV_MODE_BYPASS_OTP_EMAIL', true); // Change to FALSE when email is working
+
 // Redirect if not coming from login
 if (!isset($_SESSION['otp_user_id']) || !isset($_SESSION['otp_sent_time'])) {
     header("Location: login.php");
     exit();
 }
 
-// ✅ UPDATED: Check if OTP session has expired (2 minutes = 120 seconds)
+// ✅ Check if OTP session has expired (2 minutes = 120 seconds)
 if (time() - $_SESSION['otp_sent_time'] > 120) {
     unset($_SESSION['otp_user_id']);
     unset($_SESSION['otp_username']);
     unset($_SESSION['otp_sent_time']);
+    if (DEV_MODE_BYPASS_OTP_EMAIL && isset($_SESSION['dev_mode_otp'])) {
+        unset($_SESSION['dev_mode_otp']);
+    }
     
-    echo '<script>
-        window.location.href = "login.php";
-        alert("OTP session expired. Please login again.");
-    </script>';
+    header("Location: login.php?timeout=1");
     exit();
 }
 
@@ -55,97 +58,165 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($entered_otp)) {
         $error_message = "Please enter the OTP code.";
     } else {
-        // Get user's OTP from database
-        $stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ? LIMIT 1");
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        if ($result->num_rows === 1) {
-            $user = $result->fetch_assoc();
-
-            // Check if OTP has expired
-            if (strtotime($user['otp_expiry']) < time()) {
-                $error_message = "OTP has expired. Please request a new one.";
+        
+        // ⚠️ CHECK DEV MODE FIRST
+        if (DEV_MODE_BYPASS_OTP_EMAIL && isset($_SESSION['dev_mode_otp'])) {
+            // DEVELOPMENT MODE - Check against session OTP
+            error_log("🔧 DEV MODE: Verifying OTP from session");
+            
+            if ($entered_otp === $_SESSION['dev_mode_otp']) {
+                // OTP matches!
+                error_log("✅ DEV MODE: OTP verified successfully");
                 
-                log_to_both_tables(
-                    $user_id,
-                    'OTP Verification Failed - Expired',
-                    'Authentication',
-                    'OTP expired',
-                    'Failed'
-                );
-
-                // Clear session
-                unset($_SESSION['otp_user_id']);
-                unset($_SESSION['otp_username']);
-                unset($_SESSION['otp_sent_time']);
-
-                echo '<script>
-                    setTimeout(function() {
-                        window.location.href = "login.php";
-                    }, 2000);
-                </script>';
+                // Get user data
+                $stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ?");
+                $stmt->bind_param("i", $user_id);
+                $stmt->execute();
+                $result = $stmt->get_result();
                 
-            } elseif (password_verify($entered_otp, $user['otp_code'])) {
-                // ✅ OTP is correct - Complete login
-                
-                // Mark OTP as verified
-                $update_stmt = $conn->prepare("UPDATE users SET otp_verified = 1 WHERE user_id = ?");
-                $update_stmt->bind_param("i", $user_id);
-                $update_stmt->execute();
-                $update_stmt->close();
-
-                // Create full session
-                session_regenerate_id(true);
-
-                $_SESSION['userdata'] = [
-                    'user_id' => $user['user_id'],
-                    'username' => $user['username'],
-                    'full_name' => $user['full_name'] ?? 'User',
-                    'role' => $user['role'] ?? 'Member'
-                ];
-
-                $_SESSION['last_activity'] = time();
-                $_SESSION['session_start'] = time();
-                $_SESSION['login_success'] = "Welcome back, " . ($user['full_name'] ?? 'User') . "!";
-
-                // Clear OTP session data
-                unset($_SESSION['otp_user_id']);
-                unset($_SESSION['otp_username']);
-                unset($_SESSION['otp_sent_time']);
-
-                // Log successful verification
-                log_to_both_tables(
-                    $user['user_id'],
-                    'OTP Verified - Login Complete',
-                    'Authentication',
-                    'User successfully verified OTP and logged in from IP: ' . $_SERVER['REMOTE_ADDR'],
-                    'Success'
-                );
-
-                // Redirect to dashboard
-                $redirect_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http")
-                    . "://" . $_SERVER['HTTP_HOST'] . "/admin/dashboard.php";
-                
-                header("Location: " . $redirect_url);
-                exit();
+                if ($result->num_rows === 1) {
+                    $user = $result->fetch_assoc();
+                    
+                    // Mark OTP as verified in database
+                    $update_stmt = $conn->prepare("UPDATE users SET otp_verified = 1 WHERE user_id = ?");
+                    $update_stmt->bind_param("i", $user_id);
+                    $update_stmt->execute();
+                    $update_stmt->close();
+                    
+                    // Create full session
+                    session_regenerate_id(true);
+                    
+                    $_SESSION['userdata'] = [
+                        'user_id' => $user['user_id'],
+                        'username' => $user['username'],
+                        'full_name' => $user['full_name'] ?? 'User',
+                        'role' => $user['role'] ?? 'Member'
+                    ];
+                    
+                    $_SESSION['last_activity'] = time();
+                    $_SESSION['session_start'] = time();
+                    $_SESSION['login_success'] = "Welcome back, " . ($user['full_name'] ?? 'User') . "!";
+                    
+                    // Clear OTP session data
+                    unset($_SESSION['otp_user_id']);
+                    unset($_SESSION['otp_username']);
+                    unset($_SESSION['otp_sent_time']);
+                    unset($_SESSION['dev_mode_otp']);
+                    
+                    // Log successful login
+                    log_to_both_tables(
+                        $user['user_id'],
+                        'Login Success (Dev Mode)',
+                        'Authentication',
+                        'User logged in successfully via OTP (Dev Mode) from IP: ' . $_SERVER['REMOTE_ADDR'],
+                        'Success'
+                    );
+                    
+                    // Redirect to dashboard
+                    header("Location: dashboard.php");
+                    exit();
+                } else {
+                    $error_message = "User not found.";
+                    log_to_both_tables($user_id, 'OTP Verification Failed', 'Authentication', 'User not found after OTP verification', 'Failed');
+                }
+                $stmt->close();
                 
             } else {
                 $error_message = "Invalid OTP code. Please try again.";
-                
-                log_to_both_tables(
-                    $user_id,
-                    'OTP Verification Failed - Wrong Code',
-                    'Authentication',
-                    'Incorrect OTP entered',
-                    'Failed'
-                );
+                error_log("❌ DEV MODE: Invalid OTP entered - Expected: " . $_SESSION['dev_mode_otp'] . ", Got: " . $entered_otp);
+                log_to_both_tables($user_id, 'OTP Verification Failed', 'Authentication', 'Invalid OTP entered (Dev Mode)', 'Failed');
             }
+            
         } else {
-            $error_message = "User not found.";
+            // PRODUCTION MODE - Check against database
+            $stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ? LIMIT 1");
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            if ($result->num_rows === 1) {
+                $user = $result->fetch_assoc();
+
+                // Check if OTP has expired
+                if (strtotime($user['otp_expiry']) < time()) {
+                    $error_message = "OTP has expired. Please request a new one.";
+                    
+                    log_to_both_tables(
+                        $user_id,
+                        'OTP Verification Failed - Expired',
+                        'Authentication',
+                        'OTP expired',
+                        'Failed'
+                    );
+
+                    // Clear session
+                    unset($_SESSION['otp_user_id']);
+                    unset($_SESSION['otp_username']);
+                    unset($_SESSION['otp_sent_time']);
+
+                    echo '<script>
+                        setTimeout(function() {
+                            window.location.href = "login.php";
+                        }, 2000);
+                    </script>';
+                    
+                } elseif (password_verify($entered_otp, $user['otp_code'])) {
+                    // ✅ OTP is correct - Complete login
+                    
+                    // Mark OTP as verified
+                    $update_stmt = $conn->prepare("UPDATE users SET otp_verified = 1 WHERE user_id = ?");
+                    $update_stmt->bind_param("i", $user_id);
+                    $update_stmt->execute();
+                    $update_stmt->close();
+
+                    // Create full session
+                    session_regenerate_id(true);
+
+                    $_SESSION['userdata'] = [
+                        'user_id' => $user['user_id'],
+                        'username' => $user['username'],
+                        'full_name' => $user['full_name'] ?? 'User',
+                        'role' => $user['role'] ?? 'Member'
+                    ];
+
+                    $_SESSION['last_activity'] = time();
+                    $_SESSION['session_start'] = time();
+                    $_SESSION['login_success'] = "Welcome back, " . ($user['full_name'] ?? 'User') . "!";
+
+                    // Clear OTP session data
+                    unset($_SESSION['otp_user_id']);
+                    unset($_SESSION['otp_username']);
+                    unset($_SESSION['otp_sent_time']);
+
+                    // Log successful verification
+                    log_to_both_tables(
+                        $user['user_id'],
+                        'OTP Verified - Login Complete',
+                        'Authentication',
+                        'User successfully verified OTP and logged in from IP: ' . $_SERVER['REMOTE_ADDR'],
+                        'Success'
+                    );
+
+                    // Redirect to dashboard
+                    header("Location: dashboard.php");
+                    exit();
+                    
+                } else {
+                    $error_message = "Invalid OTP code. Please try again.";
+                    
+                    log_to_both_tables(
+                        $user_id,
+                        'OTP Verification Failed - Wrong Code',
+                        'Authentication',
+                        'Incorrect OTP entered',
+                        'Failed'
+                    );
+                }
+            } else {
+                $error_message = "User not found.";
+            }
+            $stmt->close();
         }
-        $stmt->close();
     }
 }
 ?>
@@ -430,6 +501,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             to { transform: rotate(360deg); }
         }
 
+        /* Dev Mode Badge */
+        .dev-mode-badge {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #ff4444;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            z-index: 9999;
+            font-size: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .dev-otp-display {
+            background: #fff3cd;
+            border: 2px dashed #ffc107;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .dev-otp-code {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff4444;
+            letter-spacing: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+        }
+
         /* Responsive */
         @media (max-width: 576px) {
             .verify-card {
@@ -456,6 +560,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 
 <body>
+    <?php if (DEV_MODE_BYPASS_OTP_EMAIL): ?>
+    <div class="dev-mode-badge">
+        🔧 DEV MODE - OTP Email Bypassed
+    </div>
+    <?php endif; ?>
+
     <!-- Background shapes -->
     <div class="shape shape-1"></div>
     <div class="shape shape-2"></div>
@@ -471,13 +581,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="text-center mb-4">
             <h2 class="verify-title">Verify Your Identity</h2>
             <p class="verify-subtitle">
-                We've sent a 6-digit verification code to your email.<br>
-                Please enter it below to continue securely.
+                <?php if (DEV_MODE_BYPASS_OTP_EMAIL): ?>
+                    <strong style="color: #ff4444;">🔧 DEV MODE: Check OTP below</strong>
+                <?php else: ?>
+                    We've sent a 6-digit verification code to your email.<br>
+                    Please enter it below to continue securely.
+                <?php endif; ?>
             </p>
+            <?php if (isset($_SESSION['otp_username'])): ?>
+                <p class="text-muted small">Logging in as: <strong><?= htmlspecialchars($_SESSION['otp_username']) ?></strong></p>
+            <?php endif; ?>
         </div>
 
+        <?php if (DEV_MODE_BYPASS_OTP_EMAIL && isset($_SESSION['dev_mode_otp'])): ?>
+        <div class="dev-otp-display">
+            <div style="font-size: 14px; color: #856404; font-weight: bold;">🔧 DEVELOPMENT MODE OTP:</div>
+            <div class="dev-otp-code"><?= $_SESSION['dev_mode_otp'] ?></div>
+            <div style="font-size: 12px; color: #856404;">Copy and paste this code below</div>
+        </div>
+        <?php endif; ?>
+
         <!-- OTP Form -->
-        <form method="POST" action="" id="otpForm">
+        <form method="POST" action="" id="otpForm" autocomplete="off">
             <div class="otp-input-group" id="otpInputs">
                 <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" inputmode="numeric" autocomplete="off">
                 <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" inputmode="numeric" autocomplete="off">
@@ -487,7 +612,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="text" class="otp-input" maxlength="1" pattern="[0-9]" inputmode="numeric" autocomplete="off">
             </div>
 
-            <input type="hidden" name="otp" id="otpHidden">
+            <input type="hidden" name="otp" id="otpHidden" autocomplete="off">
 
             <button type="submit" class="btn btn-verify w-100" id="verifyBtn">
                 <span id="btnText">✓ Verify & Continue</span>
@@ -495,7 +620,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </button>
         </form>
 
-        <!-- ✅ UPDATED: Info Box -->
+        <!-- Info Box -->
         <div class="info-box">
             <p>
                 <strong>🔒 Security Notice:</strong> This code will expire in 2 minutes. 
@@ -503,7 +628,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </p>
         </div>
 
-        <!-- ✅ UPDATED: Timer Display -->
+        <!-- Timer Display -->
         <div class="timer-box">
             <div class="timer-label">Time Remaining</div>
             <div class="countdown" id="countdown">2:00</div>
@@ -615,7 +740,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         });
 
-        // ✅ UPDATED: Countdown timer (2 minutes = 120 seconds)
+        // Countdown timer (2 minutes = 120 seconds)
         let timeRemaining = 120;
         const countdownElement = document.getElementById('countdown');
 
@@ -639,7 +764,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     confirmButtonColor: '#059669',
                     allowOutsideClick: false
                 }).then(() => {
-                    window.location.href = 'login.php';
+                    window.location.href = 'login.php?timeout=1';
                 });
             }
             
@@ -648,7 +773,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         const timerInterval = setInterval(updateTimer, 1000);
 
-        // ✅ ENHANCED: Resend OTP with cooldown
+        // Resend OTP with cooldown
         let canResend = true;
         let resendCooldownTime = 30;
 
@@ -721,6 +846,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 icon: 'error',
                 title: 'Verification Failed',
                 text: '<?= addslashes($error_message) ?>',
+                confirmButtonColor: '#059669'
+            });
+        </script>
+    <?php endif; ?>
+
+    <?php if (!empty($success_message)) : ?>
+        <script>
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: '<?= addslashes($success_message) ?>',
                 confirmButtonColor: '#059669'
             });
         </script>

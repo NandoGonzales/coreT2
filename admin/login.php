@@ -11,6 +11,9 @@ if (isset($_SESSION['userdata'])) {
     exit();
 }
 
+// ⚠️ DEVELOPMENT MODE - Set to FALSE in production!
+define('DEV_MODE_BYPASS_OTP_EMAIL', true); // Change to FALSE in production
+
 $error_message = "";
 $show_session_expired = isset($_GET['auto']) && isset($_GET['timeout']);
 $show_logout_success = isset($_GET['logout']);
@@ -83,30 +86,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $otp = generateOTP(6);
                     
                     if (storeOTP($user['user_id'], $otp, $conn)) {
-                        if (sendOTPEmail($user['email'], $user['full_name'], $otp)) {
+                        
+                        // ⚠️ DEVELOPMENT MODE CHECK
+                        if (DEV_MODE_BYPASS_OTP_EMAIL) {
+                            // BYPASS EMAIL - For testing only!
+                            error_log("🔧 DEV MODE: OTP Email bypassed - OTP is: $otp");
+                            
                             $_SESSION['otp_user_id'] = $user['user_id'];
                             $_SESSION['otp_username'] = $user['username'];
                             $_SESSION['otp_sent_time'] = time();
+                            $_SESSION['dev_mode_otp'] = $otp; // Store for display
                             
                             log_to_both_tables(
                                 $user['user_id'],
-                                'OTP Sent',
+                                'OTP Generated (Dev Mode)',
                                 'Authentication',
-                                'OTP sent to email: ' . $user['email'],
+                                'OTP bypassed - Dev Mode: ' . $otp,
                                 'Success'
                             );
                             
                             header("Location: verify_otp.php");
                             exit();
+                            
                         } else {
-                            $error_message = "Failed to send OTP email. Please try again.";
-                            log_to_both_tables(
-                                $user['user_id'],
-                                'OTP Send Failed',
-                                'Authentication',
-                                'Email sending failed',
-                                'Failed'
-                            );
+                            // PRODUCTION MODE - Send actual email
+                            if (sendOTPEmail($user['email'], $user['full_name'], $otp)) {
+                                $_SESSION['otp_user_id'] = $user['user_id'];
+                                $_SESSION['otp_username'] = $user['username'];
+                                $_SESSION['otp_sent_time'] = time();
+                                
+                                log_to_both_tables(
+                                    $user['user_id'],
+                                    'OTP Sent',
+                                    'Authentication',
+                                    'OTP sent to email: ' . $user['email'],
+                                    'Success'
+                                );
+                                
+                                header("Location: verify_otp.php");
+                                exit();
+                            } else {
+                                $error_message = "Failed to send OTP email. Please try again or contact support.";
+                                log_to_both_tables(
+                                    $user['user_id'],
+                                    'OTP Send Failed',
+                                    'Authentication',
+                                    'Email sending failed',
+                                    'Failed'
+                                );
+                            }
                         }
                     } else {
                         $error_message = "Failed to generate OTP. Please try again.";
@@ -381,10 +409,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     .terms-section li {
       margin-bottom: 0.5rem;
     }
+    
+    /* Dev Mode Badge */
+    .dev-mode-badge {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      background: #ff4444;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: bold;
+      z-index: 9999;
+      font-size: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
   </style>
 </head>
 
 <body>
+
+  <?php if (DEV_MODE_BYPASS_OTP_EMAIL): ?>
+  <div class="dev-mode-badge">
+    🔧 DEV MODE - OTP Email Bypassed
+  </div>
+  <?php endif; ?>
 
   <!-- Floating Shapes Background -->
   <div class="position-absolute top-0 start-0 w-100 h-100" style="z-index: 0;">
@@ -449,7 +498,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               <div class="input-group">
                 <span class="input-group-text">@</span>
                 <input type="text" class="form-control py-3" id="username" name="username" 
-                       placeholder="Enter your username or email" required autofocus>
+                       placeholder="Enter your username or email" autocomplete="username" required autofocus>
               </div>
             </div>
 
@@ -465,7 +514,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   </svg>
                 </span>
                 <input type="password" class="form-control py-3" id="password" name="password" 
-                       placeholder="Enter your password" required>
+                       placeholder="Enter your password" autocomplete="current-password" required>
                 <button class="btn btn-outline-secondary btn-password-toggle" type="button" id="password-toggle">
                   <!-- Eye Open -->
                   <svg id="eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
