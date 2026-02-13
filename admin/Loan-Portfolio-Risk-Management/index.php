@@ -694,18 +694,14 @@ if (session_status() === PHP_SESSION_NONE) session_start();
         const API_BASE_URL = (() => {
             const path = window.location.pathname;
             const parts = path.split('/');
-
-            // Find "admin" folder index
             const adminIndex = parts.indexOf('admin');
 
             if (adminIndex > 0) {
-                // Build path from root to admin, then go to api
                 const rootPath = parts.slice(0, adminIndex).join('/');
-                return rootPath + '/api/loan/loan_api.php';
+                return rootPath + '/api/loan/ajax_loan_risk_data.php'; // ✅ TAMA NA!
             }
 
-            // Fallback
-            return '/api/loan/loan_api.php';
+            return '/api/loan/ajax_loan_risk_data.php'; // ✅ TAMA NA!
         })();
 
         console.log('🔧 API URL:', API_BASE_URL);
