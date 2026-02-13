@@ -79,32 +79,24 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 
     // Search logic (bulletproof)
     if ($search !== '') {
-
-        // If input is pure number: ALWAYS exact member_id match
         if (preg_match('/^\d+$/', $search)) {
             $where[] = "s.member_id = ?";
             $params[] = intval($search);
             $types .= 'i';
         } else {
-
-            // If not number: use dropdown logic
             if ($search_by === 'transaction_type') {
                 $where[] = "s.transaction_type LIKE ?";
                 $params[] = "%$search%";
                 $types .= 's';
-
             } elseif ($search_by === 'transaction_date') {
                 $where[] = "s.transaction_date LIKE ?";
                 $params[] = "%$search%";
                 $types .= 's';
-
             } elseif ($search_by === 'recorded_by_name') {
                 $where[] = "s.recorded_by IN (SELECT user_id FROM users WHERE full_name LIKE ?)";
                 $params[] = "%$search%";
                 $types .= 's';
-
             } else {
-                // auto / member_id / unknown = fallback
                 $where[] = "(CAST(s.member_id AS CHAR) LIKE ? OR s.transaction_type LIKE ? OR s.transaction_date LIKE ?)";
                 $s = "%$search%";
                 $params[] = $s; $params[] = $s; $params[] = $s;
@@ -113,8 +105,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         }
     }
 
-    // ✅ FIX: deposit filter includes Interest
-    if ($filter === 'deposit') $where[] = "(s.transaction_type='Deposit' OR s.transaction_type='Interest')";
+    // ✅ FIX: deposit filter should include Interest
+    if ($filter === 'deposit') $where[] = "s.transaction_type IN ('Deposit','Interest')";
     elseif ($filter === 'withdrawal') $where[] = "s.transaction_type='Withdrawal'";
 
     if ($type !== '') {
@@ -150,7 +142,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $whereSql = count($where) ? "WHERE " . implode(' AND ', $where) : '';
     $pdfPassword = trim($_GET['pdf_password'] ?? '');
 
-    // Fetch data
     $sql = "SELECT s.*, u.full_name AS recorded_by_name
             FROM savings s
             LEFT JOIN users u ON s.recorded_by = u.user_id
@@ -173,16 +164,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $filename_base = 'savings_export_' . date('Y-m-d_His');
     $csv_filename = $filename_base . '.csv';
 
-    // Create CSV in memory
     $out = fopen('php://temp', 'r+');
     fputcsv($out, ['ID', 'Member ID', 'Date', 'Type', 'Amount', 'Balance', 'Recorded By']);
     foreach ($csv_data as $r) {
-        $rb = $r['recorded_by_name'] ?? '';
-        if ($rb === '' || $rb === null) $rb = 'System';
-
         fputcsv($out, [
             $r['saving_id'], $r['member_id'], $r['transaction_date'], $r['transaction_type'],
-            $r['amount'], $r['balance'], $rb
+            $r['amount'], $r['balance'], $r['recorded_by_name'] ?? '-'
         ]);
     }
     rewind($out);
@@ -312,8 +299,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
         }
     }
 
-    // ✅ FIX: deposit filter includes Interest
-    if ($filter === 'deposit') $where[] = "(s.transaction_type='Deposit' OR s.transaction_type='Interest')";
+    // ✅ FIX: deposit filter should include Interest
+    if ($filter === 'deposit') $where[] = "s.transaction_type IN ('Deposit','Interest')";
     elseif ($filter === 'withdrawal') $where[] = "s.transaction_type='Withdrawal'";
 
     if ($type !== '') { $where[] = "s.transaction_type=?"; $params[] = $type; $types .= 's'; }
@@ -368,9 +355,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     $n = 0;
     while ($r = $res->fetch_assoc()) {
         $rowClass = ($n % 2 === 0) ? '' : 'row-alt';
-        $rb = $r['recorded_by_name'] ?? '';
-        if ($rb === '' || $rb === null) $rb = 'System';
-
         $html .= '<tr class="' . $rowClass . '">'
             . '<td class="center">' . $r['saving_id'] . '</td>'
             . '<td class="center">' . $r['member_id'] . '</td>'
@@ -378,7 +362,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
             . '<td class="center">' . $r['transaction_type'] . '</td>'
             . '<td class="text-end">₱' . number_format($r['amount'], 2) . '</td>'
             . '<td class="text-end">₱' . number_format($r['balance'], 2) . '</td>'
-            . '<td>' . htmlspecialchars($rb, ENT_QUOTES, 'UTF-8') . '</td>'
+            . '<td>' . htmlspecialchars($r['recorded_by_name'] ?? '-', ENT_QUOTES, 'UTF-8') . '</td>'
             . '</tr>';
         $n++;
     }
@@ -412,7 +396,6 @@ function getSummary($conn, $where = '', $params = [], $types = '')
 {
     $summary = [
         'total' => 0,
-        // ✅ deposits includes Interest
         'total_deposits' => 0,
         'total_withdrawals' => 0,
         'last_balance' => 0
@@ -432,9 +415,11 @@ function getSummary($conn, $where = '', $params = [], $types = '')
         $summary['total'] = $conn->query($sql)->fetch_assoc()['total'] ?? 0;
     }
 
-    // ✅ Deposit OR Interest
-    $whereDeposit = $hasWhere ? "WHERE $whereClean AND (transaction_type='Deposit' OR transaction_type='Interest')"
-                              : "WHERE (transaction_type='Deposit' OR transaction_type='Interest')";
+    // ✅ FIX: Deposits summary includes Interest
+    $whereDeposit = $hasWhere
+        ? "WHERE $whereClean AND transaction_type IN ('Deposit','Interest')"
+        : "WHERE transaction_type IN ('Deposit','Interest')";
+
     $sql = "SELECT COUNT(*) AS total_deposits FROM savings $whereDeposit";
     if ($params && count($params) > 0) {
         $stmt = $conn->prepare($sql);
@@ -446,8 +431,7 @@ function getSummary($conn, $where = '', $params = [], $types = '')
         $summary['total_deposits'] = $conn->query($sql)->fetch_assoc()['total_deposits'] ?? 0;
     }
 
-    $whereWithdraw = $hasWhere ? "WHERE $whereClean AND transaction_type='Withdrawal'"
-                               : "WHERE transaction_type='Withdrawal'";
+    $whereWithdraw = $hasWhere ? "WHERE $whereClean AND transaction_type='Withdrawal'" : "WHERE transaction_type='Withdrawal'";
     $sql = "SELECT COUNT(*) AS total_withdrawals FROM savings $whereWithdraw";
     if ($params && count($params) > 0) {
         $stmt = $conn->prepare($sql);
@@ -509,7 +493,6 @@ try {
             $params = [];
             $types = '';
 
-            // Search logic (safe + exact numeric)
             if ($search !== '') {
                 if ($search_by === 'auto') {
                     if (preg_match('/^\d+$/', $search)) {
@@ -545,8 +528,8 @@ try {
                 }
             }
 
-            // ✅ FIX: deposit filter includes Interest
-            if ($filter === 'deposit') $where[] = "(s.transaction_type='Deposit' OR s.transaction_type='Interest')";
+            // ✅ FIX: deposit filter should include Interest
+            if ($filter === 'deposit') $where[] = "s.transaction_type IN ('Deposit','Interest')";
             elseif ($filter === 'withdrawal') $where[] = "s.transaction_type='Withdrawal'";
 
             if ($type !== '') {
@@ -581,7 +564,6 @@ try {
 
             $whereSql = count($where) ? "WHERE " . implode(' AND ', $where) : '';
 
-            // Rows
             $sql = "
                 SELECT s.*, u.full_name AS recorded_by_name
                 FROM savings s
@@ -602,13 +584,9 @@ try {
             $res = $stmt->get_result();
 
             $rows = [];
-            while ($r = $res->fetch_assoc()) {
-                if (empty($r['recorded_by_name'])) $r['recorded_by_name'] = 'System';
-                $rows[] = $r;
-            }
+            while ($r = $res->fetch_assoc()) $rows[] = $r;
             $stmt->close();
 
-            // Count
             $countSql = "SELECT COUNT(*) AS cnt FROM savings s $whereSql";
             $total = 0;
 
@@ -625,7 +603,6 @@ try {
 
             $total_pages = $limit > 0 ? ceil($total / $limit) : 1;
 
-            // Summary where must not contain "s."
             $summaryWhere = str_replace('s.', '', $whereSql);
             $summaryWhere = str_replace('WHERE ', '', $summaryWhere);
 
@@ -672,10 +649,7 @@ try {
             $res = $stmt->get_result();
 
             $transactions = [];
-            while ($r = $res->fetch_assoc()) {
-                if (empty($r['recorded_by_name'])) $r['recorded_by_name'] = 'System';
-                $transactions[] = $r;
-            }
+            while ($r = $res->fetch_assoc()) $transactions[] = $r;
             $stmt->close();
 
             $memberSummary = [
@@ -687,8 +661,8 @@ try {
                 'total_transactions' => count($transactions)
             ];
 
+            // ✅ FIX: Interest should be treated like "in" not withdrawal
             foreach ($transactions as $txn) {
-                // ✅ FIX: Interest is treated as "in" like Deposit
                 if ($txn['transaction_type'] === 'Deposit' || $txn['transaction_type'] === 'Interest') {
                     $memberSummary['total_deposits'] += floatval($txn['amount']);
                     $memberSummary['deposit_count']++;
@@ -728,12 +702,8 @@ try {
             $res = $stmt->get_result()->fetch_assoc();
             $stmt->close();
 
-            if ($res) {
-                if (empty($res['recorded_by_name'])) $res['recorded_by_name'] = 'System';
-                echo json_encode(['status' => 'success', 'row' => $res]);
-            } else {
-                echo json_encode(['status' => 'error', 'msg' => 'Record not found']);
-            }
+            if ($res) echo json_encode(['status' => 'success', 'row' => $res]);
+            else echo json_encode(['status' => 'error', 'msg' => 'Record not found']);
             break;
 
         case 'add':
@@ -759,7 +729,9 @@ try {
             $last_balance = $bR['balance'] ?? 0;
             $balRes->close();
 
-            $new_balance = ($type === 'Deposit' || $type === 'Interest') ? ($last_balance + $amount) : ($last_balance - $amount);
+            $new_balance = ($type === 'Deposit' || $type === 'Interest')
+                ? ($last_balance + $amount)
+                : ($last_balance - $amount);
 
             if ($new_balance < 0) {
                 echo json_encode(['status' => 'error', 'msg' => 'Insufficient balance for withdrawal']);
