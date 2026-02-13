@@ -168,8 +168,13 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     fputcsv($out, ['ID', 'Member ID', 'Date', 'Type', 'Amount', 'Balance', 'Recorded By']);
     foreach ($csv_data as $r) {
         fputcsv($out, [
-            $r['saving_id'], $r['member_id'], $r['transaction_date'], $r['transaction_type'],
-            $r['amount'], $r['balance'], $r['recorded_by_name'] ?? '-'
+            $r['saving_id'],
+            $r['member_id'],
+            $r['transaction_date'],
+            $r['transaction_type'],
+            $r['amount'],
+            $r['balance'],
+            $r['recorded_by_name'] ?? '-'
         ]);
     }
     rewind($out);
@@ -396,6 +401,7 @@ function getSummary($conn, $where = '', $params = [], $types = '')
 {
     $summary = [
         'total' => 0,
+        // ✅ Treat Interest as part of deposits (inflow)
         'total_deposits' => 0,
         'total_withdrawals' => 0,
         'last_balance' => 0
@@ -404,6 +410,7 @@ function getSummary($conn, $where = '', $params = [], $types = '')
     $whereClean = str_replace(['WHERE ', 'where '], '', trim($where));
     $hasWhere = !empty($whereClean);
 
+    // total rows
     $sql = "SELECT COUNT(*) AS total FROM savings" . ($hasWhere ? " WHERE $whereClean" : "");
     if ($params && count($params) > 0) {
         $stmt = $conn->prepare($sql);
@@ -415,11 +422,8 @@ function getSummary($conn, $where = '', $params = [], $types = '')
         $summary['total'] = $conn->query($sql)->fetch_assoc()['total'] ?? 0;
     }
 
-    // ✅ FIX: Deposits summary includes Interest
-    $whereDeposit = $hasWhere
-        ? "WHERE $whereClean AND transaction_type IN ('Deposit','Interest')"
-        : "WHERE transaction_type IN ('Deposit','Interest')";
-
+    // ✅ deposits count = Deposit + Interest
+    $whereDeposit = $hasWhere ? "WHERE $whereClean AND transaction_type IN ('Deposit','Interest')" : "WHERE transaction_type IN ('Deposit','Interest')";
     $sql = "SELECT COUNT(*) AS total_deposits FROM savings $whereDeposit";
     if ($params && count($params) > 0) {
         $stmt = $conn->prepare($sql);
@@ -431,6 +435,7 @@ function getSummary($conn, $where = '', $params = [], $types = '')
         $summary['total_deposits'] = $conn->query($sql)->fetch_assoc()['total_deposits'] ?? 0;
     }
 
+    // withdrawals count
     $whereWithdraw = $hasWhere ? "WHERE $whereClean AND transaction_type='Withdrawal'" : "WHERE transaction_type='Withdrawal'";
     $sql = "SELECT COUNT(*) AS total_withdrawals FROM savings $whereWithdraw";
     if ($params && count($params) > 0) {
@@ -443,8 +448,18 @@ function getSummary($conn, $where = '', $params = [], $types = '')
         $summary['total_withdrawals'] = $conn->query($sql)->fetch_assoc()['total_withdrawals'] ?? 0;
     }
 
-    $q = $conn->query("SELECT balance FROM savings ORDER BY saving_id DESC LIMIT 1");
-    $summary['last_balance'] = $q ? ($q->fetch_assoc()['balance'] ?? 0) : 0;
+    // ✅ last_balance should respect filters if any
+    $sql = "SELECT balance FROM savings" . ($hasWhere ? " WHERE $whereClean" : "") . " ORDER BY saving_id DESC LIMIT 1";
+    if ($params && count($params) > 0) {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $summary['last_balance'] = $stmt->get_result()->fetch_assoc()['balance'] ?? 0;
+        $stmt->close();
+    } else {
+        $q = $conn->query($sql);
+        $summary['last_balance'] = $q ? ($q->fetch_assoc()['balance'] ?? 0) : 0;
+    }
 
     return $summary;
 }
@@ -493,6 +508,7 @@ try {
             $params = [];
             $types = '';
 
+            // Search logic (safe + exact numeric)
             if ($search !== '') {
                 if ($search_by === 'auto') {
                     if (preg_match('/^\d+$/', $search)) {
@@ -564,6 +580,7 @@ try {
 
             $whereSql = count($where) ? "WHERE " . implode(' AND ', $where) : '';
 
+            // Rows
             $sql = "
                 SELECT s.*, u.full_name AS recorded_by_name
                 FROM savings s
@@ -587,6 +604,7 @@ try {
             while ($r = $res->fetch_assoc()) $rows[] = $r;
             $stmt->close();
 
+            // Count
             $countSql = "SELECT COUNT(*) AS cnt FROM savings s $whereSql";
             $total = 0;
 
@@ -603,6 +621,7 @@ try {
 
             $total_pages = $limit > 0 ? ceil($total / $limit) : 1;
 
+            // Summary where must not contain "s."
             $summaryWhere = str_replace('s.', '', $whereSql);
             $summaryWhere = str_replace('WHERE ', '', $summaryWhere);
 
@@ -653,6 +672,7 @@ try {
             $stmt->close();
 
             $memberSummary = [
+                // ✅ Treat Interest as deposit (inflow)
                 'total_deposits' => 0,
                 'total_withdrawals' => 0,
                 'deposit_count' => 0,
@@ -661,12 +681,13 @@ try {
                 'total_transactions' => count($transactions)
             ];
 
-            // ✅ FIX: Interest should be treated like "in" not withdrawal
             foreach ($transactions as $txn) {
-                if ($txn['transaction_type'] === 'Deposit' || $txn['transaction_type'] === 'Interest') {
+                $t = $txn['transaction_type'];
+
+                if ($t === 'Deposit' || $t === 'Interest') {
                     $memberSummary['total_deposits'] += floatval($txn['amount']);
                     $memberSummary['deposit_count']++;
-                } elseif ($txn['transaction_type'] === 'Withdrawal') {
+                } elseif ($t === 'Withdrawal') {
                     $memberSummary['total_withdrawals'] += floatval($txn['amount']);
                     $memberSummary['withdrawal_count']++;
                 }
@@ -729,9 +750,12 @@ try {
             $last_balance = $bR['balance'] ?? 0;
             $balRes->close();
 
-            $new_balance = ($type === 'Deposit' || $type === 'Interest')
-                ? ($last_balance + $amount)
-                : ($last_balance - $amount);
+            // ✅ Interest acts like Deposit (adds)
+            if ($type === 'Deposit' || $type === 'Interest') {
+                $new_balance = ($last_balance + $amount);
+            } else {
+                $new_balance = ($last_balance - $amount);
+            }
 
             if ($new_balance < 0) {
                 echo json_encode(['status' => 'error', 'msg' => 'Insufficient balance for withdrawal']);
