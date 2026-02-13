@@ -3,19 +3,9 @@ require_once(__DIR__ . '/../../initialize_coreT2.php');
 require_once(__DIR__ . '/../inc/sess_auth.php');
 require_once(__DIR__ . '/../inc/access_control.php');
 
-date_default_timezone_set('Asia/Manila');
-
-/* ============================================================
-   MONTHLY INTEREST SETTINGS
-   ============================================================ */
-const SAVINGS_INTEREST_RATE = 0.025;
-
-// Set this to a real existing users.user_id (admin/system)
-const SYSTEM_USER_ID_FOR_INTEREST = 1;
-
-/* ============================================================
-   TCPDF LOADER + PDF OUTPUT (UNCHANGED STYLE)
-   ============================================================ */
+// ----------------------------------------------------------------------
+// Load TCPDF only when needed to avoid fatal errors if library is missing
+// ----------------------------------------------------------------------
 function loadTCPDF()
 {
     if (class_exists('TCPDF')) return true;
@@ -37,14 +27,22 @@ function loadTCPDF()
     return false;
 }
 
+/**
+ * Send PDF as clean binary download to avoid corruption.
+ */
 function outputPdfDownload($pdf, string $filename): void
 {
-    while (ob_get_level() > 0) ob_end_clean();
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+
     ob_start();
     $binary = $pdf->Output($filename, 'S');
     ob_end_clean();
 
-    if ($binary === '') throw new Exception('Generated PDF content is empty.');
+    if ($binary === '') {
+        throw new Exception('Generated PDF content is empty.');
+    }
 
     if (!headers_sent()) {
         header('Content-Type: application/pdf');
@@ -59,44 +57,35 @@ function outputPdfDownload($pdf, string $filename): void
     exit;
 }
 
-/* ============================================================
-   MONTHLY INTEREST CORE
-   - inserts a real transaction: transaction_type='Interest'
-   - prevents duplicates per month
-   - safe to run monthly by cron using CLI
-   ============================================================ */
-function applyMonthlySavingsInterest(mysqli $conn): array
+// ---------------------------------------------------------------------------
+// MONTHLY INTEREST (2.5%) - SAFE AUTO APPLY
+// ---------------------------------------------------------------------------
+function applyMonthlyInterestIfDue(mysqli $conn, float $rate = 0.025): void
 {
-    $rate = SAVINGS_INTEREST_RATE;
-    $systemUserId = SYSTEM_USER_ID_FOR_INTEREST;
+    // Interest date for the month (store as first day of current month)
+    $monthKey = date('Y-m');          // e.g., 2026-02
+    $interestDate = date('Y-m-01');   // e.g., 2026-02-01
 
-    // Apply for the previous month (recommended if cron runs every 1st day)
-    $target = new DateTime('first day of last month');
-    $targetYm = $target->format('Y-m');
-
-    // Post date = first day of this month
-    $postDate = (new DateTime('first day of this month'))->format('Y-m-d');
-
-    // Get each member latest balance
-    $sqlMembers = "
-        SELECT s1.member_id, s1.balance
-        FROM savings s1
-        INNER JOIN (
-            SELECT member_id, MAX(CONCAT(transaction_date, LPAD(saving_id, 10, '0'))) AS mx
-            FROM savings
-            GROUP BY member_id
-        ) s2
-        ON s1.member_id = s2.member_id
-        AND CONCAT(s1.transaction_date, LPAD(s1.saving_id, 10, '0')) = s2.mx
-    ";
-
-    $res = $conn->query($sqlMembers);
-    if (!$res) {
-        return ['ok' => false, 'msg' => 'Failed to read member balances: ' . $conn->error];
+    // Get all members with at least 1 txn
+    $members = [];
+    $q = $conn->query("SELECT DISTINCT member_id FROM savings");
+    while ($q && $r = $q->fetch_assoc()) {
+        $members[] = intval($r['member_id']);
     }
 
-    $checkStmt = $conn->prepare("
-        SELECT 1
+    if (empty($members)) return;
+
+    // Prepare statements (fast + safe)
+    $stmtLatest = $conn->prepare("
+        SELECT saving_id, balance
+        FROM savings
+        WHERE member_id = ?
+        ORDER BY saving_id DESC
+        LIMIT 1
+    ");
+
+    $stmtHasInterest = $conn->prepare("
+        SELECT saving_id
         FROM savings
         WHERE member_id = ?
           AND transaction_type = 'Interest'
@@ -104,82 +93,55 @@ function applyMonthlySavingsInterest(mysqli $conn): array
         LIMIT 1
     ");
 
-    $insertStmt = $conn->prepare("
+    $stmtInsert = $conn->prepare("
         INSERT INTO savings (member_id, transaction_date, transaction_type, amount, balance, recorded_by)
-        VALUES (?, ?, 'Interest', ?, ?, ?)
+        VALUES (?, ?, 'Interest', ?, ?, 0)
     ");
 
-    $applied = 0;
-    $skipped = 0;
+    foreach ($members as $mid) {
+        // If already has interest txn this month, skip
+        $stmtHasInterest->bind_param("is", $mid, $monthKey);
+        $stmtHasInterest->execute();
+        $has = $stmtHasInterest->get_result()->fetch_assoc();
+        if ($has) continue;
 
-    while ($row = $res->fetch_assoc()) {
-        $memberId = intval($row['member_id']);
-        $lastBalance = floatval($row['balance']);
+        // Get latest balance
+        $stmtLatest->bind_param("i", $mid);
+        $stmtLatest->execute();
+        $latest = $stmtLatest->get_result()->fetch_assoc();
+        if (!$latest) continue;
 
-        if ($lastBalance <= 0) { $skipped++; continue; }
+        $balance = floatval($latest['balance']);
+        if ($balance <= 0) continue;
 
-        // Block duplicate for that month
-        $checkStmt->bind_param("is", $memberId, $targetYm);
-        $checkStmt->execute();
-        $exists = $checkStmt->get_result()->fetch_assoc();
-        if ($exists) { $skipped++; continue; }
+        $interest = round($balance * $rate, 2);
+        if ($interest <= 0) continue;
 
-        $interest = round($lastBalance * $rate, 2);
-        if ($interest <= 0) { $skipped++; continue; }
+        $newBalance = $balance + $interest;
 
-        $newBalance = round($lastBalance + $interest, 2);
-
-        // NOTE: if your recorded_by column is VARCHAR in DB, this bind might fail.
-        // If so, tell me your table structure and I'll adjust bind types.
-        $insertStmt->bind_param("issdi", $memberId, $postDate, $interest, $newBalance, $systemUserId);
-
-        if ($insertStmt->execute()) $applied++;
-        else {
-            error_log("Interest insert failed member {$memberId}: " . $insertStmt->error);
-            $skipped++;
-        }
+        // Insert Interest transaction
+        $stmtInsert->bind_param("isdd", $mid, $interestDate, $interest, $newBalance);
+        $stmtInsert->execute();
     }
 
-    $checkStmt->close();
-    $insertStmt->close();
-
-    return [
-        'ok' => true,
-        'target_month' => $targetYm,
-        'post_date' => $postDate,
-        'applied' => $applied,
-        'skipped' => $skipped
-    ];
+    $stmtLatest->close();
+    $stmtHasInterest->close();
+    $stmtInsert->close();
 }
 
-/* ============================================================
-   CLI MODE FOR CRON:
-   php savings_action.php apply_interest
-   ============================================================ */
-if (PHP_SAPI === 'cli') {
-    $cmd = $argv[1] ?? '';
-    if ($cmd === 'apply_interest') {
-        $result = applyMonthlySavingsInterest($conn);
-        if (!$result['ok']) {
-            echo "FAILED: " . $result['msg'] . PHP_EOL;
-            exit(1);
-        }
-        echo "OK: month={$result['target_month']} postDate={$result['post_date']} applied={$result['applied']} skipped={$result['skipped']}" . PHP_EOL;
-        exit(0);
-    }
-}
-
-/* ============================================================
-   EXPORTS MUST RUN BEFORE JSON HEADER
-   ============================================================ */
+// ---------------------------------------------------------------------------
+// CSV EXPORT MUST RUN BEFORE JSON HEADER
+// ---------------------------------------------------------------------------
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $search = trim($_GET['search'] ?? '');
     $search_by = $_GET['search_by'] ?? 'auto';
+
     $filter = $_GET['filter'] ?? '';
     $type = $_GET['type'] ?? '';
 
     $member_id = intval($_GET['member_id'] ?? 0);
     $recorded_by = intval($_GET['recorded_by'] ?? 0);
+
     $date_from = $_GET['date_from'] ?? '';
     $date_to = $_GET['date_to'] ?? '';
 
@@ -187,6 +149,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $params = [];
     $types = '';
 
+    // Search logic (bulletproof)
     if ($search !== '') {
         if (preg_match('/^\d+$/', $search)) {
             $where[] = "s.member_id = ?";
@@ -214,9 +177,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         }
     }
 
-    // Card filters:
-    // deposit = Deposit + Interest
-    if ($filter === 'deposit') $where[] = "s.transaction_type IN ('Deposit','Interest')";
+    // card filter
+    if ($filter === 'deposit') $where[] = "(s.transaction_type='Deposit' OR s.transaction_type='Interest')";
     elseif ($filter === 'withdrawal') $where[] = "s.transaction_type='Withdrawal'";
 
     if ($type !== '') {
@@ -252,12 +214,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $whereSql = count($where) ? "WHERE " . implode(' AND ', $where) : '';
     $pdfPassword = trim($_GET['pdf_password'] ?? '');
 
-    $sql = "SELECT s.*, u.full_name AS recorded_by_name
-            FROM savings s
-            LEFT JOIN users u ON s.recorded_by = u.user_id
-            $whereSql
-            ORDER BY s.transaction_date DESC, s.saving_id DESC";
-
+    // Fetch data
+    $sql = "SELECT s.*, u.full_name AS recorded_by_name FROM savings s LEFT JOIN users u ON s.recorded_by = u.user_id $whereSql ORDER BY s.transaction_date DESC, s.saving_id DESC";
     $csv_data = [];
     if ($params) {
         $stmt = $conn->prepare($sql);
@@ -274,6 +232,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     $filename_base = 'savings_export_' . date('Y-m-d_His');
     $csv_filename = $filename_base . '.csv';
 
+    // Create CSV in memory
     $out = fopen('php://temp', 'r+');
     fputcsv($out, ['ID', 'Member ID', 'Date', 'Type', 'Amount', 'Balance', 'Recorded By']);
     foreach ($csv_data as $r) {
@@ -318,6 +277,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     exit;
 }
 
+// ---------------------------------------------------------------------------
+// PDF EXPORT
+// ---------------------------------------------------------------------------
 if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     $search = trim($_GET['search'] ?? '');
     $search_by = $_GET['search_by'] ?? 'auto';
@@ -406,7 +368,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
         }
     }
 
-    if ($filter === 'deposit') $where[] = "s.transaction_type IN ('Deposit','Interest')";
+    if ($filter === 'deposit') $where[] = "(s.transaction_type='Deposit' OR s.transaction_type='Interest')";
     elseif ($filter === 'withdrawal') $where[] = "s.transaction_type='Withdrawal'";
 
     if ($type !== '') { $where[] = "s.transaction_type=?"; $params[] = $type; $types .= 's'; }
@@ -416,11 +378,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     if ($date_to !== '') { $where[] = "s.transaction_date <= ?"; $params[] = $date_to; $types .= 's'; }
 
     $whereSql = count($where) ? "WHERE " . implode(' AND ', $where) : '';
-    $sql = "SELECT s.*, u.full_name AS recorded_by_name
-            FROM savings s
-            LEFT JOIN users u ON s.recorded_by = u.user_id
-            $whereSql
-            ORDER BY s.transaction_date DESC, s.saving_id DESC";
+    $sql = "SELECT s.*, u.full_name AS recorded_by_name FROM savings s LEFT JOIN users u ON s.recorded_by = u.user_id $whereSql ORDER BY s.transaction_date DESC, s.saving_id DESC";
 
     $stmt = $conn->prepare($sql);
     if ($types !== '') $stmt->bind_param($types, ...$params);
@@ -479,11 +437,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     outputPdfDownload($pdf, 'savings_report_' . date('Y-m-d_His') . '.pdf');
 }
 
-/* ============================================================
-   JSON AFTER EXPORTS
-   ============================================================ */
+// JSON responses
 header('Content-Type: application/json');
 
+// ---------------------------------------------------------------------------
+// ROLE & PERMISSION SECURITY
+// ---------------------------------------------------------------------------
 $role = $_SESSION['userdata']['role'] ?? 'Guest';
 $user_id = intval($_SESSION['userdata']['user_id'] ?? 0);
 
@@ -494,14 +453,14 @@ if (!hasPermission($conn, $role, 'Savings Monitoring', 'view') && $role !== 'Adm
 
 $action = $_POST['action'] ?? ($_GET['action'] ?? '');
 
-/* ============================================================
-   SUMMARY (Interest counts as Deposit)
-   ============================================================ */
+// ---------------------------------------------------------------------------
+// HELPER: SUMMARY CALCULATOR (with filters)
+// ---------------------------------------------------------------------------
 function getSummary($conn, $where = '', $params = [], $types = '')
 {
     $summary = [
         'total' => 0,
-        'total_deposits' => 0,      // includes Interest
+        'total_deposits' => 0,
         'total_withdrawals' => 0,
         'last_balance' => 0
     ];
@@ -520,9 +479,10 @@ function getSummary($conn, $where = '', $params = [], $types = '')
         $summary['total'] = $conn->query($sql)->fetch_assoc()['total'] ?? 0;
     }
 
+    // Deposits include Interest
     $whereDeposit = $hasWhere
-        ? "WHERE $whereClean AND transaction_type IN ('Deposit','Interest')"
-        : "WHERE transaction_type IN ('Deposit','Interest')";
+        ? "WHERE $whereClean AND (transaction_type='Deposit' OR transaction_type='Interest')"
+        : "WHERE (transaction_type='Deposit' OR transaction_type='Interest')";
     $sql = "SELECT COUNT(*) AS total_deposits FROM savings $whereDeposit";
     if ($params && count($params) > 0) {
         $stmt = $conn->prepare($sql);
@@ -552,10 +512,14 @@ function getSummary($conn, $where = '', $params = [], $types = '')
     return $summary;
 }
 
-/* ============================================================
-   MAIN
-   ============================================================ */
+// ---------------------------------------------------------------------------
+// MAIN LOGIC
+// ---------------------------------------------------------------------------
 try {
+    // AUTO APPLY INTEREST before showing anything
+    // Safe: once per month per member, no duplicates
+    applyMonthlyInterestIfDue($conn, 0.025);
+
     switch ($action) {
 
         case 'meta':
@@ -596,6 +560,7 @@ try {
             $params = [];
             $types = '';
 
+            // Search logic (safe + exact numeric)
             if ($search !== '') {
                 if ($search_by === 'auto') {
                     if (preg_match('/^\d+$/', $search)) {
@@ -631,8 +596,8 @@ try {
                 }
             }
 
-            // Card filters
-            if ($filter === 'deposit') $where[] = "s.transaction_type IN ('Deposit','Interest')";
+            // Card filter (deposit includes Interest)
+            if ($filter === 'deposit') $where[] = "(s.transaction_type='Deposit' OR s.transaction_type='Interest')";
             elseif ($filter === 'withdrawal') $where[] = "s.transaction_type='Withdrawal'";
 
             if ($type !== '') {
@@ -667,6 +632,7 @@ try {
 
             $whereSql = count($where) ? "WHERE " . implode(' AND ', $where) : '';
 
+            // Rows
             $sql = "
                 SELECT s.*, u.full_name AS recorded_by_name
                 FROM savings s
@@ -690,6 +656,7 @@ try {
             while ($r = $res->fetch_assoc()) $rows[] = $r;
             $stmt->close();
 
+            // Count
             $countSql = "SELECT COUNT(*) AS cnt FROM savings s $whereSql";
             $total = 0;
 
@@ -706,6 +673,7 @@ try {
 
             $total_pages = $limit > 0 ? ceil($total / $limit) : 1;
 
+            // Summary where must not contain "s."
             $summaryWhere = str_replace('s.', '', $whereSql);
             $summaryWhere = str_replace('WHERE ', '', $summaryWhere);
 
@@ -756,7 +724,7 @@ try {
             $stmt->close();
 
             $memberSummary = [
-                'total_deposits' => 0, // includes Interest
+                'total_deposits' => 0,
                 'total_withdrawals' => 0,
                 'deposit_count' => 0,
                 'withdrawal_count' => 0,
@@ -819,11 +787,14 @@ try {
             $type = $_POST['transaction_type'] ?? 'Deposit';
             $amount = floatval($_POST['amount'] ?? 0.0);
 
-            // Lock manual types to Deposit/Withdrawal (Interest is cron-only)
-            if ($type !== 'Deposit' && $type !== 'Withdrawal') $type = 'Deposit';
-
             if ($member_id <= 0 || $amount <= 0) {
                 echo json_encode(['status' => 'error', 'msg' => 'Member and positive amount required']);
+                exit;
+            }
+
+            // Only allow Deposit/Withdrawal here (Interest is system-generated)
+            if ($type !== 'Deposit' && $type !== 'Withdrawal') {
+                echo json_encode(['status' => 'error', 'msg' => 'Invalid transaction type']);
                 exit;
             }
 
