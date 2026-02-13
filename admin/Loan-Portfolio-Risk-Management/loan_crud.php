@@ -16,52 +16,45 @@ try {
         throw new Exception('Loan Code or Loan ID is required.');
     }
 
-    // ─── Fetch loan details (include penalty_rate and late_fee) ───
+    // ─── Check which optional columns exist ───
+    $has_penalty_rate  = $conn->query("SHOW COLUMNS FROM loan_portfolio LIKE 'penalty_rate'")->num_rows > 0;
+    $has_late_fee      = $conn->query("SHOW COLUMNS FROM loan_portfolio LIKE 'late_fee'")->num_rows > 0;
+    $has_grace_period  = $conn->query("SHOW COLUMNS FROM loan_portfolio LIKE 'grace_period_days'")->num_rows > 0;
+
+    $penalty_rate_col = $has_penalty_rate ? 'l.penalty_rate' : '2.00';
+    $late_fee_col     = $has_late_fee     ? 'l.late_fee'     : '50.00';
+    $grace_col        = $has_grace_period ? 'l.grace_period_days' : '0';
+
+    // ─── Fetch loan details ───
+    $select_sql = "
+        SELECT 
+            l.loan_code,
+            l.loan_id,
+            l.member_id,
+            COALESCE(m.full_name, 'Unknown') AS member_name,
+            l.loan_type,
+            l.principal_amount,
+            l.interest_rate,
+            l.loan_term,
+            DATE_FORMAT(l.start_date, '%Y-%m-%d') AS start_date,
+            DATE_FORMAT(l.end_date, '%Y-%m-%d')   AS end_date,
+            l.status,
+            COALESCE({$penalty_rate_col}, 2.00)   AS penalty_rate,
+            COALESCE({$late_fee_col}, 50.00)       AS late_fee,
+            COALESCE({$grace_col}, 0)              AS grace_period_days
+        FROM loan_portfolio l
+        LEFT JOIN members m ON m.member_id = l.member_id
+        WHERE l.{column} = ?
+        LIMIT 1
+    ";
+
     if (!empty($loan_code)) {
-        $stmt = $conn->prepare("
-            SELECT 
-                l.loan_code,
-                l.loan_id,
-                l.member_id,
-                COALESCE(m.full_name, 'Unknown') AS member_name,
-                l.loan_type,
-                l.principal_amount,
-                l.interest_rate,
-                l.loan_term,
-                DATE_FORMAT(l.start_date, '%Y-%m-%d') AS start_date,
-                DATE_FORMAT(l.end_date, '%Y-%m-%d')   AS end_date,
-                l.status,
-                COALESCE(l.penalty_rate, 2.00)        AS penalty_rate,
-                COALESCE(l.late_fee, 50.00)           AS late_fee,
-                COALESCE(l.grace_period_days, 0)      AS grace_period_days
-            FROM loan_portfolio l
-            LEFT JOIN members m ON m.member_id = l.member_id
-            WHERE l.loan_code = ?
-            LIMIT 1
-        ");
+        $sql = str_replace('{column}', 'loan_code', $select_sql);
+        $stmt = $conn->prepare($sql);
         $stmt->bind_param('s', $loan_code);
     } else {
-        $stmt = $conn->prepare("
-            SELECT 
-                l.loan_code,
-                l.loan_id,
-                l.member_id,
-                COALESCE(m.full_name, 'Unknown') AS member_name,
-                l.loan_type,
-                l.principal_amount,
-                l.interest_rate,
-                l.loan_term,
-                DATE_FORMAT(l.start_date, '%Y-%m-%d') AS start_date,
-                DATE_FORMAT(l.end_date, '%Y-%m-%d')   AS end_date,
-                l.status,
-                COALESCE(l.penalty_rate, 2.00)        AS penalty_rate,
-                COALESCE(l.late_fee, 50.00)           AS late_fee,
-                COALESCE(l.grace_period_days, 0)      AS grace_period_days
-            FROM loan_portfolio l
-            LEFT JOIN members m ON m.member_id = l.member_id
-            WHERE l.loan_id = ?
-            LIMIT 1
-        ");
+        $sql = str_replace('{column}', 'loan_id', $select_sql);
+        $stmt = $conn->prepare($sql);
         $stmt->bind_param('i', $loan_id);
     }
 
@@ -73,9 +66,8 @@ try {
         throw new Exception('Loan not found.');
     }
 
-    // ─── STEP 1: Try loan_penalties table first ───
+    // ─── STEP 1: Try loan_penalties table ───
     $total_penalties = 0.00;
-    $penalty_source  = 'none';
     $lc = $loan['loan_code'];
 
     if (!empty($lc)) {
@@ -92,14 +84,11 @@ try {
                 $pen_row = $pen_stmt->get_result()->fetch_assoc();
                 $pen_stmt->close();
                 $total_penalties = (float)($pen_row['total_penalties'] ?? 0);
-                if ($total_penalties > 0) {
-                    $penalty_source = 'loan_penalties_table';
-                }
             }
         }
     }
 
-    // ─── STEP 2: If loan_penalties empty, compute from overdue schedules ───
+    // ─── STEP 2: If still zero, compute from overdue schedules ───
     if ($total_penalties == 0 && !empty($lc)) {
         $penalty_rate = (float)$loan['penalty_rate'];
         $late_fee     = (float)$loan['late_fee'];
@@ -108,8 +97,7 @@ try {
         $ov_stmt = $conn->prepare("
             SELECT 
                 amount_due,
-                amount_paid,
-                DATEDIFF(CURDATE(), due_date) AS days_overdue
+                amount_paid
             FROM loan_schedule
             WHERE loan_code = ?
               AND due_date < CURDATE()
@@ -128,15 +116,10 @@ try {
                 $total_penalties   += $late_fee + $percentage_penalty;
             }
             $ov_stmt->close();
-
-            if ($total_penalties > 0) {
-                $penalty_source = 'computed_from_schedule';
-            }
         }
     }
 
     $loan['total_penalties'] = round($total_penalties, 2);
-    $loan['penalty_source']  = $penalty_source;
 
     // ─── Fetch payment schedules ───
     if (!empty($loan['loan_code'])) {
