@@ -2,7 +2,7 @@
 require_once(__DIR__ . '/../../initialize_coreT2.php');
 require_once(__DIR__ . '/../inc/sess_auth.php');
 require_once(__DIR__ . '/../inc/access_control.php');
-require_once __DIR__ . '/../inc/check_auth.php';
+require_once(__DIR__ . '/../inc/check_auth.php');
 
 checkPermission('savings_monitoring');
 
@@ -12,395 +12,274 @@ include(__DIR__ . '/../inc/sidebar.php');
 ?>
 
 <style>
-    :root {
-        --brand-primary: #059669;
-        --brand-primary-hover: #047857;
-        --brand-success: #10b981;
-        --brand-warning: #f59e0b;
-        --brand-danger: #ef4444;
-        --brand-info: #3b82f6;
-        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    }
+/* --- YOUR STYLES (UNCHANGED) --- */
+:root {
+    --brand-primary: #059669;
+    --brand-primary-hover: #047857;
+    --brand-success: #10b981;
+    --brand-warning: #f59e0b;
+    --brand-danger: #ef4444;
+    --brand-info: #3b82f6;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #f9fafb;
+}
+.page-header {
+    background: linear-gradient(135deg, var(--brand-primary) 0%, #047857 100%);
+    padding: 2rem;
+    border-radius: 1rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-lg);
+    color: white;
+}
+.page-header h4 {
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+.page-header .subtitle {
+    opacity: 0.9;
+    font-size: 0.95rem;
+    margin-top: 0.25rem;
+}
+.stat-card {
+    padding: 1.75rem;
+    border-radius: 1rem;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    border: 2px solid transparent;
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--card-color-1), var(--card-color-2));
+    box-shadow: var(--shadow-md);
+}
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100px;
+    height: 100px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    transform: translate(30%, -30%);
+    transition: all 0.3s ease;
+}
+.stat-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: var(--shadow-xl);
+}
+.stat-card:hover::before {
+    transform: translate(20%, -20%) scale(1.5);
+}
+.stat-card.active {
+    border: 2px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2), var(--shadow-xl);
+    transform: translateY(-8px) scale(1.05);
+}
+.stat-card.active::after {
+    content: '✓ ACTIVE';
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.25);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    letter-spacing: 0.05em;
+}
+.stat-card-icon {
+    width: 3rem;
+    height: 3rem;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+.stat-title {
+    font-size: 0.875rem;
+    opacity: 0.95;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+.stat-value {
+    font-size: 2.25rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.stat-hint {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.stat-card[data-filter="all"] { --card-color-1: #3b82f6; --card-color-2: #2563eb; }
+.stat-card[data-filter="deposit"] { --card-color-1: #059669; --card-color-2: #047857; }
+.stat-card[data-filter="withdrawal"] { --card-color-1: #ef4444; --card-color-2: #dc2626; }
+.stat-card[data-filter="balance"] { --card-color-1: #8b5cf6; --card-color-2: #7c3aed; }
 
-    body {
-        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-        background: #f9fafb;
-    }
+.filter-section {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    margin-bottom: 1.5rem;
+    box-shadow: var(--shadow-md);
+    border: 1px solid #e5e7eb;
+}
+.filter-section .form-label {
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+}
+.filter-section .form-control,
+.filter-section .form-select {
+    border: 1.5px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+.filter-section .form-control:focus,
+.filter-section .form-select:focus {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+}
+.table-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: var(--shadow-md);
+    border: 1px solid #e5e7eb;
+}
+.table-card .table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #f3f4f6;
+}
+.table-card .table-title {
+    font-weight: 700;
+    color: #111827;
+    font-size: 1.125rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+#filterIndicator {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+}
+#recordCount {
+    color: #6b7280;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+.table-wrapper {
+    overflow-x: auto;
+    border-radius: 0.75rem;
+    border: 1px solid #e5e7eb;
+}
+.table { margin-bottom: 0; }
+.table thead th {
+    color: #1f2937 !important;
+    font-weight: 700;
+    font-size: 0.875rem;
+    padding: 1rem 0.75rem;
+    border: none;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+.table tbody tr {
+    transition: all 0.2s ease;
+    border-bottom: 1px solid #f3f4f6;
+}
+.table tbody tr:hover {
+    background: #f9fafb;
+    transform: scale(1.005);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+.table tbody td {
+    padding: 0.875rem 0.75rem;
+    font-size: 0.875rem;
+    color: #374151;
+    vertical-align: middle;
+}
+.table .badge {
+    padding: 0.375rem 0.75rem;
+    font-weight: 600;
+    font-size: 0.75rem;
+    border-radius: 0.5rem;
+}
+.badge-deposit { background-color: #10b981; color: white; }
+.badge-withdrawal { background-color: #ef4444; color: white; }
 
-    .page-header {
-        background: linear-gradient(135deg, var(--brand-primary) 0%, #047857 100%);
-        padding: 2rem;
-        border-radius: 1rem;
-        margin-bottom: 2rem;
-        box-shadow: var(--shadow-lg);
-        color: white;
-    }
+.btn {
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+}
+.btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn:active { transform: translateY(0); }
+.btn-sm { padding: 0.5rem 1rem; font-size: 0.875rem; }
 
-    .page-header h4 {
-        margin: 0;
-        font-size: 1.75rem;
-        font-weight: 700;
-        letter-spacing: -0.025em;
-    }
+.btn-sync.syncing .bi-arrow-repeat { display: inline-block; animation: spin 0.8s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-    .page-header .subtitle {
-        opacity: 0.9;
-        font-size: 0.95rem;
-        margin-top: 0.25rem;
-    }
+.pagination-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 2px solid #f3f4f6;
+}
+#paginationInfo { color: #6b7280; font-size: 0.875rem; font-weight: 500; }
+#paginationControls .btn { margin-left: 0.5rem; }
 
-    .stat-card {
-        padding: 1.75rem;
-        border-radius: 1rem;
-        color: #fff;
-        cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        position: relative;
-        border: 2px solid transparent;
-        overflow: hidden;
-        background: linear-gradient(135deg, var(--card-color-1), var(--card-color-2));
-        box-shadow: var(--shadow-md);
-    }
+.modal-content { border-radius: 1rem; border: none; box-shadow: var(--shadow-xl); }
+.modal-header { border-bottom: 2px solid #f3f4f6; border-radius: 1rem 1rem 0 0; }
+.modal-header.bg-primary { background: linear-gradient(135deg, #3b82f6, #2563eb) !important; }
+.modal-header.bg-info { background: linear-gradient(135deg, #3b82f6, #2563eb) !important; }
+.modal-footer { border-top: 2px solid #f3f4f6; }
 
-    .stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 100px;
-        height: 100px;
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 50%;
-        transform: translate(30%, -30%);
-        transition: all 0.3s ease;
-    }
+#syncToast { animation: slideInRight 0.3s ease; }
+@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-    .stat-card:hover {
-        transform: translateY(-8px) scale(1.02);
-        box-shadow: var(--shadow-xl);
-    }
+.spinner-border-sm { width: 1rem; height: 1rem; }
+.bg-gradient-primary { background: linear-gradient(135deg, #3b82f6, #2563eb) !important; }
+#breakdownTable thead { position: sticky; top: 0; z-index: 10; }
+.modal-xl { max-width: 1200px; }
+.btn-group-sm .btn { padding: 0.375rem 0.625rem; font-size: 0.8125rem; }
 
-    .stat-card:hover::before {
-        transform: translate(20%, -20%) scale(1.5);
-    }
-
-    .stat-card.active {
-        border: 2px solid rgba(255, 255, 255, 0.8);
-        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2), var(--shadow-xl);
-        transform: translateY(-8px) scale(1.05);
-    }
-
-    .stat-card.active::after {
-        content: '✓ ACTIVE';
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        font-size: 0.65rem;
-        font-weight: 700;
-        background: rgba(255, 255, 255, 0.25);
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.375rem;
-        letter-spacing: 0.05em;
-    }
-
-    .stat-card-icon {
-        width: 3rem;
-        height: 3rem;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 0.75rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.5rem;
-        margin-bottom: 1rem;
-    }
-
-    .stat-title {
-        font-size: 0.875rem;
-        opacity: 0.95;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 0.5rem;
-    }
-
-    .stat-value {
-        font-size: 2.25rem;
-        font-weight: 800;
-        line-height: 1;
-        margin-bottom: 0.5rem;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .stat-hint {
-        font-size: 0.75rem;
-        opacity: 0.8;
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-    }
-
-    .stat-card[data-filter="all"] {
-        --card-color-1: #3b82f6;
-        --card-color-2: #2563eb;
-    }
-
-    .stat-card[data-filter="deposit"] {
-        --card-color-1: #059669;
-        --card-color-2: #047857;
-    }
-
-    .stat-card[data-filter="withdrawal"] {
-        --card-color-1: #ef4444;
-        --card-color-2: #dc2626;
-    }
-
-    .stat-card[data-filter="balance"] {
-        --card-color-1: #8b5cf6;
-        --card-color-2: #7c3aed;
-    }
-
-    .filter-section {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 1rem;
-        margin-bottom: 1.5rem;
-        box-shadow: var(--shadow-md);
-        border: 1px solid #e5e7eb;
-    }
-
-    .filter-section .form-label {
-        font-weight: 600;
-        color: #374151;
-        font-size: 0.875rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .filter-section .form-control,
-    .filter-section .form-select {
-        border: 1.5px solid #e5e7eb;
-        border-radius: 0.5rem;
-        padding: 0.625rem 0.875rem;
-        font-size: 0.875rem;
-        transition: all 0.2s;
-    }
-
-    .filter-section .form-control:focus,
-    .filter-section .form-select:focus {
-        border-color: var(--brand-primary);
-        box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
-    }
-
-    .table-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 1rem;
-        box-shadow: var(--shadow-md);
-        border: 1px solid #e5e7eb;
-    }
-
-    .table-card .table-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1.25rem;
-        padding-bottom: 1rem;
-        border-bottom: 2px solid #f3f4f6;
-    }
-
-    .table-card .table-title {
-        font-weight: 700;
-        color: #111827;
-        font-size: 1.125rem;
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    #filterIndicator {
-        font-size: 0.75rem;
-        padding: 0.375rem 0.75rem;
-        border-radius: 0.5rem;
-        font-weight: 600;
-    }
-
-    #recordCount {
-        color: #6b7280;
-        font-size: 0.875rem;
-        font-weight: 500;
-    }
-
-    .table-wrapper {
-        overflow-x: auto;
-        border-radius: 0.75rem;
-        border: 1px solid #e5e7eb;
-    }
-
-    .table {
-        margin-bottom: 0;
-    }
-
-    .table thead th {
-        color: #1f2937 !important;
-        font-weight: 700;
-        font-size: 0.875rem;
-        padding: 1rem 0.75rem;
-        border: none;
-        text-transform: uppercase;
-        letter-spacing: 0.025em;
-    }
-
-    .table tbody tr {
-        transition: all 0.2s ease;
-        border-bottom: 1px solid #f3f4f6;
-    }
-
-    .table tbody tr:hover {
-        background: #f9fafb;
-        transform: scale(1.005);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-    }
-
-    .table tbody td {
-        padding: 0.875rem 0.75rem;
-        font-size: 0.875rem;
-        color: #374151;
-        vertical-align: middle;
-    }
-
-    .table .badge {
-        padding: 0.375rem 0.75rem;
-        font-weight: 600;
-        font-size: 0.75rem;
-        border-radius: 0.5rem;
-    }
-
-    .badge-deposit {
-        background-color: #10b981;
-        color: white;
-    }
-
-    .badge-withdrawal {
-        background-color: #ef4444;
-        color: white;
-    }
-
-    .btn {
-        border-radius: 0.5rem;
-        font-weight: 600;
-        transition: all 0.2s ease;
-        box-shadow: var(--shadow-sm);
-    }
-
-    .btn:hover {
-        transform: translateY(-1px);
-        box-shadow: var(--shadow-md);
-    }
-
-    .btn:active {
-        transform: translateY(0);
-    }
-
-    .btn-sm {
-        padding: 0.5rem 1rem;
-        font-size: 0.875rem;
-    }
-
-    .btn-sync.syncing .bi-arrow-repeat {
-        display: inline-block;
-        animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-    }
-
-    .pagination-wrapper {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 1.5rem;
-        padding-top: 1.5rem;
-        border-top: 2px solid #f3f4f6;
-    }
-
-    #paginationInfo {
-        color: #6b7280;
-        font-size: 0.875rem;
-        font-weight: 500;
-    }
-
-    #paginationControls .btn {
-        margin-left: 0.5rem;
-    }
-
-    .modal-content {
-        border-radius: 1rem;
-        border: none;
-        box-shadow: var(--shadow-xl);
-    }
-
-    .modal-header {
-        border-bottom: 2px solid #f3f4f6;
-        border-radius: 1rem 1rem 0 0;
-    }
-
-    .modal-header.bg-primary {
-        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
-    }
-
-    .modal-header.bg-info {
-        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
-    }
-
-    .modal-footer {
-        border-top: 2px solid #f3f4f6;
-    }
-
-    #syncToast {
-        animation: slideInRight 0.3s ease;
-    }
-
-    @keyframes slideInRight {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-
-    .spinner-border-sm {
-        width: 1rem;
-        height: 1rem;
-    }
-
-    .bg-gradient-primary {
-        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
-    }
-
-    #breakdownTable thead {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-    }
-
-    .modal-xl {
-        max-width: 1200px;
-    }
-
-    .btn-group-sm .btn {
-        padding: 0.375rem 0.625rem;
-        font-size: 0.8125rem;
-    }
-
-    @media (max-width: 768px) {
-        .page-header { padding: 1.5rem; }
-        .stat-card { padding: 1.25rem; }
-        .stat-value { font-size: 1.75rem; }
-        .filter-section { padding: 1rem; }
-    }
+@media (max-width: 768px) {
+    .page-header { padding: 1.5rem; }
+    .stat-card { padding: 1.25rem; }
+    .stat-value { font-size: 1.75rem; }
+    .filter-section { padding: 1rem; }
+}
 </style>
 
 <div class="main-wrap">
@@ -485,6 +364,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                             <option value="">All Types</option>
                             <option value="Deposit">Deposit</option>
                             <option value="Withdrawal">Withdrawal</option>
+                            <option value="Interest">Interest</option>
                         </select>
                     </div>
 
@@ -566,8 +446,6 @@ include(__DIR__ . '/../inc/sidebar.php');
     </main>
 </div>
 
-<!-- Add Transaction Modal -->
-<!-- View Transaction Modal -->
 <div class="modal fade" id="viewTxModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -614,7 +492,6 @@ include(__DIR__ . '/../inc/sidebar.php');
     </div>
 </div>
 
-<!-- Member Breakdown Modal -->
 <div class="modal fade" id="breakdownModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -759,6 +636,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportPdfBtn = document.getElementById('exportPdfBtn');
     const exportCsvBtn = document.getElementById('exportCsvBtn');
 
+    let currentMemberData = null;
+
+    let currentPage = 1;
+    let limit = 10;
+    let currentSearch = '';
+    let currentCardFilter = 'all';
+
+    let allTransactionsData = [];
+    let summaryData = {};
+
     async function handleExport(format) {
         const passwordPrompt = await Swal.fire({
             title: `Protect ${format.toUpperCase()} Export`,
@@ -839,17 +726,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewModal = new bootstrap.Modal(document.getElementById('viewTxModal'));
     const breakdownModal = new bootstrap.Modal(document.getElementById('breakdownModal'));
 
-    let currentMemberData = null;
-
-    let currentPage = 1;
-    let limit = 10;
-    let currentSearch = '';
-    let currentCardFilter = 'all';
-
-    let allTransactionsData = [];
-    let summaryData = {};
-
-    // ─── Sync Core1 Handler ───
     document.getElementById('syncCore1Btn').addEventListener('click', function () {
         const btn = this;
         btn.disabled = true;
@@ -917,7 +793,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateFilterIndicator() {
-        const filterTexts = { all:'', deposit:'Deposits Only', withdrawal:'Withdrawals Only' };
+        const filterTexts = { all:'', deposit:'Deposits + Interest Only', withdrawal:'Withdrawals Only' };
         if (currentCardFilter !== 'all') {
             filterIndicator.textContent = filterTexts[currentCardFilter];
             filterIndicator.style.display = 'inline-block';
@@ -1000,7 +876,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 tbody.innerHTML = '';
                 if (data.rows && data.rows.length > 0) {
                     data.rows.forEach(r => {
-                        const typeBadge = r.transaction_type === 'Deposit' ? 'badge-deposit' : 'badge-withdrawal';
+                        const isIn = (r.transaction_type === 'Deposit' || r.transaction_type === 'Interest');
+                        const typeBadge = isIn ? 'badge-deposit' : 'badge-withdrawal';
+
                         tbody.innerHTML += `
                             <tr>
                                 <td>${r.saving_id}</td>
@@ -1030,7 +908,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 renderPagination(data.pagination?.current_page || 1, data.pagination?.total_pages || 1);
-
                 updateFilterIndicator();
             })
             .catch(err => {
@@ -1114,22 +991,22 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('bd_member_name').textContent = member_info.name;
 
         document.getElementById('bd_current_balance').textContent =
-            summary.current_balance.toLocaleString(undefined, { minimumFractionDigits:2 });
+            Number(summary.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits:2 });
 
         document.getElementById('bd_total_deposits').textContent =
-            '₱' + summary.total_deposits.toLocaleString(undefined, { minimumFractionDigits:2 });
-        document.getElementById('bd_deposit_count').textContent = summary.deposit_count;
+            '₱' + Number(summary.total_deposits || 0).toLocaleString(undefined, { minimumFractionDigits:2 });
+        document.getElementById('bd_deposit_count').textContent = summary.deposit_count || 0;
 
         document.getElementById('bd_total_withdrawals').textContent =
-            '₱' + summary.total_withdrawals.toLocaleString(undefined, { minimumFractionDigits:2 });
-        document.getElementById('bd_withdrawal_count').textContent = summary.withdrawal_count;
+            '₱' + Number(summary.total_withdrawals || 0).toLocaleString(undefined, { minimumFractionDigits:2 });
+        document.getElementById('bd_withdrawal_count').textContent = summary.withdrawal_count || 0;
 
-        const netChange = summary.total_deposits - summary.total_withdrawals;
+        const netChange = Number(summary.total_deposits || 0) - Number(summary.total_withdrawals || 0);
         const netChangeEl = document.getElementById('bd_net_change');
         netChangeEl.textContent = '₱' + Math.abs(netChange).toLocaleString(undefined, { minimumFractionDigits:2 });
         netChangeEl.className = netChange >= 0 ? 'mb-1 text-success' : 'mb-1 text-danger';
 
-        document.getElementById('bd_total_txns').textContent = summary.total_transactions;
+        document.getElementById('bd_total_txns').textContent = summary.total_transactions || 0;
 
         const bt = document.getElementById('breakdownTableBody');
         bt.innerHTML = '';
@@ -1142,9 +1019,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         transactions.forEach(txn => {
-            const typeClass = txn.transaction_type === 'Deposit' ? 'badge-deposit' : 'badge-withdrawal';
-            const amountClass = txn.transaction_type === 'Deposit' ? 'text-success' : 'text-danger';
-            const amountIcon = txn.transaction_type === 'Deposit' ? '↓' : '↑';
+            const isIn = (txn.transaction_type === 'Deposit' || txn.transaction_type === 'Interest');
+            const typeClass = isIn ? 'badge-deposit' : 'badge-withdrawal';
+            const amountClass = isIn ? 'text-success' : 'text-danger';
+            const amountIcon = isIn ? '↓' : '↑';
 
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -1204,10 +1082,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 const d = res.row;
+                const isIn = (d.transaction_type === 'Deposit' || d.transaction_type === 'Interest');
                 document.getElementById('v_id').textContent = d.saving_id;
                 document.getElementById('v_member').textContent = d.member_id;
                 document.getElementById('v_date').textContent = d.transaction_date;
-                document.getElementById('v_type').innerHTML = `<span class="badge ${d.transaction_type === 'Deposit' ? 'badge-deposit' : 'badge-withdrawal'}">${d.transaction_type}</span>`;
+                document.getElementById('v_type').innerHTML = `<span class="badge ${isIn ? 'badge-deposit' : 'badge-withdrawal'}">${d.transaction_type}</span>`;
                 document.getElementById('v_amount').textContent = Number(d.amount).toLocaleString(undefined, { minimumFractionDigits:2 });
                 document.getElementById('v_balance').textContent = Number(d.balance).toLocaleString(undefined, { minimumFractionDigits:2 });
                 document.getElementById('v_by').textContent = d.recorded_by_name || 'Unknown';
