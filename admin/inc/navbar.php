@@ -751,6 +751,15 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                         </div>
                     </div>
                 </div>
+
+                <!-- Termination Link -->
+                <?php if (!$isSuperAdmin): ?>
+                <div class="mt-4 text-center">
+                    <a href="javascript:void(0)" class="text-danger small fw-bold" id="btnRequestTermination">
+                        Request Account Deactivation
+                    </a>
+                </div>
+                <?php endif; ?>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-modal-action btn-close-modal" data-bs-dismiss="modal">Close</button>
@@ -796,7 +805,8 @@ $isSuperAdmin = ($user_role === 'Super Admin');
             email: '<?= addslashes($user_email) ?>',
             phone: '<?= addslashes($user_phone) ?>',
             company: '<?= addslashes($user_company) ?>',
-            photo: '<?= addslashes($user_photo) ?>'
+            photo: '<?= addslashes($user_photo) ?>',
+            pendingPhoto: null
         };
 
         // Parse name
@@ -849,6 +859,9 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                 try {
                     const formData = new FormData();
                     formData.append('profile_photo', file);
+                    if (!isSuperAdmin) {
+                        formData.append('skip_db', '1');
+                    }
 
                     const response = await fetch('<?= $base_url ?>/inc/upload_profile_photo.php', {
                         method: 'POST',
@@ -860,6 +873,10 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     if (result.success) {
                         const newPhotoUrl = result.photo_url + '?t=' + Date.now();
                         
+                        if (!isSuperAdmin) {
+                            userData.pendingPhoto = result.photo_url;
+                        }
+
                         const editAvatarImg = document.getElementById('photoUploadAvatarImg');
                         const editAvatarInitials = document.getElementById('photoUploadAvatarInitials');
                         
@@ -869,19 +886,23 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                             editAvatarInitials.outerHTML = `<img src="${newPhotoUrl}" alt="Profile" id="photoUploadAvatarImg">`;
                         }
 
-                        const navbarAvatar = document.getElementById('navbarAvatar');
-                        if (navbarAvatar) {
-                            navbarAvatar.innerHTML = `<img src="${newPhotoUrl}" alt="Profile">`;
+                        if (isSuperAdmin) {
+                            const navbarAvatar = document.getElementById('navbarAvatar');
+                            if (navbarAvatar) {
+                                navbarAvatar.innerHTML = `<img src="${newPhotoUrl}" alt="Profile">`;
+                            }
+                            Swal.fire('Success', 'Profile photo updated!', 'success');
+                        } else {
+                            Swal.fire('Uploaded', 'Photo uploaded. Send profile changes to apply.', 'info');
                         }
 
                         btnRemovePhoto.style.display = 'inline-block';
-                        alert('Profile photo updated successfully!');
                     } else {
-                        alert('Error: ' + (result.message || 'Failed to upload photo'));
+                        Swal.fire('Error', result.message || 'Failed to upload photo', 'error');
                     }
                 } catch (error) {
                     console.error('Upload error:', error);
-                    alert('Error uploading photo. Please try again.');
+                    Swal.fire('Error', 'Error uploading photo. Please try again.', 'error');
                 } finally {
                     photoUploadAvatar.classList.remove('uploading');
                     photoInput.value = '';
@@ -934,11 +955,17 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     }
                 } else {
                     // Staff/Admin: Send for approval
-                    const requestData = JSON.stringify({
+                    const payload = {
                         full_name: fullName,
                         email: newEmail,
                         phone: newPhone
-                    });
+                    };
+                    
+                    if (userData.pendingPhoto) {
+                        payload.profile_photo = userData.pendingPhoto;
+                    }
+
+                    const requestData = JSON.stringify(payload);
 
                     const fd = new FormData();
                     fd.append('action', 'submit_request');
@@ -946,7 +973,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     fd.append('request_type', 'profile_update');
                     fd.append('request_data', requestData);
 
-                    const response = await fetch('<?= $base_url ?>/approval_action.php', {
+                    const response = await fetch('<?= $base_url ?>/User-Management-Role-Based-Access/approval_action.php', {
                         method: 'POST',
                         body: fd
                     });
@@ -954,10 +981,10 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     const result = await response.json();
 
                     if (result.status === 'success') {
-                        alert('Profile changes sent to Super Admin for approval!');
+                        Swal.fire('Success', 'Profile changes sent to Super Admin for approval!', 'success');
                         bootstrap.Modal.getInstance(document.getElementById('profileModal')).hide();
                     } else {
-                        alert('Error: ' + (result.msg || 'Failed to send approval request'));
+                        Swal.fire('Error', result.msg || 'Failed to send approval request', 'error');
                     }
                 }
             } catch (error) {
@@ -968,5 +995,44 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                 this.textContent = isSuperAdmin ? 'Save Changes' : 'Send for Approval';
             }
         });
+
+        // Request Termination
+        if (document.getElementById('btnRequestTermination')) {
+            document.getElementById('btnRequestTermination').addEventListener('click', async function() {
+                const confirmResult = await Swal.fire({
+                    title: 'Deactivate Account?',
+                    text: "This will send a request to the administrator to deactivate your account. You will be logged out once approved.",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Send Request',
+                    confirmButtonColor: '#dc2626'
+                });
+
+                if (!confirmResult.isConfirmed) return;
+
+                try {
+                    const fd = new FormData();
+                    fd.append('action', 'submit_request');
+                    fd.append('user_id', userData.userId);
+                    fd.append('request_type', 'termination');
+                    fd.append('request_data', JSON.stringify({ reason: 'User initiated deactivation' }));
+
+                    const response = await fetch('<?= $base_url ?>/User-Management-Role-Based-Access/approval_action.php', {
+                        method: 'POST',
+                        body: fd
+                    });
+
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        Swal.fire('Request Sent', result.msg, 'success');
+                        bootstrap.Modal.getInstance(document.getElementById('profileModal')).hide();
+                    } else {
+                        Swal.fire('Error', result.msg, 'error');
+                    }
+                } catch (error) {
+                    Swal.fire('Error', 'An unexpected error occurred.', 'error');
+                }
+            });
+        }
     });
 </script>
