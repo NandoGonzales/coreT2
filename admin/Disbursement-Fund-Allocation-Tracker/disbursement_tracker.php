@@ -1025,10 +1025,10 @@ include(__DIR__ . '/../inc/sidebar.php');
 
             try {
                 const url = `disbursement_action.php?${params.toString()}`;
-                
+
                 const response = await fetch(url);
                 if (!response.ok) throw new Error('Export failed');
-                
+
                 const contentType = response.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
                     const errorData = await response.json();
@@ -1098,10 +1098,10 @@ include(__DIR__ . '/../inc/sidebar.php');
 
             try {
                 const url = `disbursement_action.php?${params.toString()}`;
-                
+
                 const response = await fetch(url);
                 if (!response.ok) throw new Error('Export failed');
-                
+
                 const contentType = response.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
                     const errorData = await response.json();
@@ -1135,6 +1135,283 @@ include(__DIR__ . '/../inc/sidebar.php');
             } finally {
                 btn.innerHTML = originalHTML;
                 btn.disabled = false;
+            }
+        });
+        // ================================================================
+        // SEND TO FINANCE ADD-ON
+        // I-paste ito sa loob ng DOMContentLoaded sa disbursement_tracker.php
+        // Ilagay BAGO ang closing bracket ng DOMContentLoaded
+        // ================================================================
+
+        // ─── 1. ADD CHECKBOXES SA TABLE HEADER ───────────────────────
+        // Hanapin ang <thead><tr> ng disbTable at dagdag ng checkbox column
+        const disbTableHead = document.querySelector('#disbTable thead tr');
+        if (disbTableHead) {
+            const th = document.createElement('th');
+            th.innerHTML = `<input type="checkbox" id="selectAllChk" title="Select All">`;
+            disbTableHead.insertBefore(th, disbTableHead.firstChild);
+        }
+
+        // ─── 2. DAGDAG ANG "SEND TO FINANCE" BUTTON SA HEADER ─────────
+        const pageHeaderBtns = document.querySelector('.page-header .d-flex.gap-2');
+        if (pageHeaderBtns) {
+            // Send to Finance button
+            const sendBtn = document.createElement('button');
+            sendBtn.id = 'sendToFinanceBtn';
+            sendBtn.className = 'btn btn-sm btn-warning';
+            sendBtn.innerHTML = '<i class="bi bi-send"></i> Send to Finance <span id="selectedCount" class="badge bg-dark ms-1">0</span>';
+            sendBtn.disabled = true;
+            pageHeaderBtns.insertBefore(sendBtn, pageHeaderBtns.firstChild);
+
+            // Manage API Keys button (Super Admin only)
+            const manageKeysBtn = document.createElement('button');
+            manageKeysBtn.id = 'manageApiKeysBtn';
+            manageKeysBtn.className = 'btn btn-sm btn-outline-light';
+            manageKeysBtn.innerHTML = '<i class="bi bi-key"></i> API Keys';
+            pageHeaderBtns.insertBefore(manageKeysBtn, pageHeaderBtns.firstChild);
+        }
+
+        // ─── 3. TRACK SELECTED CHECKBOXES ─────────────────────────────
+        let selectedIds = new Set();
+
+        function updateSelectedCount() {
+            const count = selectedIds.size;
+            const countBadge = document.getElementById('selectedCount');
+            const sendBtn = document.getElementById('sendToFinanceBtn');
+            if (countBadge) countBadge.textContent = count;
+            if (sendBtn) sendBtn.disabled = count === 0;
+        }
+
+        // Select All checkbox
+        document.addEventListener('change', function(e) {
+            if (e.target.id === 'selectAllChk') {
+                const allChks = document.querySelectorAll('.row-select-chk');
+                allChks.forEach(chk => {
+                    chk.checked = e.target.checked;
+                    const id = parseInt(chk.dataset.id);
+                    if (e.target.checked) selectedIds.add(id);
+                    else selectedIds.delete(id);
+                });
+                updateSelectedCount();
+            }
+
+            if (e.target.classList.contains('row-select-chk')) {
+                const id = parseInt(e.target.dataset.id);
+                if (e.target.checked) selectedIds.add(id);
+                else selectedIds.delete(id);
+                updateSelectedCount();
+
+                // Update selectAll state
+                const allChks = document.querySelectorAll('.row-select-chk');
+                const checkedChks = document.querySelectorAll('.row-select-chk:checked');
+                const selectAll = document.getElementById('selectAllChk');
+                if (selectAll) {
+                    selectAll.indeterminate = checkedChks.length > 0 && checkedChks.length < allChks.length;
+                    selectAll.checked = checkedChks.length === allChks.length && allChks.length > 0;
+                }
+            }
+        });
+
+        // ─── 4. PATCH renderTable PARA MAY CHECKBOXES ─────────────────
+        // I-override ang renderTable function para may checkbox ang bawat row
+        const _origRenderTable = renderTable;
+
+        function renderTable(data) {
+            _origRenderTable(data);
+
+            // Dagdag ang checkbox column sa bawat row
+            const rows = document.querySelectorAll('#disbTbody tr');
+            rows.forEach(row => {
+                const firstTd = row.querySelector('td');
+                if (!firstTd) return;
+
+                const disbId = row.querySelector('.view-disb-btn')?.dataset?.id;
+                if (!disbId) return;
+
+                // Lagyan ng checkbox
+                const td = document.createElement('td');
+                td.innerHTML = `<input type="checkbox" class="row-select-chk" data-id="${disbId}" ${selectedIds.has(parseInt(disbId)) ? 'checked' : ''}>`;
+                row.insertBefore(td, row.firstChild);
+            });
+
+            updateSelectedCount();
+        }
+
+        // ─── 5. SEND TO FINANCE BUTTON CLICK ──────────────────────────
+        document.addEventListener('click', function(e) {
+            // Send to Finance
+            if (e.target.closest('#sendToFinanceBtn')) {
+                if (selectedIds.size === 0) return;
+
+                Swal.fire({
+                    title: 'Send to Finance?',
+                    html: `You are about to send <strong>${selectedIds.size}</strong> disbursement record(s) to the Financial Team.<br><br>
+                   <small class="text-muted">Records will be logged and the financial team will be notified.</small>`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#f59e0b',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: '<i class="bi bi-send"></i> Yes, Send Now',
+                    cancelButtonText: 'Cancel'
+                }).then(result => {
+                    if (!result.isConfirmed) return;
+
+                    Swal.fire({
+                        title: 'Sending...',
+                        text: 'Please wait while we send the records.',
+                        allowOutsideClick: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+
+                    fetch('send_to_finance.php', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                action: 'send',
+                                disbursement_ids: Array.from(selectedIds)
+                            }),
+                            credentials: 'same-origin'
+                        })
+                        .then(r => r.json())
+                        .then(res => {
+                            if (res.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Sent Successfully!',
+                                    html: `<strong>${res.records_sent}</strong> record(s) sent to Financial Team.`,
+                                    timer: 3000,
+                                    showConfirmButton: false
+                                });
+                                selectedIds.clear();
+                                updateSelectedCount();
+                                const selectAll = document.getElementById('selectAllChk');
+                                if (selectAll) selectAll.checked = false;
+                                loadData();
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Send Failed',
+                                    text: res.message || 'Unknown error occurred'
+                                });
+                            }
+                        })
+                        .catch(err => {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Failed to send: ' + err.message
+                            });
+                        });
+                });
+            }
+
+            // Manage API Keys
+            if (e.target.closest('#manageApiKeysBtn')) {
+                // Load existing keys
+                fetch('send_to_finance.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: 'list_keys'
+                        }),
+                        credentials: 'same-origin'
+                    })
+                    .then(r => r.json())
+                    .then(res => {
+                        let keysHtml = '';
+                        if (res.keys && res.keys.length > 0) {
+                            keysHtml = `<table class="table table-sm table-bordered mt-2">
+                    <thead><tr><th>Label</th><th>Key (masked)</th><th>Last Used</th><th>Status</th></tr></thead>
+                    <tbody>`;
+                            res.keys.forEach(k => {
+                                keysHtml += `<tr>
+                        <td>${escapeHtml(k.label)}</td>
+                        <td><code>${escapeHtml(k.api_key)}</code></td>
+                        <td>${k.last_used}</td>
+                        <td><span class="badge ${k.is_active ? 'bg-success' : 'bg-secondary'}">${k.is_active ? 'Active' : 'Inactive'}</span></td>
+                    </tr>`;
+                            });
+                            keysHtml += '</tbody></table>';
+                        } else {
+                            keysHtml = '<p class="text-muted">No API keys yet. Generate one below.</p>';
+                        }
+
+                        Swal.fire({
+                            title: '<i class="bi bi-key"></i> Financial Team API Keys',
+                            html: `
+                    <div class="text-start">
+                        <p class="text-muted small">Share this endpoint URL + API key with your Financial Team:</p>
+                        <div class="alert alert-info p-2 small">
+                            <strong>Endpoint:</strong><br>
+                            <code>https://core2.microfinancial-1.com/api/financial/disbursements.php</code>
+                        </div>
+                        ${keysHtml}
+                        <hr>
+                        <div class="mb-2">
+                            <label class="form-label fw-bold">Generate New Key:</label>
+                            <input type="text" id="newKeyLabel" class="form-control" placeholder="e.g. Financial Team - Accounting Dept" value="Financial Team">
+                        </div>
+                    </div>
+                `,
+                            showCancelButton: true,
+                            confirmButtonText: '<i class="bi bi-plus-circle"></i> Generate Key',
+                            confirmButtonColor: '#059669',
+                            cancelButtonText: 'Close',
+                            width: '600px'
+                        }).then(result => {
+                            if (!result.isConfirmed) return;
+
+                            const label = document.getElementById('newKeyLabel')?.value || 'Financial Team';
+
+                            fetch('send_to_finance.php', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        action: 'generate_key',
+                                        label
+                                    }),
+                                    credentials: 'same-origin'
+                                })
+                                .then(r => r.json())
+                                .then(res => {
+                                    if (res.success) {
+                                        Swal.fire({
+                                            title: '✅ API Key Generated!',
+                                            html: `
+                                <div class="text-start">
+                                    <p>Share these credentials with your Financial Team:</p>
+                                    <div class="alert alert-success p-2">
+                                        <strong>Endpoint URL:</strong><br>
+                                        <code class="small">${res.endpoint}</code>
+                                    </div>
+                                    <div class="alert alert-warning p-2">
+                                        <strong>API Key (copy now — shown once!):</strong><br>
+                                        <code id="generatedKey">${res.api_key}</code>
+                                        <br><button class="btn btn-sm btn-outline-dark mt-1" onclick="navigator.clipboard.writeText('${res.api_key}')">
+                                            <i class="bi bi-clipboard"></i> Copy Key
+                                        </button>
+                                    </div>
+                                    <div class="alert alert-info p-2 small">
+                                        <strong>GET usage:</strong><br>
+                                        <code>${res.instructions.GET}</code>
+                                    </div>
+                                </div>
+                            `,
+                                            width: '600px',
+                                            confirmButtonText: 'Done'
+                                        });
+                                    } else {
+                                        Swal.fire('Error', res.message, 'error');
+                                    }
+                                });
+                        });
+                    });
             }
         });
 
