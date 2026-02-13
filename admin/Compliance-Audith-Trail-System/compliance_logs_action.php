@@ -162,34 +162,21 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         $result = $stmt->get_result();
 
         // Set headers for CSV download
-        $filename = 'compliance_logs_' . date('Y-m-d_His') . '.csv';
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
-        header('Pragma: no-cache');
-        header('Expires: 0');
+        $filename_base = 'compliance_logs_' . date('Y-m-d_His');
+        $csv_filename = $filename_base . '.csv';
+        $export_password = trim($_GET['pdf_password'] ?? '');
 
-        // Create output stream
-        $output = fopen('php://output', 'w');
-
+        // Create CSV in memory
+        $csv_output = fopen('php://temp', 'r+');
         // Add BOM for Excel UTF-8 compatibility
-        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+        fprintf($csv_output, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
         // CSV Headers
-        fputcsv($output, [
-            'ID',
-            'User',
-            'Username',
-            'Action Type',
-            'Module',
-            'Description',
-            'Compliance Status',
-            'Date/Time',
-            'IP Address'
-        ]);
+        fputcsv($csv_output, ['ID', 'User', 'Username', 'Action Type', 'Module', 'Description', 'Compliance Status', 'Date/Time', 'IP Address']);
 
         // CSV Data
         while ($row = $result->fetch_assoc()) {
-            fputcsv($output, [
+            fputcsv($csv_output, [
                 $row['audit_id'] ?? '',
                 $row['full_name'] ?? 'System',
                 $row['username'] ?? '',
@@ -201,9 +188,35 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                 $row['ip_address'] ?? ''
             ]);
         }
-
-        fclose($output);
+        rewind($csv_output);
+        $csv_content = stream_get_contents($csv_output);
+        fclose($csv_output);
         $stmt->close();
+
+        if ($export_password !== '') {
+            if (class_exists('ZipArchive')) {
+                $zip = new ZipArchive();
+                $zip_filename = $filename_base . '.zip';
+                $temp_file = tempnam(sys_get_temp_dir(), 'zip');
+                if ($zip->open($temp_file, ZipArchive::CREATE) === TRUE) {
+                    $zip->addFromString($csv_filename, $csv_content);
+                    if (method_exists($zip, 'setEncryptionName')) {
+                        $zip->setEncryptionName($csv_filename, ZipArchive::EM_AES_256, $export_password);
+                    }
+                    $zip->close();
+                    header('Content-Type: application/zip');
+                    header('Content-Disposition: attachment; filename="' . $zip_filename . '"');
+                    header('Content-Length: ' . filesize($temp_file));
+                    readfile($temp_file);
+                    unlink($temp_file);
+                    exit;
+                }
+            }
+        }
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $csv_filename . '"');
+        echo $csv_content;
         exit;
     } catch (Exception $e) {
         error_log("CSV Export Error: " . $e->getMessage());
