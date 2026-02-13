@@ -736,29 +736,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewModal = new bootstrap.Modal(document.getElementById('viewTxModal'));
     const breakdownModal = new bootstrap.Modal(document.getElementById('breakdownModal'));
 
+    // ✅ SYNC BUTTON WITH SWAL FEEDBACK
     document.getElementById('syncCore1Btn').addEventListener('click', function () {
         const btn = this;
+        const originalHTML = btn.innerHTML;
+        
         btn.disabled = true;
         btn.classList.add('syncing');
         btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Syncing...';
 
-        fetch('../../api/saving_monitoring/savings_sync_api.php')
+        fetch('../../api/saving_monitoring/savings_sync_api.php?force=1')
             .then(r => r.json())
             .then(res => {
                 if (res.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sync Successful!',
+                        html: `
+                            <strong>Fetched:</strong> ${res.fetched || 0} transactions<br>
+                            <strong>Synced:</strong> ${res.synced || 0} transactions
+                        `,
+                        timer: 3000,
+                        showConfirmButton: false
+                    });
                     loadFilterMeta();
                     loadData();
                 } else {
-                    Swal.fire('Error', 'Sync failed: ' + res.message, 'error');
+                    Swal.fire('Sync Failed', res.message || 'Unknown error', 'error');
                 }
             })
             .catch(err => {
-                Swal.fire('Error', 'Sync failed: ' + err.message, 'error');
+                Swal.fire('Sync Error', err.message || 'Network error occurred', 'error');
             })
             .finally(() => {
                 btn.disabled = false;
                 btn.classList.remove('syncing');
-                btn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Sync Core1';
+                btn.innerHTML = originalHTML;
             });
     });
 
@@ -767,6 +780,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(r => r.json())
             .then(res => {
                 if (res.success && !res.skipped) {
+                    console.log('Auto-sync completed:', res.synced, 'transactions');
                     loadFilterMeta();
                     loadData();
                 }
@@ -844,8 +858,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('card_total_tx').textContent = data.summary.total || 0;
                 document.getElementById('card_total_deposit').textContent = data.summary.total_deposits || 0;
                 document.getElementById('card_total_withdraw').textContent = data.summary.total_withdrawals || 0;
-
-                // Keep using last_balance from API (global)
                 document.getElementById('card_balance').textContent =
                     '₱' + parseFloat(data.summary.last_balance || 0).toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 });
 
@@ -869,7 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <td><span class="badge ${badgeClass}">${r.transaction_type}</span></td>
                                 <td>₱${Number(r.amount).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
                                 <td>₱${Number(r.balance).toLocaleString(undefined, {minimumFractionDigits:2})}</td>
-                                <td>${r.recorded_by_name || '-'}</td>
+                                <td>${r.recorded_by_name || '<span class="badge bg-secondary">Auto-Sync</span>'}</td>
                                 <td>
                                     <div class="btn-group btn-group-sm" role="group">
                                         <button class="btn btn-info viewBtn" data-id="${r.saving_id}" title="View Details">
@@ -972,7 +984,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('bd_member_id').textContent = member_info.member_id;
         document.getElementById('bd_member_name').textContent = member_info.name;
 
-        // ✅ FIXED: Show balance + interest separately and clearly
         const baseBalance = Number(summary.current_balance_with_interest ?? summary.current_balance ?? 0);
         const interestEarned = Number(summary.total_interest || 0);
         
@@ -1032,7 +1043,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><span class="badge ${typeClass}">${txn.transaction_type}</span></td>
                 <td class="text-end ${amountClass} fw-bold">${amountIcon} ₱${Number(txn.amount).toLocaleString(undefined, { minimumFractionDigits:2 })}</td>
                 <td class="text-end">₱${Number(txn.balance).toLocaleString(undefined, { minimumFractionDigits:2 })}</td>
-                <td><small class="text-muted"><i class="bi bi-person"></i> ${txn.recorded_by_name || 'System'}</small></td>
+                <td><small class="text-muted"><i class="bi bi-person"></i> ${txn.recorded_by_name || 'Auto-Sync'}</small></td>
             `;
             bt.appendChild(row);
         });
@@ -1053,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
         csv += 'Date,Type,Amount,Balance,Recorded By\n';
 
         transactions.forEach(txn => {
-            csv += `${txn.transaction_date},${txn.transaction_type},${txn.amount},${txn.balance},${txn.recorded_by_name || 'System'}\n`;
+            csv += `${txn.transaction_date},${txn.transaction_type},${txn.amount},${txn.balance},${txn.recorded_by_name || 'Auto-Sync'}\n`;
         });
 
         const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
@@ -1095,7 +1106,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('v_type').innerHTML = `<span class="badge ${badgeClass}">${d.transaction_type}</span>`;
                 document.getElementById('v_amount').textContent = Number(d.amount).toLocaleString(undefined, { minimumFractionDigits:2 });
                 document.getElementById('v_balance').textContent = Number(d.balance).toLocaleString(undefined, { minimumFractionDigits:2 });
-                document.getElementById('v_by').textContent = d.recorded_by_name || 'Unknown';
+                document.getElementById('v_by').textContent = d.recorded_by_name || 'Auto-Sync';
                 viewModal.show();
             })
             .catch(() => Swal.fire('Error', 'Failed to load transaction details', 'error'));
