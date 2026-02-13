@@ -1,6 +1,4 @@
 <?php
-// repayments.php (UI PAGE ONLY)
-
 // === Initialize database and session FIRST ===
 require_once(__DIR__ . '/../../initialize_coreT2.php');
 require_once(__DIR__ . '/../inc/sess_auth.php');
@@ -154,10 +152,25 @@ include(__DIR__ . '/../inc/sidebar.php');
     }
 
     /* Card color schemes */
-    .stat-card[data-filter="all"] { --card-color-1: #3b82f6; --card-color-2: #2563eb; }
-    .stat-card[data-filter="active"] { --card-color-1: #059669; --card-color-2: #047857; }
-    .stat-card[data-filter="overdue"] { --card-color-1: #f59e0b; --card-color-2: #d97706; }
-    .stat-card[data-filter="at_risk"] { --card-color-1: #ef4444; --card-color-2: #dc2626; }
+    .stat-card[data-filter="all"] {
+        --card-color-1: #3b82f6;
+        --card-color-2: #2563eb;
+    }
+
+    .stat-card[data-filter="active"] {
+        --card-color-1: #059669;
+        --card-color-2: #047857;
+    }
+
+    .stat-card[data-filter="overdue"] {
+        --card-color-1: #f59e0b;
+        --card-color-2: #d97706;
+    }
+
+    .stat-card[data-filter="at_risk"] {
+        --card-color-1: #ef4444;
+        --card-color-2: #dc2626;
+    }
 
     /* Enhanced Filter Section */
     .filter-section {
@@ -224,7 +237,10 @@ include(__DIR__ . '/../inc/sidebar.php');
         border-radius: 2px;
     }
 
-    .chart-container { position: relative; height: 280px; }
+    .chart-container {
+        position: relative;
+        height: 280px;
+    }
 
     /* Enhanced Table */
     .table-card {
@@ -261,7 +277,11 @@ include(__DIR__ . '/../inc/sidebar.php');
         font-weight: 600;
     }
 
-    #recordCount { color: #6b7280; font-size: 0.875rem; font-weight: 500; }
+    #recordCount {
+        color: #6b7280;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
 
     .table-wrapper {
         overflow-x: auto;
@@ -269,8 +289,13 @@ include(__DIR__ . '/../inc/sidebar.php');
         border: 1px solid #e5e7eb;
     }
 
-    .table { margin-bottom: 0; }
-    .table thead { background: linear-gradient(135deg, var(--brand-primary), #047857); }
+    .table {
+        margin-bottom: 0;
+    }
+
+    .table thead {
+        background: linear-gradient(135deg, var(--brand-primary), #047857);
+    }
 
     .table thead th {
         color: #1f2937 !important;
@@ -308,19 +333,56 @@ include(__DIR__ . '/../inc/sidebar.php');
     }
 
     /* Enhanced Buttons */
-    .btn { border-radius: 0.5rem; font-weight: 600; transition: all 0.2s ease; box-shadow: var(--shadow-sm); }
-    .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
-    .btn:active { transform: translateY(0); }
-    .btn-sm { padding: 0.5rem 1rem; font-size: 0.875rem; }
+    .btn {
+        border-radius: 0.5rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        box-shadow: var(--shadow-sm);
+    }
 
-    .btn-outline-primary { border: 2px solid #3b82f6; color: #3b82f6; }
-    .btn-outline-primary:hover { background: #3b82f6; color: white; }
+    .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+    }
 
-    .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); border: none; }
-    .btn-info { background: linear-gradient(135deg, #3b82f6, #2563eb); border: none; }
+    .btn:active {
+        transform: translateY(0);
+    }
 
-    .btn-outline-secondary { border: 2px solid #6b7280; color: #6b7280; }
-    .btn-outline-secondary:hover { background: #6b7280; color: white; }
+    .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .btn-outline-primary {
+        border: 2px solid #3b82f6;
+        color: #3b82f6;
+    }
+
+    .btn-outline-primary:hover {
+        background: #3b82f6;
+        color: white;
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        border: none;
+    }
+
+    .btn-info {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        border: none;
+    }
+
+    .btn-outline-secondary {
+        border: 2px solid #6b7280;
+        color: #6b7280;
+    }
+
+    .btn-outline-secondary:hover {
+        background: #6b7280;
+        color: white;
+    }
 
     /* Pagination */
     .pagination-wrapper {
@@ -332,21 +394,41 @@ include(__DIR__ . '/../inc/sidebar.php');
         border-top: 2px solid #f3f4f6;
     }
 
-    #paginationInfo { color: #6b7280; font-size: 0.875rem; font-weight: 500; }
-    #paginationControls .btn { margin-left: 0.5rem; }
+    #paginationInfo {
+        color: #6b7280;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
 
+    #paginationControls .btn {
+        margin-left: 0.5rem;
+    }
+
+    /* Responsive improvements */
     @media (max-width: 768px) {
-        .page-header { padding: 1.5rem; }
-        .stat-card { padding: 1.25rem; }
-        .stat-value { font-size: 1.75rem; }
-        .filter-section { padding: 1rem; }
+        .page-header {
+            padding: 1.5rem;
+        }
+
+        .stat-card {
+            padding: 1.25rem;
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+        }
+
+        .filter-section {
+            padding: 1rem;
+        }
     }
 </style>
 
+<!-- ✅ FIXED: Added main-wrap wrapper to prevent sidebar overlap -->
 <div class="main-wrap">
     <main class="main-content" id="main-content">
         <div class="container-fluid py-4">
-
+            <!-- Enhanced Header -->
             <div class="page-header">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <div>
@@ -357,6 +439,9 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <button id="exportPdfBtn" class="btn btn-sm btn-danger">
                             <i class="bi bi-file-earmark-pdf"></i> Export PDF
                         </button>
+                        <button id="exportExcelBtn" class="btn btn-sm btn-success">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel
+                        </button>
                         <button id="reloadBtn" class="btn btn-sm btn-outline-light">
                             <i class="bi bi-arrow-clockwise"></i> Reload
                         </button>
@@ -364,41 +449,59 @@ include(__DIR__ . '/../inc/sidebar.php');
                 </div>
             </div>
 
+            <!-- Enhanced Summary Cards -->
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="all">
-                        <div class="stat-card-icon"><i class="bi bi-wallet2"></i></div>
+                        <div class="stat-card-icon">
+                            <i class="bi bi-wallet2"></i>
+                        </div>
                         <div class="stat-title">Total Loans</div>
                         <div id="card_total_loans" class="stat-value">0</div>
-                        <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to view all</div>
+                        <div class="stat-hint">
+                            <i class="bi bi-hand-index"></i> Click to view all
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="active">
-                        <div class="stat-card-icon"><i class="bi bi-check-circle"></i></div>
+                        <div class="stat-card-icon">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
                         <div class="stat-title">Active Loans</div>
                         <div id="card_active_loans" class="stat-value">0</div>
-                        <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to filter</div>
+                        <div class="stat-hint">
+                            <i class="bi bi-hand-index"></i> Click to filter
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="overdue">
-                        <div class="stat-card-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                        <div class="stat-card-icon">
+                            <i class="bi bi-exclamation-triangle"></i>
+                        </div>
                         <div class="stat-title">Overdue Loans</div>
                         <div id="card_overdue_loans" class="stat-value">0</div>
-                        <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to filter</div>
+                        <div class="stat-hint">
+                            <i class="bi bi-hand-index"></i> Click to filter
+                        </div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="at_risk">
-                        <div class="stat-card-icon"><i class="bi bi-shield-exclamation"></i></div>
+                        <div class="stat-card-icon">
+                            <i class="bi bi-shield-exclamation"></i>
+                        </div>
                         <div class="stat-title">At Risk Loans</div>
                         <div id="card_at_risk_loans" class="stat-value">0</div>
-                        <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to filter</div>
+                        <div class="stat-hint">
+                            <i class="bi bi-hand-index"></i> Click to filter
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Enhanced Filters Section -->
             <div class="filter-section">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-3">
@@ -446,6 +549,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                 </div>
             </div>
 
+            <!-- Enhanced Charts -->
             <div class="row g-4 mb-4">
                 <div class="col-md-6">
                     <div class="chart-card">
@@ -465,6 +569,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                 </div>
             </div>
 
+            <!-- Enhanced Loan Portfolio Table -->
             <div class="table-card">
                 <div class="table-header">
                     <h6 class="table-title">
@@ -504,11 +609,11 @@ include(__DIR__ . '/../inc/sidebar.php');
                     <div id="paginationControls" class="btn-group"></div>
                 </div>
             </div>
-
         </div>
     </main>
 </div>
 
+<!-- View Loan Modal -->
 <div class="modal fade" id="viewLoanModal" tabindex="-1" aria-labelledby="viewLoanModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content" style="border-radius: 1rem; border: none; box-shadow: var(--shadow-xl);">
@@ -530,546 +635,706 @@ include(__DIR__ . '/../inc/sidebar.php');
     </div>
 </div>
 
+<!-- Toast Container for Notifications -->
 <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    let loanStatusChart, riskChart;
-    let currentPage = 1, limit = 10;
-
-    let currentFilters = {
-        search: '',
-        status: '',
-        risk: '',
-        type: '',
-        cardFilter: 'all'
-    };
-
-    const tbody = document.getElementById('loanRiskTbody');
-    const paginationControls = document.getElementById('paginationControls');
-    const paginationInfo = document.getElementById('paginationInfo');
-    const filterIndicator = document.getElementById('filterIndicator');
-
-    function escapeHtml(text) {
-        if (!text) return '';
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    function showError(message) {
-        tbody.innerHTML = `<tr><td colspan="14" class="text-center text-danger"><i class="bi bi-exclamation-triangle"></i> ${escapeHtml(message)}</td></tr>`;
-    }
-
-    function debounce(func, wait) {
-        let timeout;
-        return function(...args) {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func(...args), wait);
+    document.addEventListener('DOMContentLoaded', function() {
+        let loanStatusChart, riskChart;
+        let currentPage = 1,
+            limit = 10;
+        let currentFilters = {
+            search: '',
+            status: '',
+            risk: '',
+            type: '',
+            cardFilter: 'all'
         };
-    }
+        let allLoans = [];
 
-    function getDaysUntilDue(dueDate) {
-        if (!dueDate || dueDate === '-') return 999;
-        const due = new Date(dueDate);
-        const today = new Date();
-        const diffTime = due - today;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays;
-    }
+        const tbody = document.getElementById('loanRiskTbody');
+        const paginationControls = document.getElementById('paginationControls');
+        const paginationInfo = document.getElementById('paginationInfo');
+        const filterIndicator = document.getElementById('filterIndicator');
 
-    async function sendEmailNotification(loanId, memberName, memberEmail) {
-        if (!memberEmail) {
-            showToast('❌ No email address for ' + memberName, 'error');
-            return;
+        // ✅ Helper function - defined FIRST
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
-        if (!confirm(`Send email reminder to ${memberName} (${memberEmail})?`)) return;
+        // ═══════════════════════════════════════════════════════════════
+        // EMAIL NOTIFICATION FUNCTIONS
+        // ═══════════════════════════════════════════════════════════════
 
-        try {
-            const response = await fetch('send_notification.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ loan_id: loanId })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                showToast('✅ ' + result.message, 'success');
-                const button = document.querySelector(`button[data-notify-loan="${loanId}"]`);
-                if (button) {
-                    button.innerHTML = '✅ Sent';
-                    button.classList.remove('btn-primary');
-                    button.classList.add('btn-success');
-                    button.disabled = true;
-                }
-            } else {
-                showToast('❌ ' + result.message, 'error');
+        async function sendEmailNotification(loanId, memberName, memberEmail) {
+            if (!memberEmail) {
+                showToast('❌ No email address for ' + memberName, 'error');
+                return;
             }
-        } catch (error) {
-            showToast('❌ Error: ' + error.message, 'error');
-        }
-    }
 
-    function showToast(message, type) {
-        const container = document.getElementById('toastContainer');
-        const toast = document.createElement('div');
-        toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
-        toast.style.cssText = 'min-width: 300px; margin-bottom: 10px;';
-        toast.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        container.appendChild(toast);
-        setTimeout(() => toast.remove(), 5000);
-    }
+            if (!confirm(`Send email reminder to ${memberName} (${memberEmail})?`)) {
+                return;
+            }
 
-    function handleViewButtonClick(e) {
-        const button = e.target.closest('.view-loan-btn');
-        if (!button) return;
-
-        const loan_id = button.dataset.id;
-        const content = document.getElementById('loanDetailsContent');
-        content.innerHTML = '<div class="text-center"><div class="spinner-border"></div><p class="mt-2">Loading...</p></div>';
-
-        const url = `../Loan-Portfolio-Risk-Management/loan_crud.php?loan_id=${loan_id}`;
-
-        fetch(url)
-            .then(r => {
-                if (!r.ok) {
-                    return r.text().then(text => {
-                        throw new Error(`HTTP ${r.status}: ${text}`);
-                    });
-                }
-                return r.json();
-            })
-            .then(res => {
-                if (res.success && res.loan) {
-                    const l = res.loan;
-                    let html = `
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6"><strong>Loan ID:</strong> ${l.loan_id}</div>
-                            <div class="col-md-6"><strong>Member:</strong> ${escapeHtml(l.member_name)} (ID: ${l.member_id})</div>
-                            <div class="col-md-6"><strong>Type:</strong> ${escapeHtml(l.loan_type)}</div>
-                            <div class="col-md-6"><strong>Status:</strong> <span class="badge bg-${l.status === 'Active' ? 'success' : l.status === 'Completed' ? 'info' : l.status === 'Delinquent' ? 'danger' : 'warning'}">${l.status}</span></div>
-                            <div class="col-md-6"><strong>Principal:</strong> ₱${Number(l.principal_amount).toLocaleString('en-PH', {minimumFractionDigits: 2})}</div>
-                            <div class="col-md-6"><strong>Interest Rate:</strong> ${l.interest_rate}%</div>
-                            <div class="col-md-6"><strong>Term:</strong> ${l.loan_term} months</div>
-                            <div class="col-md-6"><strong>Start:</strong> ${l.start_date}</div>
-                            <div class="col-md-6"><strong>End:</strong> ${l.end_date}</div>
-                        </div>`;
-
-                    if (res.schedules && res.schedules.length > 0) {
-                        html += `<h6 class="mb-2"><i class="bi bi-calendar-check me-1"></i> Payment Schedule & History</h6>
-                        <div class="table-responsive"><table class="table table-sm table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Due Date</th>
-                                <th>Amount Due</th>
-                                <th>Amount Paid</th>
-                                <th>Balance</th>
-                                <th>Payment Date</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead><tbody>`;
-
-                        res.schedules.forEach(s => {
-                            const badge = s.status === 'Paid' ? 'bg-success' : s.status === 'Overdue' ? 'bg-danger' : 'bg-warning';
-                            const balance = Number(s.amount_due) - Number(s.amount_paid);
-                            html += `<tr>
-                                <td>${s.due_date}</td>
-                                <td>₱${Number(s.amount_due).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
-                                <td>₱${Number(s.amount_paid).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
-                                <td>₱${balance.toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
-                                <td>${s.payment_date || '-'}</td>
-                                <td><span class="badge ${badge}">${s.status}</span></td>
-                            </tr>`;
-                        });
-
-                        html += '</tbody></table></div>';
-                    } else {
-                        html += '<p class="text-muted">No payment schedules available</p>';
-                    }
-
-                    content.innerHTML = html;
-
-                    const modalEl = document.getElementById('viewLoanModal');
-                    const modal = new bootstrap.Modal(modalEl);
-                    modal.show();
-                } else {
-                    content.innerHTML = '<p class="text-center text-danger">Failed to load loan details.</p>';
-                }
-            })
-            .catch(err => {
-                content.innerHTML = `<p class="text-center text-danger">Error: ${err.message}</p>`;
-            });
-    }
-
-    function handleNotifyButtonClick(e) {
-        const button = e.target.closest('.notify-btn');
-        if (!button) return;
-
-        const loanId = button.dataset.notifyLoan;
-        const memberName = button.dataset.memberName;
-        const memberEmail = button.dataset.memberEmail;
-
-        sendEmailNotification(loanId, memberName, memberEmail);
-    }
-
-    function updateFilterIndicator() {
-        const filterTexts = {
-            'all': '',
-            'active': 'Active Loans Only',
-            'overdue': 'Overdue Loans Only',
-            'at_risk': 'At Risk Loans Only'
-        };
-
-        if (currentFilters.cardFilter !== 'all') {
-            filterIndicator.textContent = filterTexts[currentFilters.cardFilter];
-            filterIndicator.style.display = 'inline-block';
-            filterIndicator.className = 'badge ms-2 ' +
-                (currentFilters.cardFilter === 'active' ? 'bg-success' :
-                    currentFilters.cardFilter === 'overdue' ? 'bg-warning text-dark' : 'bg-danger');
-        } else {
-            filterIndicator.style.display = 'none';
-        }
-    }
-
-    function populateLoanTypes(types) {
-        const typeFilter = document.getElementById('typeFilter');
-        const currentValue = typeFilter.value;
-
-        typeFilter.innerHTML = '<option value="">All Types</option>';
-        types.forEach(type => {
-            const option = document.createElement('option');
-            option.value = type;
-            option.textContent = type;
-            typeFilter.appendChild(option);
-        });
-
-        typeFilter.value = currentValue;
-    }
-
-    function renderPagination(current, total) {
-        paginationControls.innerHTML = '';
-        paginationInfo.textContent = total > 0 ? `Page ${current} of ${total}` : '';
-
-        if (total <= 1) return;
-
-        const prev = document.createElement('button');
-        prev.textContent = 'Prev';
-        prev.className = 'btn btn-sm btn-outline-primary';
-        prev.disabled = current === 1;
-        prev.onclick = () => { currentPage--; loadData(); };
-        paginationControls.appendChild(prev);
-
-        const next = document.createElement('button');
-        next.textContent = 'Next';
-        next.className = 'btn btn-sm btn-outline-primary';
-        next.disabled = current === total;
-        next.onclick = () => { currentPage++; loadData(); };
-        paginationControls.appendChild(next);
-    }
-
-    function renderChartsAndTable(data) {
-        document.getElementById('card_total_loans').textContent = data.summary?.total_loans || 0;
-        document.getElementById('card_active_loans').textContent = data.summary?.active_loans || 0;
-        document.getElementById('card_overdue_loans').textContent = data.summary?.overdue_loans || 0;
-        document.getElementById('card_at_risk_loans').textContent = data.summary?.at_risk_loans || 0;
-
-        if (loanStatusChart) loanStatusChart.destroy();
-        if (data.loan_status && data.loan_status.labels && data.loan_status.labels.length > 0) {
-            const ctx = document.getElementById('loanStatusChart');
-            if (ctx) {
-                loanStatusChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: data.loan_status.labels,
-                        datasets: [{
-                            label: 'Number of Loans',
-                            data: data.loan_status.values,
-                            backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6c757d'],
-                            borderRadius: 6
-                        }]
+            try {
+                const response = await fetch('/admin/Repayment-Tracker/send_ai_message.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-                    }
+                    body: JSON.stringify({
+                        loan_id: loanId
+                    })
                 });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showToast('✅ ' + result.message, 'success');
+                    // Update button to show sent
+                    const button = document.querySelector(`button[data-notify-loan="${loanId}"]`);
+                    if (button) {
+                        button.innerHTML = '✅ Sent';
+                        button.classList.remove('btn-primary');
+                        button.classList.add('btn-success');
+                        button.disabled = true;
+                    }
+                } else {
+                    showToast('❌ ' + result.message, 'error');
+                }
+            } catch (error) {
+                showToast('❌ Error: ' + error.message, 'error');
             }
         }
 
-        if (riskChart) riskChart.destroy();
-        if (data.risk_breakdown && data.risk_breakdown.labels && data.risk_breakdown.labels.length > 0) {
-            const ctx = document.getElementById('riskChart');
-            if (ctx) {
-                const filteredLabels = [];
-                const filteredValues = [];
-                const filteredColors = [];
-                const colors = { 'Low': '#198754', 'Medium': '#ffc107', 'High': '#dc3545' };
+        function showToast(message, type) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+            toast.style.cssText = 'min-width: 300px; margin-bottom: 10px;';
+            toast.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
 
-                data.risk_breakdown.labels.forEach((label, index) => {
-                    const value = data.risk_breakdown.values[index];
-                    if (value > 0) {
-                        filteredLabels.push(label);
-                        filteredValues.push(value);
-                        filteredColors.push(colors[label] || '#6c757d');
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+
+        function getDaysUntilDue(dueDate) {
+            if (!dueDate || dueDate === '-') return 999;
+            const due = new Date(dueDate);
+            const today = new Date();
+            const diffTime = due - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays;
+        }
+
+        // ✅ Event delegation handler for view buttons
+        function handleViewButtonClick(e) {
+            const button = e.target.closest('.view-loan-btn');
+            if (!button) return;
+
+            const loan_id = button.dataset.id;
+            console.log('Clicked View button for loan ID:', loan_id);
+
+            const content = document.getElementById('loanDetailsContent');
+            content.innerHTML = '<div class="text-center"><div class="spinner-border"></div><p class="mt-2">Loading...</p></div>';
+
+            const url = `../Loan-Portfolio-Risk-Management/loan_crud.php?loan_id=${loan_id}`;
+            console.log('Fetching URL:', url);
+
+            fetch(url)
+                .then(r => {
+                    console.log('Response status:', r.status);
+                    if (!r.ok) {
+                        return r.text().then(text => {
+                            throw new Error(`HTTP ${r.status}: ${text}`);
+                        });
                     }
-                });
+                    return r.json();
+                })
+                .then(res => {
+                    console.log('Response data:', res);
 
-                if (filteredLabels.length > 0) {
-                    riskChart = new Chart(ctx, {
-                        type: 'doughnut',
-                        data: { labels: filteredLabels, datasets: [{ data: filteredValues, backgroundColor: filteredColors, borderWidth: 2, borderColor: '#fff' }] },
-                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, cutout: '60%' }
+                    if (res.success && res.loan) {
+                        const l = res.loan;
+                        let html = `
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6"><strong>Loan ID:</strong> ${l.loan_id}</div>
+                    <div class="col-md-6"><strong>Member:</strong> ${escapeHtml(l.member_name)} (ID: ${l.member_id})</div>
+                    <div class="col-md-6"><strong>Type:</strong> ${escapeHtml(l.loan_type)}</div>
+                    <div class="col-md-6"><strong>Status:</strong> <span class="badge bg-${l.status === 'Active' ? 'success' : l.status === 'Completed' ? 'info' : l.status === 'Delinquent' ? 'danger' : 'warning'}">${l.status}</span></div>
+                    <div class="col-md-6"><strong>Principal:</strong> ₱${Number(l.principal_amount).toLocaleString('en-PH', {minimumFractionDigits: 2})}</div>
+                    <div class="col-md-6"><strong>Interest Rate:</strong> ${l.interest_rate}%</div>
+                    <div class="col-md-6"><strong>Term:</strong> ${l.loan_term} months</div>
+                    <div class="col-md-6"><strong>Start:</strong> ${l.start_date}</div>
+                    <div class="col-md-6"><strong>End:</strong> ${l.end_date}</div>
+                </div>`;
+
+                        if (res.schedules && res.schedules.length > 0) {
+                            html += `<h6 class="mb-2"><i class="bi bi-calendar-check me-1"></i> Payment Schedule & History</h6>
+                    <div class="table-responsive"><table class="table table-sm table-bordered">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Due Date</th>
+                            <th>Amount Due</th>
+                            <th>Amount Paid</th>
+                            <th>Balance</th>
+                            <th>Payment Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead><tbody>`;
+
+                            res.schedules.forEach(s => {
+                                const badge = s.status === 'Paid' ? 'bg-success' : s.status === 'Overdue' ? 'bg-danger' : 'bg-warning';
+                                const balance = Number(s.amount_due) - Number(s.amount_paid);
+                                html += `<tr>
+                            <td>${s.due_date}</td>
+                            <td>₱${Number(s.amount_due).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
+                            <td>₱${Number(s.amount_paid).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
+                            <td>₱${balance.toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
+                            <td>${s.payment_date || '-'}</td>
+                            <td><span class="badge ${badge}">${s.status}</span></td>
+                        </tr>`;
+                            });
+                            html += '</tbody></table></div>';
+                        } else {
+                            html += '<p class="text-muted">No payment schedules available</p>';
+                        }
+
+                        content.innerHTML = html;
+
+                        // Show modal
+                        const modalEl = document.getElementById('viewLoanModal');
+                        const modal = new bootstrap.Modal(modalEl);
+                        modal.show();
+                    } else {
+                        content.innerHTML = '<p class="text-center text-danger">Failed to load loan details.</p>';
+                    }
+                })
+                .catch(err => {
+                    console.error('View loan error:', err);
+                    content.innerHTML = `<p class="text-center text-danger">Error: ${err.message}</p>`;
+                });
+        }
+
+        // ✅ Event delegation handler for notify buttons
+        function handleNotifyButtonClick(e) {
+            const button = e.target.closest('.notify-btn');
+            if (!button) return;
+
+            const loanId = button.dataset.notifyLoan;
+            const memberName = button.dataset.memberName;
+            const memberEmail = button.dataset.memberEmail;
+
+            sendEmailNotification(loanId, memberName, memberEmail);
+        }
+
+        // --- Load data ---
+        function loadData() {
+            const params = new URLSearchParams({
+                page: currentPage,
+                limit: limit,
+                search: currentFilters.search,
+                status: currentFilters.status,
+                risk: currentFilters.risk,
+                type: currentFilters.type,
+                cardFilter: currentFilters.cardFilter
+            });
+
+            tbody.innerHTML = '<tr><td colspan="14" class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
+
+            fetch(`ajax_repayments.php?${params}`)
+                .then(r => {
+                    if (!r.ok) {
+                        return r.text().then(text => {
+                            throw new Error(`HTTP ${r.status}: ${text}`);
+                        });
+                    }
+                    return r.json();
+                })
+                .then(data => {
+                    console.log('Received data:', data);
+
+                    if (data.error) {
+                        throw new Error(data.message || 'Server error');
+                    }
+
+                    allLoans = data.all_loans || data.loans || [];
+                    renderChartsAndTable(data);
+                    populateLoanTypes(data.loan_types || []);
+                    updateFilterIndicator();
+                })
+                .catch(err => {
+                    console.error('Fetch error:', err);
+                    showError('Failed to fetch data: ' + err.message);
+                });
+        }
+
+        function showError(message) {
+            tbody.innerHTML = `<tr><td colspan="14" class="text-center text-danger"><i class="bi bi-exclamation-triangle"></i> ${escapeHtml(message)}</td></tr>`;
+        }
+
+        function updateFilterIndicator() {
+            const filterTexts = {
+                'all': '',
+                'active': 'Active Loans Only',
+                'overdue': 'Overdue Loans Only',
+                'at_risk': 'At Risk Loans Only'
+            };
+
+            if (currentFilters.cardFilter !== 'all') {
+                filterIndicator.textContent = filterTexts[currentFilters.cardFilter];
+                filterIndicator.style.display = 'inline-block';
+                filterIndicator.className = 'badge ms-2 ' +
+                    (currentFilters.cardFilter === 'active' ? 'bg-success' :
+                        currentFilters.cardFilter === 'overdue' ? 'bg-warning text-dark' : 'bg-danger');
+            } else {
+                filterIndicator.style.display = 'none';
+            }
+        }
+
+        function populateLoanTypes(types) {
+            const typeFilter = document.getElementById('typeFilter');
+            const currentValue = typeFilter.value;
+            typeFilter.innerHTML = '<option value="">All Types</option>';
+            types.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type;
+                typeFilter.appendChild(option);
+            });
+            typeFilter.value = currentValue;
+        }
+
+        function renderChartsAndTable(data) {
+            // Summary Cards
+            document.getElementById('card_total_loans').textContent = data.summary?.total_loans || 0;
+            document.getElementById('card_active_loans').textContent = data.summary?.active_loans || 0;
+            document.getElementById('card_overdue_loans').textContent = data.summary?.overdue_loans || 0;
+            document.getElementById('card_at_risk_loans').textContent = data.summary?.at_risk_loans || 0;
+
+            // Loan Status Chart
+            if (loanStatusChart) loanStatusChart.destroy();
+
+            if (data.loan_status && data.loan_status.labels && data.loan_status.labels.length > 0) {
+                const ctx = document.getElementById('loanStatusChart');
+                if (ctx) {
+                    loanStatusChart = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: data.loan_status.labels,
+                            datasets: [{
+                                label: 'Number of Loans',
+                                data: data.loan_status.values,
+                                backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6c757d'],
+                                borderRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1
+                                    }
+                                }
+                            }
+                        }
                     });
                 }
             }
-        }
 
-        const start = (currentPage - 1) * limit + 1;
-        const end = Math.min(currentPage * limit, data.pagination?.total_records || 0);
-        const total = data.pagination?.total_records || 0;
-        document.getElementById('recordCount').textContent = total > 0 ? `Showing ${start}-${end} of ${total} records` : 'No records found';
+            // Risk Chart
+            if (riskChart) riskChart.destroy();
 
-        tbody.innerHTML = '';
-        if (data.loans && data.loans.length > 0) {
-            data.loans.forEach(l => {
-                const riskBadge = l.risk_level === 'High' ? 'bg-danger' : l.risk_level === 'Medium' ? 'bg-warning text-dark' : 'bg-success';
-                const statusBadge = l.status === 'Active' ? 'bg-success' :
-                    l.status === 'Delinquent' ? 'bg-danger' :
-                    l.status === 'Completed' ? 'bg-info' : 'bg-warning';
+            if (data.risk_breakdown && data.risk_breakdown.labels && data.risk_breakdown.labels.length > 0) {
+                const ctx = document.getElementById('riskChart');
+                if (ctx) {
+                    const filteredLabels = [];
+                    const filteredValues = [];
+                    const filteredColors = [];
+                    const colors = {
+                        'Low': '#198754',
+                        'Medium': '#ffc107',
+                        'High': '#dc3545'
+                    };
 
-                const daysUntilDue = getDaysUntilDue(l.next_due);
-                const showNotifyButton = daysUntilDue <= 7 && l.email;
+                    data.risk_breakdown.labels.forEach((label, index) => {
+                        const value = data.risk_breakdown.values[index];
+                        if (value > 0) {
+                            filteredLabels.push(label);
+                            filteredValues.push(value);
+                            filteredColors.push(colors[label] || '#6c757d');
+                        }
+                    });
 
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${l.loan_id}</td>
-                    <td>${escapeHtml(l.member_name || 'N/A')}</td>
-                    <td>${escapeHtml(l.loan_type)}</td>
-                    <td>₱${Number(l.principal_amount).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
-                    <td>${l.interest_rate ?? '-'}%</td>
-                    <td>${l.loan_term ?? '-'} mo</td>
-                    <td>${l.start_date ?? '-'}</td>
-                    <td>${l.end_date ?? '-'}</td>
-                    <td><span class="badge ${statusBadge}">${l.status}</span></td>
-                    <td><span class="badge ${l.overdue_count > 0 ? 'bg-danger' : 'bg-secondary'}">${l.overdue_count || 0}</span></td>
-                    <td><span class="badge ${riskBadge}">${l.risk_level}</span></td>
-                    <td>${l.next_due || '-'}</td>
-                    <td class="text-center">
-                        ${showNotifyButton ? `
-                            <button class="btn btn-sm btn-primary notify-btn"
-                                data-notify-loan="${l.loan_id}"
-                                data-member-name="${escapeHtml(l.member_name)}"
-                                data-member-email="${escapeHtml(l.email)}"
-                                title="Send email reminder">
-                                📧
-                            </button>
-                        ` : '<small class="text-muted">-</small>'}
-                    </td>
-                    <td class="text-center">
-                        <button class="btn btn-sm btn-info view-loan-btn" data-id="${l.loan_id}" title="View Details">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-
-            tbody.removeEventListener('click', handleViewButtonClick);
-            tbody.addEventListener('click', handleViewButtonClick);
-
-            tbody.removeEventListener('click', handleNotifyButtonClick);
-            tbody.addEventListener('click', handleNotifyButtonClick);
-        } else {
-            const filterMsg = currentFilters.cardFilter !== 'all' ? ` matching "${filterIndicator.textContent}"` : '';
-            tbody.innerHTML = `<tr><td colspan="14" class="text-center text-muted"><i class="bi bi-inbox"></i> No loans found${filterMsg}</td></tr>`;
-        }
-
-        renderPagination(data.pagination?.current_page || 1, data.pagination?.total_pages || 1);
-    }
-
-    // ✅ UPDATED loadData(): SAFE JSON PARSE (fixes Unexpected token)
-    function loadData() {
-        const params = new URLSearchParams({
-            page: currentPage,
-            limit: limit,
-            search: currentFilters.search,
-            status: currentFilters.status,
-            risk: currentFilters.risk,
-            type: currentFilters.type,
-            cardFilter: currentFilters.cardFilter
-        });
-
-        tbody.innerHTML = '<tr><td colspan="14" class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
-
-        fetch(`ajax_repayments.php?${params.toString()}`)
-            .then(async (r) => {
-                const ct = (r.headers.get('content-type') || '').toLowerCase();
-                const raw = await r.text();
-
-                if (!r.ok) {
-                    throw new Error(`HTTP ${r.status}: ${raw.slice(0, 200)}`);
+                    if (filteredLabels.length > 0) {
+                        riskChart = new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: filteredLabels,
+                                datasets: [{
+                                    data: filteredValues,
+                                    backgroundColor: filteredColors,
+                                    borderWidth: 2,
+                                    borderColor: '#fff'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom'
+                                    }
+                                },
+                                cutout: '60%'
+                            }
+                        });
+                    }
                 }
-                if (!ct.includes('application/json')) {
-                    throw new Error(`Expected JSON but got: ${raw.slice(0, 120)}`);
-                }
-
-                try {
-                    return JSON.parse(raw);
-                } catch (e) {
-                    throw new Error(`Invalid JSON: ${raw.slice(0, 120)}`);
-                }
-            })
-            .then((data) => {
-                if (data.error) throw new Error(data.message || 'Server error');
-
-                renderChartsAndTable(data);
-                populateLoanTypes(data.loan_types || []);
-                updateFilterIndicator();
-            })
-            .catch((err) => {
-                console.error('Fetch error:', err);
-                showError('Failed to fetch data: ' + err.message);
-            });
-    }
-
-    // stat cards
-    document.querySelectorAll('.stat-card').forEach(card => {
-        card.addEventListener('click', function() {
-            const filter = this.dataset.filter;
-            document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
-
-            if (currentFilters.cardFilter === filter) {
-                currentFilters.cardFilter = 'all';
-            } else {
-                this.classList.add('active');
-                currentFilters.cardFilter = filter;
             }
 
+            // Record Count
+            const start = (currentPage - 1) * limit + 1;
+            const end = Math.min(currentPage * limit, data.pagination?.total_records || 0);
+            const total = data.pagination?.total_records || 0;
+            document.getElementById('recordCount').textContent =
+                total > 0 ? `Showing ${start}-${end} of ${total} records` : 'No records found';
+
+            // ✅ FIXED: Table with event delegation + NOTIFICATION BUTTONS
+            tbody.innerHTML = '';
+            if (data.loans && data.loans.length > 0) {
+                data.loans.forEach(l => {
+                    const riskBadge = l.risk_level === 'High' ? 'bg-danger' :
+                        l.risk_level === 'Medium' ? 'bg-warning text-dark' : 'bg-success';
+                    const statusBadge = l.status === 'Active' ? 'bg-success' :
+                        l.status === 'Delinquent' ? 'bg-danger' :
+                        l.status === 'Completed' ? 'bg-info' : 'bg-warning';
+
+                    // Calculate days until due for notification button
+                    const daysUntilDue = getDaysUntilDue(l.next_due);
+                    const showNotifyButton = daysUntilDue <= 7 && l.email;
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${l.loan_id}</td>
+                        <td>${escapeHtml(l.member_name || 'N/A')}</td>
+                        <td>${escapeHtml(l.loan_type)}</td>
+                        <td>₱${Number(l.principal_amount).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
+                        <td>${l.interest_rate ?? '-'}%</td>
+                        <td>${l.loan_term ?? '-'} mo</td>
+                        <td>${l.start_date ?? '-'}</td>
+                        <td>${l.end_date ?? '-'}</td>
+                        <td><span class="badge ${statusBadge}">${l.status}</span></td>
+                        <td><span class="badge ${l.overdue_count > 0 ? 'bg-danger' : 'bg-secondary'}">${l.overdue_count || 0}</span></td>
+                        <td><span class="badge ${riskBadge}">${l.risk_level}</span></td>
+                        <td>${l.next_due || '-'}</td>
+                        <td class="text-center">
+                            ${showNotifyButton ? `
+                                <button class="btn btn-sm btn-primary notify-btn" 
+                                    data-notify-loan="${l.loan_id}"
+                                    data-member-name="${escapeHtml(l.member_name)}"
+                                    data-member-email="${escapeHtml(l.email)}"
+                                    title="Send email reminder">
+                                    📧
+                                </button>
+                            ` : '<small class="text-muted">-</small>'}
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-info view-loan-btn" data-id="${l.loan_id}" title="View Details">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                // ✅ CRITICAL: Attach event listeners to tbody (event delegation)
+                tbody.removeEventListener('click', handleViewButtonClick);
+                tbody.addEventListener('click', handleViewButtonClick);
+
+                tbody.removeEventListener('click', handleNotifyButtonClick);
+                tbody.addEventListener('click', handleNotifyButtonClick);
+
+            } else {
+                const filterMsg = currentFilters.cardFilter !== 'all' ?
+                    ` matching "${filterIndicator.textContent}"` : '';
+                tbody.innerHTML = `<tr><td colspan="14" class="text-center text-muted"><i class="bi bi-inbox"></i> No loans found${filterMsg}</td></tr>`;
+            }
+
+            renderPagination(data.pagination?.current_page || 1, data.pagination?.total_pages || 1);
+        }
+
+        function renderPagination(current, total) {
+            paginationControls.innerHTML = '';
+            paginationInfo.textContent = total > 0 ? `Page ${current} of ${total}` : '';
+
+            if (total <= 1) return;
+
+            const prev = document.createElement('button');
+            prev.textContent = 'Prev';
+            prev.className = 'btn btn-sm btn-outline-primary';
+            prev.disabled = current === 1;
+            prev.onclick = () => {
+                currentPage--;
+                loadData();
+            };
+            paginationControls.appendChild(prev);
+
+            const next = document.createElement('button');
+            next.textContent = 'Next';
+            next.className = 'btn btn-sm btn-outline-primary';
+            next.disabled = current === total;
+            next.onclick = () => {
+                currentPage++;
+                loadData();
+            };
+            paginationControls.appendChild(next);
+        }
+
+        // Clickable Stat Cards
+        document.querySelectorAll('.stat-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const filter = this.dataset.filter;
+                document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+
+                if (currentFilters.cardFilter === filter) {
+                    currentFilters.cardFilter = 'all';
+                } else {
+                    this.classList.add('active');
+                    currentFilters.cardFilter = filter;
+                }
+
+                currentPage = 1;
+                loadData();
+            });
+        });
+
+        // Filter listeners
+        document.getElementById('searchInput').addEventListener('input', debounce((e) => {
+            currentFilters.search = e.target.value.trim();
+            currentPage = 1;
+            loadData();
+        }, 500));
+
+        document.getElementById('statusFilter').addEventListener('change', (e) => {
+            currentFilters.status = e.target.value;
             currentPage = 1;
             loadData();
         });
-    });
 
-    document.getElementById('searchInput').addEventListener('input', debounce((e) => {
-        currentFilters.search = e.target.value.trim();
-        currentPage = 1;
-        loadData();
-    }, 500));
-
-    document.getElementById('statusFilter').addEventListener('change', (e) => {
-        currentFilters.status = e.target.value;
-        currentPage = 1;
-        loadData();
-    });
-
-    document.getElementById('riskFilter').addEventListener('change', (e) => {
-        currentFilters.risk = e.target.value;
-        currentPage = 1;
-        loadData();
-    });
-
-    document.getElementById('typeFilter').addEventListener('change', (e) => {
-        currentFilters.type = e.target.value;
-        currentPage = 1;
-        loadData();
-    });
-
-    document.getElementById('rowsPerPage').addEventListener('change', (e) => {
-        limit = parseInt(e.target.value);
-        currentPage = 1;
-        loadData();
-    });
-
-    document.getElementById('clearFilters').addEventListener('click', () => {
-        currentFilters = { search: '', status: '', risk: '', type: '', cardFilter: 'all' };
-        document.getElementById('searchInput').value = '';
-        document.getElementById('statusFilter').value = '';
-        document.getElementById('riskFilter').value = '';
-        document.getElementById('typeFilter').value = '';
-        document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
-        currentPage = 1;
-        loadData();
-    });
-
-    document.getElementById('reloadBtn').addEventListener('click', () => loadData());
-
-    // Export PDF (kept same)
-    document.getElementById('exportPdfBtn').addEventListener('click', async function() {
-        const passwordPrompt = await Swal.fire({
-            title: 'Protect PDF Export',
-            text: 'Enter a password before exporting this PDF.',
-            input: 'password',
-            inputLabel: 'PDF Password',
-            inputPlaceholder: 'At least 6 characters',
-            showCancelButton: true,
-            confirmButtonText: 'Export PDF',
-            cancelButtonText: 'Cancel',
-            inputValidator: (value) => (!value || value.trim().length < 6) ? 'Please enter at least 6 characters.' : null
+        document.getElementById('riskFilter').addEventListener('change', (e) => {
+            currentFilters.risk = e.target.value;
+            currentPage = 1;
+            loadData();
         });
 
-        if (!passwordPrompt.isConfirmed) return;
-        const pdfPassword = passwordPrompt.value;
-
-        const params = new URLSearchParams({
-            export: 'pdf',
-            search: currentFilters.search,
-            status: currentFilters.status,
-            risk: currentFilters.risk,
-            type: currentFilters.type,
-            cardFilter: currentFilters.cardFilter,
-            pdf_password: pdfPassword
+        document.getElementById('typeFilter').addEventListener('change', (e) => {
+            currentFilters.type = e.target.value;
+            currentPage = 1;
+            loadData();
         });
 
-        const btn = this;
-        const originalHTML = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
-        btn.disabled = true;
+        document.getElementById('rowsPerPage').addEventListener('change', (e) => {
+            limit = parseInt(e.target.value);
+            currentPage = 1;
+            loadData();
+        });
 
-        try {
-            const url = `ajax_repayments.php?${params.toString()}`;
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Export failed');
+        document.getElementById('clearFilters').addEventListener('click', () => {
+            currentFilters = {
+                search: '',
+                status: '',
+                risk: '',
+                type: '',
+                cardFilter: 'all'
+            };
+            document.getElementById('searchInput').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('riskFilter').value = '';
+            document.getElementById('typeFilter').value = '';
+            document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+            currentPage = 1;
+            loadData();
+        });
 
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Export failed');
-            }
+        document.getElementById('reloadBtn').addEventListener('click', () => loadData());
 
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            a.download = `repayment_tracker_${new Date().toISOString().split('T')[0]}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(downloadUrl);
-            a.remove();
-
-            Swal.fire({
-                icon: 'success',
-                title: 'PDF Exported',
-                text: 'Use your entered password to open the PDF.',
-                timer: 3000,
-                showConfirmButton: false
+        // Export PDF
+        document.getElementById('exportPdfBtn').addEventListener('click', async function() {
+            const passwordPrompt = await Swal.fire({
+                title: 'Protect PDF Export',
+                text: 'Enter a password before exporting this PDF.',
+                input: 'password',
+                inputLabel: 'PDF Password',
+                inputPlaceholder: 'At least 6 characters',
+                showCancelButton: true,
+                confirmButtonText: 'Export PDF',
+                cancelButtonText: 'Cancel',
+                inputValidator: (value) => (!value || value.trim().length < 6) ? 'Please enter at least 6 characters.' : null
             });
-        } catch (error) {
-            Swal.fire({ icon: 'error', title: 'Export Failed', text: error.message });
-        } finally {
-            btn.innerHTML = originalHTML;
-            btn.disabled = false;
-        }
-    });
 
-    loadData();
-});
+            if (!passwordPrompt.isConfirmed) return;
+            const pdfPassword = passwordPrompt.value;
+
+            const params = new URLSearchParams({
+                export: 'pdf',
+                search: currentFilters.search,
+                status: currentFilters.status,
+                risk: currentFilters.risk,
+                type: currentFilters.type,
+                cardFilter: currentFilters.cardFilter,
+                pdf_password: pdfPassword
+            });
+
+            const btn = this;
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
+            btn.disabled = true;
+
+            try {
+                const url = `ajax_repayments.php?${params.toString()}`;
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Export failed');
+                
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Export failed');
+                }
+
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `repayment_tracker_${new Date().toISOString().split('T')[0]}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+                a.remove();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'PDF Exported',
+                    text: 'Use your entered password to open the PDF.',
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Export Failed',
+                    text: error.message
+                });
+            } finally {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            }
+        });
+
+        // Export Excel/CSV
+        document.getElementById('exportExcelBtn').addEventListener('click', async function() {
+            const passwordPrompt = await Swal.fire({
+                title: 'Protect Excel Export',
+                text: 'Enter a password to encrypt this Excel/CSV export in a ZIP file.',
+                input: 'password',
+                inputLabel: 'Export Password',
+                inputPlaceholder: 'At least 6 characters',
+                showCancelButton: true,
+                confirmButtonText: 'Export Excel',
+                cancelButtonText: 'Cancel',
+                inputValidator: (value) => (!value || value.trim().length < 6) ? 'Please enter at least 6 characters.' : null
+            });
+
+            if (!passwordPrompt.isConfirmed) return;
+            const pdfPassword = passwordPrompt.value;
+
+            const params = new URLSearchParams({
+                export: 'csv',
+                search: currentFilters.search,
+                status: currentFilters.status,
+                risk: currentFilters.risk,
+                type: currentFilters.type,
+                cardFilter: currentFilters.cardFilter,
+                pdf_password: pdfPassword
+            });
+
+            const btn = this;
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
+            btn.disabled = true;
+
+            try {
+                const url = `ajax_repayments.php?${params.toString()}`;
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Export failed');
+                
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Export failed');
+                }
+
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                const extension = pdfPassword ? 'zip' : 'csv';
+                a.download = `repayment_tracker_${new Date().toISOString().split('T')[0]}.${extension}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(downloadUrl);
+                a.remove();
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Excel Exported',
+                    text: pdfPassword ? 'The ZIP file is password protected.' : 'File downloaded successfully.',
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Export Failed',
+                    text: error.message
+                });
+            } finally {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            }
+        });
+
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func(...args), wait);
+            };
+        }
+
+
+        // INITIAL LOAD
+        loadData();
+    });
 </script>
 
 <?php include(__DIR__ . '/../inc/footer.php'); ?>
