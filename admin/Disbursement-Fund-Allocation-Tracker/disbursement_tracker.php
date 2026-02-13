@@ -1137,14 +1137,8 @@ include(__DIR__ . '/../inc/sidebar.php');
                 btn.disabled = false;
             }
         });
-        // ================================================================
-        // SEND TO FINANCE ADD-ON
-        // I-paste ito sa loob ng DOMContentLoaded sa disbursement_tracker.php
-        // Ilagay BAGO ang closing bracket ng DOMContentLoaded
-        // ================================================================
 
-        // ─── 1. ADD CHECKBOXES SA TABLE HEADER ───────────────────────
-        // Hanapin ang <thead><tr> ng disbTable at dagdag ng checkbox column
+        // ─── 1. ADD CHECKBOX SA TABLE HEADER ─────────────────────────
         const disbTableHead = document.querySelector('#disbTable thead tr');
         if (disbTableHead) {
             const th = document.createElement('th');
@@ -1152,18 +1146,16 @@ include(__DIR__ . '/../inc/sidebar.php');
             disbTableHead.insertBefore(th, disbTableHead.firstChild);
         }
 
-        // ─── 2. DAGDAG ANG "SEND TO FINANCE" BUTTON SA HEADER ─────────
+        // ─── 2. ADD BUTTONS SA PAGE HEADER ───────────────────────────
         const pageHeaderBtns = document.querySelector('.page-header .d-flex.gap-2');
         if (pageHeaderBtns) {
-            // Send to Finance button
             const sendBtn = document.createElement('button');
             sendBtn.id = 'sendToFinanceBtn';
             sendBtn.className = 'btn btn-sm btn-warning';
-            sendBtn.innerHTML = '<i class="bi bi-send"></i> Send to Finance <span id="selectedCount" class="badge bg-dark ms-1">0</span>';
             sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="bi bi-send"></i> Send to Finance <span id="selectedCount" class="badge bg-dark ms-1">0</span>';
             pageHeaderBtns.insertBefore(sendBtn, pageHeaderBtns.firstChild);
 
-            // Manage API Keys button (Super Admin only)
             const manageKeysBtn = document.createElement('button');
             manageKeysBtn.id = 'manageApiKeysBtn';
             manageKeysBtn.className = 'btn btn-sm btn-outline-light';
@@ -1171,19 +1163,56 @@ include(__DIR__ . '/../inc/sidebar.php');
             pageHeaderBtns.insertBefore(manageKeysBtn, pageHeaderBtns.firstChild);
         }
 
-        // ─── 3. TRACK SELECTED CHECKBOXES ─────────────────────────────
+        // ─── 3. TRACK SELECTED IDS ────────────────────────────────────
         let selectedIds = new Set();
 
         function updateSelectedCount() {
             const count = selectedIds.size;
-            const countBadge = document.getElementById('selectedCount');
+            const badge = document.getElementById('selectedCount');
             const sendBtn = document.getElementById('sendToFinanceBtn');
-            if (countBadge) countBadge.textContent = count;
+            if (badge) badge.textContent = count;
             if (sendBtn) sendBtn.disabled = count === 0;
         }
 
-        // Select All checkbox
+        // ─── 4. ADD CHECKBOXES AFTER EACH loadData() CALL ────────────
+        // FIXED: Hindi na ini-override ang renderTable —
+        //        gumagamit ng MutationObserver para ma-detect
+        //        kapag nag-update ang tbody
+        const disbTbody = document.getElementById('disbTbody');
+
+        if (disbTbody) {
+            const observer = new MutationObserver(function() {
+                // Kapag nag-change ang tbody, dagdagan ng checkboxes ang mga rows
+                const rows = disbTbody.querySelectorAll('tr');
+                rows.forEach(row => {
+                    // Skip kung may checkbox na o kung "no records" row
+                    if (row.querySelector('.row-select-chk')) return;
+                    if (row.querySelector('td[colspan]')) return;
+
+                    const viewBtn = row.querySelector('.view-disb-btn');
+                    if (!viewBtn) return;
+
+                    const disbId = viewBtn.dataset.id;
+                    if (!disbId) return;
+
+                    const td = document.createElement('td');
+                    td.innerHTML = `<input type="checkbox" class="row-select-chk" data-id="${disbId}"
+                            ${selectedIds.has(parseInt(disbId)) ? 'checked' : ''}>`;
+                    row.insertBefore(td, row.firstChild);
+                });
+
+                updateSelectedCount();
+            });
+
+            observer.observe(disbTbody, {
+                childList: true,
+                subtree: false
+            });
+        }
+
+        // ─── 5. CHECKBOX EVENT LISTENERS ─────────────────────────────
         document.addEventListener('change', function(e) {
+            // Select All
             if (e.target.id === 'selectAllChk') {
                 const allChks = document.querySelectorAll('.row-select-chk');
                 allChks.forEach(chk => {
@@ -1193,64 +1222,40 @@ include(__DIR__ . '/../inc/sidebar.php');
                     else selectedIds.delete(id);
                 });
                 updateSelectedCount();
+                return;
             }
 
+            // Individual checkbox
             if (e.target.classList.contains('row-select-chk')) {
                 const id = parseInt(e.target.dataset.id);
                 if (e.target.checked) selectedIds.add(id);
                 else selectedIds.delete(id);
                 updateSelectedCount();
 
-                // Update selectAll state
+                // Sync selectAll state
                 const allChks = document.querySelectorAll('.row-select-chk');
                 const checkedChks = document.querySelectorAll('.row-select-chk:checked');
                 const selectAll = document.getElementById('selectAllChk');
                 if (selectAll) {
                     selectAll.indeterminate = checkedChks.length > 0 && checkedChks.length < allChks.length;
-                    selectAll.checked = checkedChks.length === allChks.length && allChks.length > 0;
+                    selectAll.checked = allChks.length > 0 && checkedChks.length === allChks.length;
                 }
             }
         });
 
-        // ─── 4. PATCH renderTable PARA MAY CHECKBOXES ─────────────────
-        // I-override ang renderTable function para may checkbox ang bawat row
-        const _origRenderTable = renderTable;
-
-        function renderTable(data) {
-            _origRenderTable(data);
-
-            // Dagdag ang checkbox column sa bawat row
-            const rows = document.querySelectorAll('#disbTbody tr');
-            rows.forEach(row => {
-                const firstTd = row.querySelector('td');
-                if (!firstTd) return;
-
-                const disbId = row.querySelector('.view-disb-btn')?.dataset?.id;
-                if (!disbId) return;
-
-                // Lagyan ng checkbox
-                const td = document.createElement('td');
-                td.innerHTML = `<input type="checkbox" class="row-select-chk" data-id="${disbId}" ${selectedIds.has(parseInt(disbId)) ? 'checked' : ''}>`;
-                row.insertBefore(td, row.firstChild);
-            });
-
-            updateSelectedCount();
-        }
-
-        // ─── 5. SEND TO FINANCE BUTTON CLICK ──────────────────────────
+        // ─── 6. BUTTON CLICK HANDLERS ────────────────────────────────
         document.addEventListener('click', function(e) {
-            // Send to Finance
+
+            // ── Send to Finance ──────────────────────────────────────
             if (e.target.closest('#sendToFinanceBtn')) {
                 if (selectedIds.size === 0) return;
 
                 Swal.fire({
                     title: 'Send to Finance?',
-                    html: `You are about to send <strong>${selectedIds.size}</strong> disbursement record(s) to the Financial Team.<br><br>
-                   <small class="text-muted">Records will be logged and the financial team will be notified.</small>`,
+                    html: `You are about to send <strong>${selectedIds.size}</strong> record(s) to the Financial Team.`,
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonColor: '#f59e0b',
-                    cancelButtonColor: '#6c757d',
                     confirmButtonText: '<i class="bi bi-send"></i> Yes, Send Now',
                     cancelButtonText: 'Cancel'
                 }).then(result => {
@@ -1258,7 +1263,6 @@ include(__DIR__ . '/../inc/sidebar.php');
 
                     Swal.fire({
                         title: 'Sending...',
-                        text: 'Please wait while we send the records.',
                         allowOutsideClick: false,
                         didOpen: () => Swal.showLoading()
                     });
@@ -1284,32 +1288,27 @@ include(__DIR__ . '/../inc/sidebar.php');
                                     timer: 3000,
                                     showConfirmButton: false
                                 });
+                                // Clear selections
                                 selectedIds.clear();
                                 updateSelectedCount();
                                 const selectAll = document.getElementById('selectAllChk');
-                                if (selectAll) selectAll.checked = false;
+                                if (selectAll) {
+                                    selectAll.checked = false;
+                                    selectAll.indeterminate = false;
+                                }
                                 loadData();
                             } else {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Send Failed',
-                                    text: res.message || 'Unknown error occurred'
-                                });
+                                Swal.fire('Send Failed', res.message || 'Unknown error', 'error');
                             }
                         })
                         .catch(err => {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: 'Failed to send: ' + err.message
-                            });
+                            Swal.fire('Error', 'Failed to send: ' + err.message, 'error');
                         });
                 });
             }
 
-            // Manage API Keys
+            // ── Manage API Keys ──────────────────────────────────────
             if (e.target.closest('#manageApiKeysBtn')) {
-                // Load existing keys
                 fetch('send_to_finance.php', {
                         method: 'POST',
                         headers: {
@@ -1325,46 +1324,42 @@ include(__DIR__ . '/../inc/sidebar.php');
                         let keysHtml = '';
                         if (res.keys && res.keys.length > 0) {
                             keysHtml = `<table class="table table-sm table-bordered mt-2">
-                    <thead><tr><th>Label</th><th>Key (masked)</th><th>Last Used</th><th>Status</th></tr></thead>
-                    <tbody>`;
+                    <thead><tr><th>Label</th><th>Key (masked)</th><th>Last Used</th><th>Status</th></tr></thead><tbody>`;
                             res.keys.forEach(k => {
                                 keysHtml += `<tr>
-                        <td>${escapeHtml(k.label)}</td>
-                        <td><code>${escapeHtml(k.api_key)}</code></td>
+                        <td>${k.label}</td>
+                        <td><code>${k.api_key}</code></td>
                         <td>${k.last_used}</td>
                         <td><span class="badge ${k.is_active ? 'bg-success' : 'bg-secondary'}">${k.is_active ? 'Active' : 'Inactive'}</span></td>
                     </tr>`;
                             });
                             keysHtml += '</tbody></table>';
                         } else {
-                            keysHtml = '<p class="text-muted">No API keys yet. Generate one below.</p>';
+                            keysHtml = '<p class="text-muted mt-2">Wala pang API keys. Gumawa ng bago sa ibaba.</p>';
                         }
 
                         Swal.fire({
                             title: '<i class="bi bi-key"></i> Financial Team API Keys',
                             html: `
                     <div class="text-start">
-                        <p class="text-muted small">Share this endpoint URL + API key with your Financial Team:</p>
-                        <div class="alert alert-info p-2 small">
-                            <strong>Endpoint:</strong><br>
+                        <div class="alert alert-info p-2 small mb-2">
+                            <strong>Endpoint URL:</strong><br>
                             <code>https://core2.microfinancial-1.com/api/financial/disbursements.php</code>
                         </div>
                         ${keysHtml}
                         <hr>
-                        <div class="mb-2">
-                            <label class="form-label fw-bold">Generate New Key:</label>
-                            <input type="text" id="newKeyLabel" class="form-control" placeholder="e.g. Financial Team - Accounting Dept" value="Financial Team">
-                        </div>
+                        <label class="form-label fw-bold">Generate New Key:</label>
+                        <input type="text" id="newKeyLabel" class="form-control"
+                               placeholder="e.g. Financial Team - Accounting" value="Financial Team">
                     </div>
                 `,
                             showCancelButton: true,
                             confirmButtonText: '<i class="bi bi-plus-circle"></i> Generate Key',
                             confirmButtonColor: '#059669',
                             cancelButtonText: 'Close',
-                            width: '600px'
+                            width: '620px'
                         }).then(result => {
                             if (!result.isConfirmed) return;
-
                             const label = document.getElementById('newKeyLabel')?.value || 'Financial Team';
 
                             fetch('send_to_finance.php', {
@@ -1385,25 +1380,26 @@ include(__DIR__ . '/../inc/sidebar.php');
                                             title: '✅ API Key Generated!',
                                             html: `
                                 <div class="text-start">
-                                    <p>Share these credentials with your Financial Team:</p>
-                                    <div class="alert alert-success p-2">
-                                        <strong>Endpoint URL:</strong><br>
-                                        <code class="small">${res.endpoint}</code>
+                                    <div class="alert alert-success p-2 small">
+                                        <strong>Endpoint:</strong><br>
+                                        <code>${res.endpoint}</code>
                                     </div>
                                     <div class="alert alert-warning p-2">
-                                        <strong>API Key (copy now — shown once!):</strong><br>
-                                        <code id="generatedKey">${res.api_key}</code>
-                                        <br><button class="btn btn-sm btn-outline-dark mt-1" onclick="navigator.clipboard.writeText('${res.api_key}')">
+                                        <strong>API Key (isang beses lang makikita — kopyahin ngayon!):</strong><br>
+                                        <code>${res.api_key}</code>
+                                        <br>
+                                        <button class="btn btn-sm btn-dark mt-1"
+                                            onclick="navigator.clipboard.writeText('${res.api_key}');this.textContent='Copied!'">
                                             <i class="bi bi-clipboard"></i> Copy Key
                                         </button>
                                     </div>
                                     <div class="alert alert-info p-2 small">
-                                        <strong>GET usage:</strong><br>
-                                        <code>${res.instructions.GET}</code>
+                                        <strong>Financial team usage (GET):</strong><br>
+                                        <code>${res.instructions?.GET ?? ''}</code>
                                     </div>
                                 </div>
                             `,
-                                            width: '600px',
+                                            width: '620px',
                                             confirmButtonText: 'Done'
                                         });
                                     } else {
@@ -1411,9 +1407,14 @@ include(__DIR__ . '/../inc/sidebar.php');
                                     }
                                 });
                         });
+                    })
+                    .catch(() => {
+                        Swal.fire('Error', 'Failed to load API keys', 'error');
                     });
             }
+
         });
+
 
         // Initial load
         loadData();
