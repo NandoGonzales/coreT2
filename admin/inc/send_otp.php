@@ -28,7 +28,7 @@ function generateOTP($length = 6) {
 }
 
 /**
- * Send OTP Email with AGGRESSIVE duplicate prevention
+ * Send OTP Email with AGGRESSIVE duplicate prevention and BETTER ERROR HANDLING
  */
 function sendOTPEmail($recipientEmail, $recipientName, $otp) {
     // ✅ LOG EVERY CALL
@@ -68,22 +68,43 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
     try {
         error_log("📤 Initializing PHPMailer...");
         
-        // Server settings
+        // ✅ ENHANCED Server settings with debugging
+        $mail->SMTPDebug = 0; // Set to 2 for detailed debug output
         $mail->isSMTP();
         $mail->Host       = 'smtp.gmail.com';
         $mail->SMTPAuth   = true;
         $mail->Username   = 'microfinancecore@gmail.com';
-        $mail->Password   = 'xmtjeqdoesrujaom';
+        $mail->Password   = 'xmtjeqdoesrujaom'; // Make sure this is a valid App Password
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = 587;
+        
+        // ✅ ADD THESE SETTINGS TO FIX COMMON GMAIL ISSUES
+        $mail->SMTPOptions = array(
+            'ssl' => array(
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true
+            )
+        );
+        
+        // ✅ Increase timeout for slow connections
+        $mail->Timeout = 30;
+        
+        error_log("   SMTP Host: " . $mail->Host);
+        error_log("   SMTP Port: " . $mail->Port);
+        error_log("   SMTP User: " . $mail->Username);
 
         // Recipients
         $mail->setFrom('microfinancecore@gmail.com', 'CORET2 System');
         $mail->addAddress($recipientEmail, $recipientName);
+        
+        // ✅ Add reply-to
+        $mail->addReplyTo('microfinancecore@gmail.com', 'CORET2 Support');
 
         // Email content
         $mail->isHTML(true);
         $mail->Subject = 'Your Login OTP - CORET2 System';
+        $mail->CharSet = 'UTF-8';
         
         // HTML email template
         $mail->Body = '
@@ -103,7 +124,7 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
                     background-color: #ffffff;
                 }
                 .header {
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: linear-gradient(135deg, #059669 0%, #047857 100%);
                     color: white;
                     padding: 30px 20px;
                     text-align: center;
@@ -122,8 +143,8 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
                     margin-bottom: 20px;
                 }
                 .otp-box {
-                    background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
-                    border: 2px dashed #667eea;
+                    background: linear-gradient(135deg, #05966915 0%, #04785715 100%);
+                    border: 2px dashed #059669;
                     border-radius: 12px;
                     padding: 30px;
                     text-align: center;
@@ -139,7 +160,7 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
                 .otp-code {
                     font-size: 42px;
                     font-weight: bold;
-                    color: #667eea;
+                    color: #059669;
                     letter-spacing: 10px;
                     font-family: "Courier New", monospace;
                 }
@@ -205,7 +226,7 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
                     
                     <div class="expiry-info">
                         <strong>⏰ Expiry Notice:</strong>
-                        <p style="margin: 8px 0 0 0; color: #856404;">This OTP will expire in <strong>2 minutes</strong>. Please enter it as soon as possible.</p>
+                        <p style="margin: 8px 0 0 0; color: #856404;">This OTP will expire in <strong>10 minutes</strong>. Please enter it as soon as possible.</p>
                     </div>
                     
                     <div class="security-notice">
@@ -232,7 +253,7 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
                     <p><strong>This is an automated email. Please do not reply.</strong></p>
                     <p>&copy; ' . date('Y') . ' CORET2 System. All rights reserved.</p>
                     <p style="margin-top: 10px; font-size: 11px;">
-                        Login attempt from IP: ' . $_SERVER['REMOTE_ADDR'] . ' at ' . date('Y-m-d H:i:s') . '
+                        Login attempt from IP: ' . ($_SERVER['REMOTE_ADDR'] ?? 'Unknown') . ' at ' . date('Y-m-d H:i:s') . '
                     </p>
                 </div>
             </div>
@@ -243,7 +264,7 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
         // Plain text version
         $mail->AltBody = "Hello $recipientName,\n\n"
                        . "Your OTP for CORET2 System login is: $otp\n\n"
-                       . "This code will expire in 2 minutes.\n\n"
+                       . "This code will expire in 10 minutes.\n\n"
                        . "Security Reminders:\n"
                        . "- Never share this OTP with anyone\n"
                        . "- CORET2 will never ask for your OTP\n"
@@ -253,15 +274,24 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
                        . "This is an automated email. Please do not reply.";
 
         error_log("📤 Calling mail->send()...");
-        $mail->send();
-        error_log("✅ Email sent successfully!");
-        error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        $result = $mail->send();
         
-        return true;
+        if ($result) {
+            error_log("✅ Email sent successfully!");
+            error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            return true;
+        } else {
+            error_log("❌ Email send returned false");
+            error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            return false;
+        }
         
     } catch (Exception $e) {
-        error_log("❌ PHPMailer Error: {$mail->ErrorInfo}");
+        error_log("❌ PHPMailer Exception: " . $e->getMessage());
+        error_log("❌ Full Error Info: {$mail->ErrorInfo}");
         error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        
+        // Return detailed error for debugging
         return false;
     }
 }
