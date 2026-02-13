@@ -1,482 +1,791 @@
 <?php
-require_once(__DIR__ . '/../../initialize_coreT2.php');
+// ----------------------------------------------------------------------
+// Load TCPDF only when needed to avoid fatal errors if library is missing
+// ----------------------------------------------------------------------
+function loadTCPDF()
+{
+    if (class_exists('TCPDF')) return true;
 
-header('Content-Type: application/json; charset=utf-8');
-date_default_timezone_set('Asia/Manila');
-
-/**
- * This file supports:
- * - POST action=meta
- * - POST action=list
- * - POST action=get
- * - POST action=breakdown
- * - GET export=pdf|csv  (basic export support)
- *
- * Tables used based on your SQL:
- * - savings(saving_id, member_id, transaction_date, transaction_type, amount, balance, recorded_by)
- * - members(member_id, full_name)
- * - users(id, firstname, lastname)
- */
-
-// ---- DB helper (mysqli preferred) ----
-function db_is_mysqli() {
-    return isset($GLOBALS['conn']) && $GLOBALS['conn'] instanceof mysqli;
-}
-
-function db_query_all($sql, $types = '', $params = []) {
-    if (!db_is_mysqli()) {
-        if (isset($GLOBALS['pdo']) && $GLOBALS['pdo'] instanceof PDO) {
-            $stmt = $GLOBALS['pdo']->prepare($sql);
-            $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        }
-        throw new Exception('Database connection not found.');
-    }
-
-    $conn = $GLOBALS['conn'];
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) throw new Exception('Prepare failed: ' . $conn->error);
-
-    if ($types !== '' && !empty($params)) {
-        $stmt->bind_param($types, ...$params);
-    }
-    $stmt->execute();
-    $res = $stmt->get_result();
-    $rows = [];
-    while ($r = $res->fetch_assoc()) $rows[] = $r;
-    $stmt->close();
-    return $rows;
-}
-
-function db_query_one($sql, $types = '', $params = []) {
-    $rows = db_query_all($sql, $types, $params);
-    return $rows ? $rows[0] : null;
-}
-
-function as_money($v) {
-    return number_format((float)$v, 2, '.', '');
-}
-
-function build_where(&$types, &$params, $input) {
-    $where = " WHERE 1=1 ";
-
-    // filter card
-    if (!empty($input['filter'])) {
-        if ($input['filter'] === 'deposit') {
-            $where .= " AND s.transaction_type IN ('Deposit','Interest') ";
-        } elseif ($input['filter'] === 'withdrawal') {
-            $where .= " AND s.transaction_type = 'Withdrawal' ";
-        }
-    }
-
-    // type
-    if (!empty($input['type'])) {
-        $where .= " AND s.transaction_type = ? ";
-        $types .= "s";
-        $params[] = $input['type'];
-    }
-
-    // member
-    if (!empty($input['member_id'])) {
-        $where .= " AND s.member_id = ? ";
-        $types .= "i";
-        $params[] = (int)$input['member_id'];
-    }
-
-    // recorded by
-    if ($input['recorded_by'] !== '' && $input['recorded_by'] !== null && $input['recorded_by'] !== '0') {
-        $where .= " AND s.recorded_by = ? ";
-        $types .= "i";
-        $params[] = (int)$input['recorded_by'];
-    }
-
-    // date range
-    if (!empty($input['date_from'])) {
-        $where .= " AND s.transaction_date >= ? ";
-        $types .= "s";
-        $params[] = $input['date_from'];
-    }
-    if (!empty($input['date_to'])) {
-        $where .= " AND s.transaction_date <= ? ";
-        $types .= "s";
-        $params[] = $input['date_to'];
-    }
-
-    // search
-    $search = isset($input['search']) ? trim($input['search']) : '';
-    $searchBy = isset($input['search_by']) ? $input['search_by'] : 'auto';
-    if ($search !== '') {
-        if ($searchBy === 'member_id') {
-            $where .= " AND s.member_id LIKE ? ";
-            $types .= "s";
-            $params[] = "%{$search}%";
-        } elseif ($searchBy === 'transaction_type') {
-            $where .= " AND s.transaction_type LIKE ? ";
-            $types .= "s";
-            $params[] = "%{$search}%";
-        } elseif ($searchBy === 'transaction_date') {
-            $where .= " AND s.transaction_date LIKE ? ";
-            $types .= "s";
-            $params[] = "%{$search}%";
-        } elseif ($searchBy === 'recorded_by_name') {
-            $where .= " AND (CASE WHEN s.recorded_by=0 THEN 'System' ELSE CONCAT(u.firstname,' ',u.lastname) END) LIKE ? ";
-            $types .= "s";
-            $params[] = "%{$search}%";
-        } else {
-            // auto
-            $where .= " AND (
-                CAST(s.member_id AS CHAR) LIKE ?
-                OR s.transaction_type LIKE ?
-                OR s.transaction_date LIKE ?
-                OR (CASE WHEN s.recorded_by=0 THEN 'System' ELSE CONCAT(u.firstname,' ',u.lastname) END) LIKE ?
-            ) ";
-            $types .= "ssss";
-            $params[] = "%{$search}%";
-            $params[] = "%{$search}%";
-            $params[] = "%{$search}%";
-            $params[] = "%{$search}%";
-        }
-    }
-
-    return $where;
-}
-
-// -------------------- EXPORT (GET) --------------------
-if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['export'])) {
-    $format = $_GET['export'];
-
-    // reuse same filters used in list
-    $input = [
-        'filter' => $_GET['filter'] ?? 'all',
-        'type' => $_GET['type'] ?? '',
-        'member_id' => $_GET['member_id'] ?? '',
-        'recorded_by' => $_GET['recorded_by'] ?? '',
-        'date_from' => $_GET['date_from'] ?? '',
-        'date_to' => $_GET['date_to'] ?? '',
-        'search' => $_GET['search'] ?? '',
-        'search_by' => $_GET['search_by'] ?? 'auto'
+    $paths = [
+        __DIR__ . '/../../vendor/autoload.php',
+        __DIR__ . '/../../vendor/tecnickcom/tcpdf/tcpdf.php',
+        __DIR__ . '/../../libs/tcpdf/tcpdf.php',
+        __DIR__ . '/../libs/tcpdf/tcpdf.php',
+        __DIR__ . '/libs/tcpdf/tcpdf.php'
     ];
 
-    try {
-        $types = '';
-        $params = [];
-        $where = build_where($types, $params, $input);
+    foreach ($paths as $path) {
+        if (file_exists($path)) {
+            require_once($path);
+            if (class_exists('TCPDF')) return true;
+        }
+    }
+    return false;
+}
 
-        $rows = db_query_all("
-            SELECT
-                s.saving_id, s.member_id, s.transaction_date, s.transaction_type,
-                s.amount, s.balance,
-                CASE
-                    WHEN s.recorded_by = 0 THEN 'System'
-                    ELSE CONCAT(u.firstname,' ',u.lastname)
-                END AS recorded_by_name
-            FROM savings s
-            LEFT JOIN users u ON u.id = s.recorded_by
-            $where
-            ORDER BY s.transaction_date DESC, s.saving_id DESC
-        ", $types, $params);
+/**
+ * Send PDF as clean binary download to avoid corruption.
+ */
+function outputPdfDownload($pdf, string $filename): void
+{
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
 
-        if ($format === 'csv') {
-            // create CSV inside ZIP to match your frontend expectation
-            $csv = "Saving ID,Member ID,Date,Type,Amount,Balance,Recorded By\n";
-            foreach ($rows as $r) {
-                $csv .= "{$r['saving_id']},{$r['member_id']},{$r['transaction_date']},{$r['transaction_type']},{$r['amount']},{$r['balance']},\"{$r['recorded_by_name']}\"\n";
+    ob_start();
+    $binary = $pdf->Output($filename, 'S');
+    ob_end_clean();
+
+    if ($binary === '') {
+        throw new Exception('Generated PDF content is empty.');
+    }
+
+    if (!headers_sent()) {
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Transfer-Encoding: binary');
+        header('Content-Length: ' . strlen($binary));
+        header('Cache-Control: private, max-age=0, must-revalidate');
+        header('Pragma: public');
+    }
+
+    echo $binary;
+    exit;
+}
+
+require_once(__DIR__ . '/../../initialize_coreT2.php');
+require_once(__DIR__ . '/../inc/sess_auth.php');
+require_once(__DIR__ . '/../inc/access_control.php');
+
+// ---------------------------------------------------------------------------
+// CSV EXPORT MUST RUN BEFORE JSON HEADER
+// ---------------------------------------------------------------------------
+if (isset($_GET['export']) && $_GET['export'] === 'csv') {
+    $search = trim($_GET['search'] ?? '');
+    $search_by = $_GET['search_by'] ?? 'auto';
+
+    $filter = $_GET['filter'] ?? '';
+    $type = $_GET['type'] ?? '';
+
+    $member_id = intval($_GET['member_id'] ?? 0);
+    $recorded_by = intval($_GET['recorded_by'] ?? 0);
+
+    $date_from = $_GET['date_from'] ?? '';
+    $date_to = $_GET['date_to'] ?? '';
+
+    $where = [];
+    $params = [];
+    $types = '';
+
+    // Search logic (bulletproof)
+    if ($search !== '') {
+        if (preg_match('/^\d+$/', $search)) {
+            $where[] = "s.member_id = ?";
+            $params[] = intval($search);
+            $types .= 'i';
+        } else {
+            if ($search_by === 'transaction_type') {
+                $where[] = "s.transaction_type LIKE ?";
+                $params[] = "%$search%";
+                $types .= 's';
+            } elseif ($search_by === 'transaction_date') {
+                $where[] = "s.transaction_date LIKE ?";
+                $params[] = "%$search%";
+                $types .= 's';
+            } elseif ($search_by === 'recorded_by_name') {
+                $where[] = "s.recorded_by IN (SELECT user_id FROM users WHERE full_name LIKE ?)";
+                $params[] = "%$search%";
+                $types .= 's';
+            } else {
+                $where[] = "(CAST(s.member_id AS CHAR) LIKE ? OR s.transaction_type LIKE ? OR s.transaction_date LIKE ?)";
+                $s = "%$search%";
+                $params[] = $s; $params[] = $s; $params[] = $s;
+                $types .= 'sss';
             }
+        }
+    }
 
-            $zip = new ZipArchive();
-            $tmpZip = tempnam(sys_get_temp_dir(), 'svzip_');
-            $zip->open($tmpZip, ZipArchive::OVERWRITE);
-            $zip->addFromString("savings_export_" . date('Y-m-d') . ".csv", $csv);
+    // ✅ FIX: deposit filter includes Interest
+    if ($filter === 'deposit') $where[] = "(s.transaction_type='Deposit' OR s.transaction_type='Interest')";
+    elseif ($filter === 'withdrawal') $where[] = "s.transaction_type='Withdrawal'";
+
+    if ($type !== '') {
+        $where[] = "s.transaction_type=?";
+        $params[] = $type;
+        $types .= 's';
+    }
+
+    if ($member_id > 0) {
+        $where[] = "s.member_id=?";
+        $params[] = $member_id;
+        $types .= 'i';
+    }
+
+    if ($recorded_by > 0) {
+        $where[] = "s.recorded_by=?";
+        $params[] = $recorded_by;
+        $types .= 'i';
+    }
+
+    if ($date_from !== '') {
+        $where[] = "s.transaction_date >= ?";
+        $params[] = $date_from;
+        $types .= 's';
+    }
+
+    if ($date_to !== '') {
+        $where[] = "s.transaction_date <= ?";
+        $params[] = $date_to;
+        $types .= 's';
+    }
+
+    $whereSql = count($where) ? "WHERE " . implode(' AND ', $where) : '';
+    $pdfPassword = trim($_GET['pdf_password'] ?? '');
+
+    $sql = "SELECT s.*, u.full_name AS recorded_by_name FROM savings s LEFT JOIN users u ON s.recorded_by = u.user_id $whereSql ORDER BY s.transaction_date DESC, s.saving_id DESC";
+    $csv_data = [];
+
+    if ($params) {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($r = $res->fetch_assoc()) $csv_data[] = $r;
+        $stmt->close();
+    } else {
+        $res = $conn->query($sql);
+        while ($r = $res->fetch_assoc()) $csv_data[] = $r;
+    }
+
+    $filename_base = 'savings_export_' . date('Y-m-d_His');
+    $csv_filename = $filename_base . '.csv';
+
+    $out = fopen('php://temp', 'r+');
+    fputcsv($out, ['ID', 'Member ID', 'Date', 'Type', 'Amount', 'Balance', 'Recorded By']);
+    foreach ($csv_data as $r) {
+        fputcsv($out, [
+            $r['saving_id'], $r['member_id'], $r['transaction_date'], $r['transaction_type'],
+            $r['amount'], $r['balance'], $r['recorded_by_name'] ?? '-'
+        ]);
+    }
+    rewind($out);
+    $csv_content = stream_get_contents($out);
+    fclose($out);
+
+    if ($pdfPassword !== '') {
+        if (!class_exists('ZipArchive')) {
+            header('Content-Type: text/csv; charset=utf-8');
+            header('Content-Disposition: attachment; filename="' . $csv_filename . '"');
+            echo $csv_content;
+            exit;
+        }
+        $zip = new ZipArchive();
+        $zip_filename = $filename_base . '.zip';
+        $temp_file = tempnam(sys_get_temp_dir(), 'zip');
+
+        if ($zip->open($temp_file, ZipArchive::CREATE) === TRUE) {
+            $zip->addFromString($csv_filename, $csv_content);
+            if (method_exists($zip, 'setEncryptionName')) {
+                $zip->setEncryptionName($csv_filename, ZipArchive::EM_AES_256, $pdfPassword);
+            }
             $zip->close();
-
             header('Content-Type: application/zip');
-            header('Content-Disposition: attachment; filename="savings_export_' . date('Y-m-d') . '.zip"');
-            readfile($tmpZip);
-            @unlink($tmpZip);
+            header('Content-Disposition: attachment; filename="' . $zip_filename . '"');
+            header('Content-Length: ' . filesize($temp_file));
+            readfile($temp_file);
+            unlink($temp_file);
             exit;
         }
+    }
 
-        if ($format === 'pdf') {
-            // very simple PDF (no external lib) - enough to open in PDF viewers
-            $lines = [];
-            $lines[] = "Savings Export - " . date('Y-m-d H:i:s');
-            $lines[] = " ";
-            foreach ($rows as $r) {
-                $lines[] = "{$r['transaction_date']} | MID {$r['member_id']} | {$r['transaction_type']} | PHP " . as_money($r['amount']) . " | Bal " . as_money($r['balance']) . " | {$r['recorded_by_name']}";
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $csv_filename . '"');
+    echo $csv_content;
+    exit;
+}
+
+// ---------------------------------------------------------------------------
+// PDF EXPORT
+// ---------------------------------------------------------------------------
+if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
+    $search = trim($_GET['search'] ?? '');
+    $search_by = $_GET['search_by'] ?? 'auto';
+    $filter = $_GET['filter'] ?? '';
+    $type = $_GET['type'] ?? '';
+    $member_id = intval($_GET['member_id'] ?? 0);
+    $recorded_by = intval($_GET['recorded_by'] ?? 0);
+    $date_from = $_GET['date_from'] ?? '';
+    $date_to = $_GET['date_to'] ?? '';
+    $pdfPassword = trim($_GET['pdf_password'] ?? '');
+
+    if (strlen($pdfPassword) < 6) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'msg' => 'PDF password must be at least 6 characters.']);
+        exit;
+    }
+
+    if (!loadTCPDF()) {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'error', 'msg' => 'TCPDF library not found.']);
+        exit;
+    }
+
+    if (!class_exists('SavingsExportPDF')) {
+        class SavingsExportPDF extends TCPDF
+        {
+            public function Header(): void
+            {
+                $leftMargin = 10;
+                $top = 8;
+                $width = 277;
+                $this->SetFillColor(5, 150, 105);
+                $this->SetDrawColor(5, 150, 105);
+                $this->RoundedRect($leftMargin, $top, $width, 20, 2, '1111', 'FD');
+                $logoPath = __DIR__ . '/../../dist/img/logo.jpg';
+                if (is_file($logoPath)) {
+                    $this->Image($logoPath, $leftMargin + 3, $top + 2, 16, 16, 'JPG');
+                }
+                $this->SetTextColor(255, 255, 255);
+                $this->SetXY($leftMargin + 22, $top + 4);
+                $this->SetFont('helvetica', 'B', 13);
+                $this->Cell(0, 6, 'Golden Horizons Cooperative', 0, 1, 'L');
+                $this->SetX($leftMargin + 22);
+                $this->SetFont('helvetica', '', 9);
+                $this->Cell(0, 5, 'Savings Monitoring & Transactions Report', 0, 0, 'L');
             }
 
-            $pdf = simple_pdf_from_lines($lines);
-
-            header('Content-Type: application/pdf');
-            header('Content-Disposition: attachment; filename="savings_export_' . date('Y-m-d') . '.pdf"');
-            echo $pdf;
-            exit;
+            public function Footer(): void
+            {
+                $this->SetY(-12);
+                $this->SetFont('helvetica', 'I', 8);
+                $this->SetTextColor(5, 150, 105);
+                $this->Cell(0, 8, 'Confidential • Page ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, 0, 'C');
+            }
         }
-
-        echo json_encode(['status'=>'error','msg'=>'Invalid export format']);
-        exit;
-
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['status'=>'error','msg'=>$e->getMessage()]);
-        exit;
     }
+
+    $where = [];
+    $params = [];
+    $types = '';
+
+    if ($search !== '') {
+        if (preg_match('/^\d+$/', $search)) {
+            $where[] = "s.member_id = ?";
+            $params[] = intval($search);
+            $types .= 'i';
+        } else {
+            if ($search_by === 'transaction_type') {
+                $where[] = "s.transaction_type LIKE ?";
+                $params[] = "%$search%";
+                $types .= 's';
+            } elseif ($search_by === 'transaction_date') {
+                $where[] = "s.transaction_date LIKE ?";
+                $params[] = "%$search%";
+                $types .= 's';
+            } elseif ($search_by === 'recorded_by_name') {
+                $where[] = "s.recorded_by IN (SELECT user_id FROM users WHERE full_name LIKE ?)";
+                $params[] = "%$search%";
+                $types .= 's';
+            } else {
+                $where[] = "(CAST(s.member_id AS CHAR) LIKE ? OR s.transaction_type LIKE ? OR s.transaction_date LIKE ?)";
+                $s = "%$search%";
+                $params[] = $s; $params[] = $s; $params[] = $s;
+                $types .= 'sss';
+            }
+        }
+    }
+
+    // ✅ FIX: deposit filter includes Interest
+    if ($filter === 'deposit') $where[] = "(s.transaction_type='Deposit' OR s.transaction_type='Interest')";
+    elseif ($filter === 'withdrawal') $where[] = "s.transaction_type='Withdrawal'";
+
+    if ($type !== '') { $where[] = "s.transaction_type=?"; $params[] = $type; $types .= 's'; }
+    if ($member_id > 0) { $where[] = "s.member_id=?"; $params[] = $member_id; $types .= 'i'; }
+    if ($recorded_by > 0) { $where[] = "s.recorded_by=?"; $params[] = $recorded_by; $types .= 'i'; }
+    if ($date_from !== '') { $where[] = "s.transaction_date >= ?"; $params[] = $date_from; $types .= 's'; }
+    if ($date_to !== '') { $where[] = "s.transaction_date <= ?"; $params[] = $date_to; $types .= 's'; }
+
+    $whereSql = count($where) ? "WHERE " . implode(' AND ', $where) : '';
+    $sql = "SELECT s.*, u.full_name AS recorded_by_name FROM savings s LEFT JOIN users u ON s.recorded_by = u.user_id $whereSql ORDER BY s.transaction_date DESC, s.saving_id DESC";
+
+    $stmt = $conn->prepare($sql);
+    if ($types !== '') $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    $pdf = new SavingsExportPDF('L', 'mm', 'A4', true, 'UTF-8', false);
+    $pdf->SetCreator('Savings System');
+    $pdf->SetTitle('Savings Transactions Report');
+    $ownerPassword = md5(uniqid(mt_rand(), true));
+    $pdf->SetProtection(['print', 'copy'], $pdfPassword, $ownerPassword, 0, null);
+    $pdf->SetMargins(10, 32, 10);
+    $pdf->SetAutoPageBreak(TRUE, 15);
+    $pdf->AddPage();
+
+    $html = '<style>
+        table { border-collapse: collapse; }
+        th { background-color: #059669; color: #ffffff; font-size: 10px; font-weight: bold; padding: 6px; border: 1px solid #065f46; text-align: center; }
+        td { font-size: 9px; color: #1f2937; padding: 5px; border: 1px solid #d1fae5; }
+        .row-alt { background-color: #f0fdf4; }
+        .center { text-align: center; }
+        .text-end { text-align: right; }
+    </style>
+    <table width="100%" cellpadding="5">
+        <thead>
+            <tr>
+                <th width="10%">ID</th>
+                <th width="15%">Member ID</th>
+                <th width="15%">Date</th>
+                <th width="15%">Type</th>
+                <th width="15%" class="text-end">Amount</th>
+                <th width="15%" class="text-end">Balance</th>
+                <th width="15%">Recorded By</th>
+            </tr>
+        </thead>
+        <tbody>';
+
+    $n = 0;
+    while ($r = $res->fetch_assoc()) {
+        $rowClass = ($n % 2 === 0) ? '' : 'row-alt';
+        $html .= '<tr class="' . $rowClass . '">'
+            . '<td class="center">' . $r['saving_id'] . '</td>'
+            . '<td class="center">' . $r['member_id'] . '</td>'
+            . '<td class="center">' . $r['transaction_date'] . '</td>'
+            . '<td class="center">' . $r['transaction_type'] . '</td>'
+            . '<td class="text-end">₱' . number_format($r['amount'], 2) . '</td>'
+            . '<td class="text-end">₱' . number_format($r['balance'], 2) . '</td>'
+            . '<td>' . htmlspecialchars($r['recorded_by_name'] ?? '-', ENT_QUOTES, 'UTF-8') . '</td>'
+            . '</tr>';
+        $n++;
+    }
+    if ($n === 0) $html .= '<tr><td colspan="7" class="center">No records found.</td></tr>';
+
+    $html .= '</tbody></table>';
+    $pdf->writeHTML($html, true, false, true, false, '');
+    outputPdfDownload($pdf, 'savings_report_' . date('Y-m-d_His') . '.pdf');
 }
 
-// -------------------- POST actions --------------------
-$action = $_POST['action'] ?? '';
+// JSON responses
+header('Content-Type: application/json');
 
+// ---------------------------------------------------------------------------
+// ROLE & PERMISSION SECURITY
+// ---------------------------------------------------------------------------
+$role = $_SESSION['userdata']['role'] ?? 'Guest';
+$user_id = intval($_SESSION['userdata']['user_id'] ?? 0);
+
+if (!hasPermission($conn, $role, 'Savings Monitoring', 'view') && $role !== 'Admin') {
+    echo json_encode(['status' => 'error', 'msg' => 'Access denied']);
+    exit();
+}
+
+$action = $_POST['action'] ?? ($_GET['action'] ?? '');
+
+// ---------------------------------------------------------------------------
+// HELPER: SUMMARY CALCULATOR (with filters)
+// ---------------------------------------------------------------------------
+function getSummary($conn, $where = '', $params = [], $types = '')
+{
+    $summary = [
+        'total' => 0,
+        // counts
+        'total_deposits' => 0,     // Deposit + Interest count
+        'total_withdrawals' => 0,
+        'total_interest' => 0,
+        // amounts
+        'interest_amount' => 0.0,
+        'last_balance' => 0
+    ];
+
+    $whereClean = str_replace(['WHERE ', 'where '], '', trim($where));
+    $hasWhere = !empty($whereClean);
+
+    // total rows
+    $sql = "SELECT COUNT(*) AS total FROM savings" . ($hasWhere ? " WHERE $whereClean" : "");
+    if ($params && count($params) > 0) {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $summary['total'] = $stmt->get_result()->fetch_assoc()['total'] ?? 0;
+        $stmt->close();
+    } else {
+        $summary['total'] = $conn->query($sql)->fetch_assoc()['total'] ?? 0;
+    }
+
+    // ✅ Deposit + Interest count
+    $whereDeposit = $hasWhere
+        ? "WHERE $whereClean AND (transaction_type='Deposit' OR transaction_type='Interest')"
+        : "WHERE (transaction_type='Deposit' OR transaction_type='Interest')";
+    $sql = "SELECT COUNT(*) AS total_deposits FROM savings $whereDeposit";
+    if ($params && count($params) > 0) {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $summary['total_deposits'] = $stmt->get_result()->fetch_assoc()['total_deposits'] ?? 0;
+        $stmt->close();
+    } else {
+        $summary['total_deposits'] = $conn->query($sql)->fetch_assoc()['total_deposits'] ?? 0;
+    }
+
+    // withdrawals count
+    $whereWithdraw = $hasWhere ? "WHERE $whereClean AND transaction_type='Withdrawal'" : "WHERE transaction_type='Withdrawal'";
+    $sql = "SELECT COUNT(*) AS total_withdrawals FROM savings $whereWithdraw";
+    if ($params && count($params) > 0) {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $summary['total_withdrawals'] = $stmt->get_result()->fetch_assoc()['total_withdrawals'] ?? 0;
+        $stmt->close();
+    } else {
+        $summary['total_withdrawals'] = $conn->query($sql)->fetch_assoc()['total_withdrawals'] ?? 0;
+    }
+
+    // ✅ interest count + sum(amount)
+    $whereInterest = $hasWhere ? "WHERE $whereClean AND transaction_type='Interest'" : "WHERE transaction_type='Interest'";
+    $sql = "SELECT COUNT(*) AS total_interest, COALESCE(SUM(amount),0) AS interest_amount FROM savings $whereInterest";
+    if ($params && count($params) > 0) {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $summary['total_interest'] = $row['total_interest'] ?? 0;
+        $summary['interest_amount'] = floatval($row['interest_amount'] ?? 0);
+        $stmt->close();
+    } else {
+        $row = $conn->query($sql)->fetch_assoc();
+        $summary['total_interest'] = $row['total_interest'] ?? 0;
+        $summary['interest_amount'] = floatval($row['interest_amount'] ?? 0);
+    }
+
+    $q = $conn->query("SELECT balance FROM savings ORDER BY saving_id DESC LIMIT 1");
+    $summary['last_balance'] = $q ? ($q->fetch_assoc()['balance'] ?? 0) : 0;
+
+    return $summary;
+}
+
+// ---------------------------------------------------------------------------
+// MAIN LOGIC
+// ---------------------------------------------------------------------------
 try {
-    if ($action === 'meta') {
-        $members = db_query_all("SELECT DISTINCT member_id FROM savings ORDER BY member_id ASC");
-        $memberIds = array_map(fn($r) => $r['member_id'], $members);
+    switch ($action) {
 
-        $users = db_query_all("
-            SELECT id AS user_id, CONCAT(firstname,' ',lastname) AS full_name
-            FROM users
-            ORDER BY firstname ASC, lastname ASC
-        ");
+        case 'meta':
+            $members = [];
+            $q1 = $conn->query("SELECT DISTINCT member_id FROM savings ORDER BY member_id ASC");
+            while ($q1 && $r = $q1->fetch_assoc()) $members[] = intval($r['member_id']);
 
-        echo json_encode([
-            'status' => 'success',
-            'members' => $memberIds,
-            'recorded_by' => $users
-        ]);
-        exit;
+            $users = [];
+            $q2 = $conn->query("
+                SELECT DISTINCT u.user_id, u.full_name
+                FROM savings s
+                JOIN users u ON u.user_id = s.recorded_by
+                ORDER BY u.full_name ASC
+            ");
+            while ($q2 && $r = $q2->fetch_assoc()) $users[] = $r;
+
+            echo json_encode(['status' => 'success', 'members' => $members, 'recorded_by' => $users]);
+            break;
+
+        case 'list':
+            $page = max(1, intval($_POST['page'] ?? 1));
+            $limit = max(1, intval($_POST['limit'] ?? 10));
+            $offset = ($page - 1) * $limit;
+
+            $search = trim($_POST['search'] ?? '');
+            $search_by = $_POST['search_by'] ?? 'auto';
+
+            $filter = $_POST['filter'] ?? '';
+            $type = $_POST['type'] ?? '';
+
+            $member_id = intval($_POST['member_id'] ?? 0);
+            $recorded_by = intval($_POST['recorded_by'] ?? 0);
+
+            $date_from = $_POST['date_from'] ?? '';
+            $date_to = $_POST['date_to'] ?? '';
+
+            $where = [];
+            $params = [];
+            $types = '';
+
+            if ($search !== '') {
+                if ($search_by === 'auto') {
+                    if (preg_match('/^\d+$/', $search)) {
+                        $where[] = "s.member_id = ?";
+                        $params[] = intval($search);
+                        $types .= 'i';
+                    } else {
+                        $where[] = "(CAST(s.member_id AS CHAR) LIKE ? OR s.transaction_type LIKE ? OR s.transaction_date LIKE ?)";
+                        $s = "%$search%";
+                        $params[] = $s; $params[] = $s; $params[] = $s;
+                        $types .= 'sss';
+                    }
+                } elseif ($search_by === 'member_id') {
+                    if (preg_match('/^\d+$/', $search)) {
+                        $where[] = "s.member_id = ?";
+                        $params[] = intval($search);
+                        $types .= 'i';
+                    } else {
+                        $where[] = "1=0";
+                    }
+                } elseif ($search_by === 'transaction_type') {
+                    $where[] = "s.transaction_type LIKE ?";
+                    $params[] = "%$search%";
+                    $types .= 's';
+                } elseif ($search_by === 'transaction_date') {
+                    $where[] = "s.transaction_date LIKE ?";
+                    $params[] = "%$search%";
+                    $types .= 's';
+                } elseif ($search_by === 'recorded_by_name') {
+                    $where[] = "s.recorded_by IN (SELECT user_id FROM users WHERE full_name LIKE ?)";
+                    $params[] = "%$search%";
+                    $types .= 's';
+                }
+            }
+
+            // ✅ FIX: deposit filter includes Interest
+            if ($filter === 'deposit') $where[] = "(s.transaction_type='Deposit' OR s.transaction_type='Interest')";
+            elseif ($filter === 'withdrawal') $where[] = "s.transaction_type='Withdrawal'";
+
+            if ($type !== '') {
+                $where[] = "s.transaction_type=?";
+                $params[] = $type;
+                $types .= 's';
+            }
+
+            if ($member_id > 0) {
+                $where[] = "s.member_id=?";
+                $params[] = $member_id;
+                $types .= 'i';
+            }
+
+            if ($recorded_by > 0) {
+                $where[] = "s.recorded_by=?";
+                $params[] = $recorded_by;
+                $types .= 'i';
+            }
+
+            if ($date_from !== '') {
+                $where[] = "s.transaction_date >= ?";
+                $params[] = $date_from;
+                $types .= 's';
+            }
+
+            if ($date_to !== '') {
+                $where[] = "s.transaction_date <= ?";
+                $params[] = $date_to;
+                $types .= 's';
+            }
+
+            $whereSql = count($where) ? "WHERE " . implode(' AND ', $where) : '';
+
+            $sql = "
+                SELECT s.*, u.full_name AS recorded_by_name
+                FROM savings s
+                LEFT JOIN users u ON s.recorded_by = u.user_id
+                $whereSql
+                ORDER BY s.transaction_date DESC, s.saving_id DESC
+                LIMIT ?, ?
+            ";
+
+            $stmt = $conn->prepare($sql);
+            $bindTypes = $types . 'ii';
+            $bindParams = $params;
+            $bindParams[] = $offset;
+            $bindParams[] = $limit;
+
+            $stmt->bind_param($bindTypes, ...$bindParams);
+            $stmt->execute();
+            $res = $stmt->get_result();
+
+            $rows = [];
+            while ($r = $res->fetch_assoc()) $rows[] = $r;
+            $stmt->close();
+
+            $countSql = "SELECT COUNT(*) AS cnt FROM savings s $whereSql";
+            $total = 0;
+
+            if (!empty($params)) {
+                $countStmt = $conn->prepare($countSql);
+                $countStmt->bind_param($types, ...$params);
+                $countStmt->execute();
+                $total = intval($countStmt->get_result()->fetch_assoc()['cnt'] ?? 0);
+                $countStmt->close();
+            } else {
+                $result = $conn->query($countSql);
+                $total = intval($result->fetch_assoc()['cnt'] ?? 0);
+            }
+
+            $total_pages = $limit > 0 ? ceil($total / $limit) : 1;
+
+            $summaryWhere = str_replace('s.', '', $whereSql);
+            $summaryWhere = str_replace('WHERE ', '', $summaryWhere);
+
+            echo json_encode([
+                'status' => 'success',
+                'rows' => $rows,
+                'summary' => getSummary($conn, $summaryWhere, $params, $types),
+                'pagination' => [
+                    'current_page' => $page,
+                    'total_pages' => max(1, $total_pages),
+                    'total_records' => $total
+                ]
+            ]);
+            break;
+
+        case 'breakdown':
+            $member_id = intval($_POST['member_id'] ?? 0);
+            if (!$member_id) {
+                echo json_encode(['status' => 'error', 'msg' => 'Member ID required']);
+                exit;
+            }
+
+            $memberStmt = $conn->prepare("
+                SELECT member_id,
+                       CONCAT('Member #', member_id) as name
+                FROM savings
+                WHERE member_id = ?
+                LIMIT 1
+            ");
+            $memberStmt->bind_param("i", $member_id);
+            $memberStmt->execute();
+            $memberInfo = $memberStmt->get_result()->fetch_assoc();
+            $memberStmt->close();
+
+            $stmt = $conn->prepare("
+                SELECT s.*, u.full_name AS recorded_by_name
+                FROM savings s
+                LEFT JOIN users u ON s.recorded_by = u.user_id
+                WHERE s.member_id = ?
+                ORDER BY s.transaction_date DESC, s.saving_id DESC
+            ");
+            $stmt->bind_param("i", $member_id);
+            $stmt->execute();
+            $res = $stmt->get_result();
+
+            $transactions = [];
+            while ($r = $res->fetch_assoc()) $transactions[] = $r;
+            $stmt->close();
+
+            // ✅ FIX: Proper interest fields
+            $memberSummary = [
+                'total_deposits' => 0,        // amount (Deposit only)
+                'total_withdrawals' => 0,     // amount
+                'total_interest' => 0,        // amount
+                'deposit_count' => 0,         // count (Deposit only)
+                'withdrawal_count' => 0,      // count
+                'interest_count' => 0,        // count
+                'current_balance' => 0,
+                'total_transactions' => count($transactions)
+            ];
+
+            foreach ($transactions as $txn) {
+                $amt = floatval($txn['amount']);
+
+                if ($txn['transaction_type'] === 'Deposit') {
+                    $memberSummary['total_deposits'] += $amt;
+                    $memberSummary['deposit_count']++;
+                } elseif ($txn['transaction_type'] === 'Interest') {
+                    $memberSummary['total_interest'] += $amt;
+                    $memberSummary['interest_count']++;
+                } elseif ($txn['transaction_type'] === 'Withdrawal') {
+                    $memberSummary['total_withdrawals'] += $amt;
+                    $memberSummary['withdrawal_count']++;
+                }
+            }
+
+            if (!empty($transactions)) {
+                $memberSummary['current_balance'] = floatval($transactions[0]['balance']);
+            }
+
+            echo json_encode([
+                'status' => 'success',
+                'member_info' => $memberInfo ?: ['member_id' => $member_id, 'name' => "Member #$member_id"],
+                'summary' => $memberSummary,
+                'transactions' => $transactions
+            ]);
+            break;
+
+        case 'get':
+            $id = intval($_POST['id'] ?? 0);
+            if (!$id) {
+                echo json_encode(['status' => 'error', 'msg' => 'ID required']);
+                exit;
+            }
+
+            $stmt = $conn->prepare("
+                SELECT s.*, u.full_name AS recorded_by_name
+                FROM savings s
+                LEFT JOIN users u ON s.recorded_by = u.user_id
+                WHERE s.saving_id=?
+            ");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $res = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+
+            if ($res) echo json_encode(['status' => 'success', 'row' => $res]);
+            else echo json_encode(['status' => 'error', 'msg' => 'Record not found']);
+            break;
+
+        case 'add':
+            if (!hasPermission($conn, $role, 'Savings Monitoring', 'add') && $role !== 'Admin') {
+                echo json_encode(['status' => 'error', 'msg' => 'Permission denied']);
+                exit;
+            }
+
+            $member_id = intval($_POST['member_id'] ?? 0);
+            $transaction_date = $_POST['transaction_date'] ?? date('Y-m-d');
+            $type = $_POST['transaction_type'] ?? 'Deposit';
+            $amount = floatval($_POST['amount'] ?? 0.0);
+
+            if ($member_id <= 0 || $amount <= 0) {
+                echo json_encode(['status' => 'error', 'msg' => 'Member and positive amount required']);
+                exit;
+            }
+
+            $balRes = $conn->prepare("SELECT balance FROM savings WHERE member_id = ? ORDER BY saving_id DESC LIMIT 1");
+            $balRes->bind_param("i", $member_id);
+            $balRes->execute();
+            $bR = $balRes->get_result()->fetch_assoc();
+            $last_balance = $bR['balance'] ?? 0;
+            $balRes->close();
+
+            // Interest behaves like Deposit in balance
+            if ($type === 'Deposit' || $type === 'Interest') {
+                $new_balance = ($last_balance + $amount);
+            } else {
+                $new_balance = ($last_balance - $amount);
+            }
+
+            if ($new_balance < 0) {
+                echo json_encode(['status' => 'error', 'msg' => 'Insufficient balance for withdrawal']);
+                exit;
+            }
+
+            $stmt = $conn->prepare("
+                INSERT INTO savings (member_id, transaction_date, transaction_type, amount, balance, recorded_by)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->bind_param("issddi", $member_id, $transaction_date, $type, $amount, $new_balance, $user_id);
+            $ok = $stmt->execute();
+            $stmt->close();
+
+            if ($ok) {
+                if (function_exists('logPermission')) {
+                    logPermission($conn, $user_id, 'Savings Monitoring', 'Add', 'Success');
+                }
+                echo json_encode(['status' => 'success', 'msg' => 'Transaction added successfully']);
+            } else {
+                echo json_encode(['status' => 'error', 'msg' => 'Failed to save transaction']);
+            }
+            break;
+
+        default:
+            echo json_encode(['status' => 'error', 'msg' => 'Invalid action']);
+            break;
     }
-
-    if ($action === 'list') {
-        $page = max(1, (int)($_POST['page'] ?? 1));
-        $limit = max(1, (int)($_POST['limit'] ?? 10));
-        $offset = ($page - 1) * $limit;
-
-        $input = [
-            'filter' => $_POST['filter'] ?? 'all',
-            'type' => $_POST['type'] ?? '',
-            'member_id' => $_POST['member_id'] ?? '',
-            'recorded_by' => $_POST['recorded_by'] ?? '',
-            'date_from' => $_POST['date_from'] ?? '',
-            'date_to' => $_POST['date_to'] ?? '',
-            'search' => $_POST['search'] ?? '',
-            'search_by' => $_POST['search_by'] ?? 'auto'
-        ];
-
-        $types = '';
-        $params = [];
-        $where = build_where($types, $params, $input);
-
-        // total count
-        $countRow = db_query_one("
-            SELECT COUNT(*) AS cnt
-            FROM savings s
-            LEFT JOIN users u ON u.id = s.recorded_by
-            $where
-        ", $types, $params);
-        $totalRecords = (int)($countRow['cnt'] ?? 0);
-        $totalPages = $totalRecords > 0 ? (int)ceil($totalRecords / $limit) : 1;
-
-        // page rows
-        $rows = db_query_all("
-            SELECT
-                s.saving_id, s.member_id, s.transaction_date, s.transaction_type,
-                s.amount, s.balance,
-                CASE
-                    WHEN s.recorded_by = 0 THEN 'System'
-                    ELSE CONCAT(u.firstname,' ',u.lastname)
-                END AS recorded_by_name
-            FROM savings s
-            LEFT JOIN users u ON u.id = s.recorded_by
-            $where
-            ORDER BY s.transaction_date DESC, s.saving_id DESC
-            LIMIT $limit OFFSET $offset
-        ", $types, $params);
-
-        // summary (same filters)
-        $sumRow = db_query_one("
-            SELECT
-                COUNT(*) AS total,
-                COALESCE(SUM(CASE WHEN s.transaction_type='Deposit' THEN s.amount ELSE 0 END),0) AS total_deposits,
-                COALESCE(SUM(CASE WHEN s.transaction_type='Withdrawal' THEN s.amount ELSE 0 END),0) AS total_withdrawals,
-                COALESCE(SUM(CASE WHEN s.transaction_type='Interest' THEN s.amount ELSE 0 END),0) AS total_interest
-            FROM savings s
-            LEFT JOIN users u ON u.id = s.recorded_by
-            $where
-        ", $types, $params);
-
-        // last balance (latest record with same filters)
-        $lastRow = db_query_one("
-            SELECT s.balance
-            FROM savings s
-            LEFT JOIN users u ON u.id = s.recorded_by
-            $where
-            ORDER BY s.transaction_date DESC, s.saving_id DESC
-            LIMIT 1
-        ", $types, $params);
-
-        echo json_encode([
-            'status' => 'success',
-            'rows' => $rows,
-            'summary' => [
-                'total' => (int)($sumRow['total'] ?? 0),
-                'total_deposits' => as_money($sumRow['total_deposits'] ?? 0),
-                'total_withdrawals' => as_money($sumRow['total_withdrawals'] ?? 0),
-                'total_interest' => as_money($sumRow['total_interest'] ?? 0),
-                'last_balance' => as_money($lastRow['balance'] ?? 0),
-            ],
-            'pagination' => [
-                'current_page' => $page,
-                'total_pages' => $totalPages,
-                'total_records' => $totalRecords
-            ]
-        ]);
-        exit;
-    }
-
-    if ($action === 'get') {
-        $id = (int)($_POST['id'] ?? 0);
-        if ($id <= 0) {
-            echo json_encode(['status'=>'error','msg'=>'Invalid ID']);
-            exit;
-        }
-
-        $row = db_query_one("
-            SELECT
-                s.saving_id, s.member_id, s.transaction_date, s.transaction_type,
-                s.amount, s.balance,
-                CASE
-                    WHEN s.recorded_by = 0 THEN 'System'
-                    ELSE CONCAT(u.firstname,' ',u.lastname)
-                END AS recorded_by_name
-            FROM savings s
-            LEFT JOIN users u ON u.id = s.recorded_by
-            WHERE s.saving_id = ?
-            LIMIT 1
-        ", "i", [$id]);
-
-        if (!$row) {
-            echo json_encode(['status'=>'error','msg'=>'Transaction not found']);
-            exit;
-        }
-
-        echo json_encode(['status'=>'success','row'=>$row]);
-        exit;
-    }
-
-    if ($action === 'breakdown') {
-        $memberId = (int)($_POST['member_id'] ?? 0);
-        if ($memberId <= 0) {
-            echo json_encode(['status'=>'error','msg'=>'Invalid member_id']);
-            exit;
-        }
-
-        $member = db_query_one("SELECT member_id, full_name FROM members WHERE member_id = ? LIMIT 1", "i", [$memberId]);
-        $memberName = $member ? ($member['full_name'] ?? ("Member " . $memberId)) : ("Member " . $memberId);
-
-        $sum = db_query_one("
-            SELECT
-                COALESCE(SUM(CASE WHEN transaction_type='Deposit' THEN amount ELSE 0 END),0) AS total_deposits,
-                COALESCE(SUM(CASE WHEN transaction_type='Withdrawal' THEN amount ELSE 0 END),0) AS total_withdrawals,
-                COALESCE(SUM(CASE WHEN transaction_type='Interest' THEN amount ELSE 0 END),0) AS total_interest,
-                COUNT(*) AS total_transactions,
-                SUM(CASE WHEN transaction_type='Deposit' THEN 1 ELSE 0 END) AS deposit_count,
-                SUM(CASE WHEN transaction_type='Withdrawal' THEN 1 ELSE 0 END) AS withdrawal_count,
-                SUM(CASE WHEN transaction_type='Interest' THEN 1 ELSE 0 END) AS interest_count
-            FROM savings
-            WHERE member_id = ?
-        ", "i", [$memberId]);
-
-        $last = db_query_one("
-            SELECT balance
-            FROM savings
-            WHERE member_id = ?
-            ORDER BY transaction_date DESC, saving_id DESC
-            LIMIT 1
-        ", "i", [$memberId]);
-
-        $txns = db_query_all("
-            SELECT
-                s.saving_id, s.member_id, s.transaction_date, s.transaction_type,
-                s.amount, s.balance,
-                CASE
-                    WHEN s.recorded_by = 0 THEN 'System'
-                    ELSE CONCAT(u.firstname,' ',u.lastname)
-                END AS recorded_by_name
-            FROM savings s
-            LEFT JOIN users u ON u.id = s.recorded_by
-            WHERE s.member_id = ?
-            ORDER BY s.transaction_date DESC, s.saving_id DESC
-        ", "i", [$memberId]);
-
-        echo json_encode([
-            'status' => 'success',
-            'member_info' => [
-                'member_id' => $memberId,
-                'name' => $memberName
-            ],
-            'summary' => [
-                'total_deposits' => as_money($sum['total_deposits'] ?? 0),
-                'total_withdrawals' => as_money($sum['total_withdrawals'] ?? 0),
-                'total_interest' => as_money($sum['total_interest'] ?? 0),
-                'deposit_count' => (int)($sum['deposit_count'] ?? 0),
-                'withdrawal_count' => (int)($sum['withdrawal_count'] ?? 0),
-                'interest_count' => (int)($sum['interest_count'] ?? 0),
-                'total_transactions' => (int)($sum['total_transactions'] ?? 0),
-                'current_balance' => as_money($last['balance'] ?? 0),
-            ],
-            'transactions' => $txns
-        ]);
-        exit;
-    }
-
-    echo json_encode(['status'=>'error','msg'=>'Invalid action']);
-    exit;
-
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['status'=>'error','msg'=>$e->getMessage()]);
+    error_log("Savings action error: " . $e->getMessage());
+    echo json_encode(['status' => 'error', 'msg' => 'Server error']);
     exit;
-}
-
-// -------- simple PDF generator (no external library) --------
-function simple_pdf_from_lines($lines) {
-    // Minimal PDF with Helvetica, fixed text lines
-    $text = "";
-    $y = 780;
-    foreach ($lines as $line) {
-        $safe = str_replace(['\\','(',')'], ['\\\\','\\(','\\)'], $line);
-        $text .= "BT /F1 10 Tf 50 $y Td ($safe) Tj ET\n";
-        $y -= 14;
-        if ($y < 50) break;
-    }
-
-    $stream = $text;
-    $len = strlen($stream);
-
-    $objects = [];
-    $objects[] = "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n";
-    $objects[] = "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n";
-    $objects[] = "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj\n";
-    $objects[] = "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n";
-    $objects[] = "5 0 obj << /Length $len >> stream\n$stream\nendstream endobj\n";
-
-    $pdf = "%PDF-1.4\n";
-    $xref = [];
-    $offset = strlen($pdf);
-
-    foreach ($objects as $obj) {
-        $xref[] = $offset;
-        $pdf .= $obj;
-        $offset = strlen($pdf);
-    }
-
-    $xrefStart = strlen($pdf);
-    $pdf .= "xref\n0 " . (count($objects) + 1) . "\n";
-    $pdf .= "0000000000 65535 f \n";
-    foreach ($xref as $off) {
-        $pdf .= str_pad((string)$off, 10, "0", STR_PAD_LEFT) . " 00000 n \n";
-    }
-
-    $pdf .= "trailer << /Size " . (count($objects) + 1) . " /Root 1 0 R >>\n";
-    $pdf .= "startxref\n$xrefStart\n%%EOF";
-    return $pdf;
 }
