@@ -1,59 +1,7 @@
 <?php
-// ----------------------------------------------------------------------
-// Load TCPDF only when needed to avoid fatal errors if library is missing
-// ----------------------------------------------------------------------
-function loadTCPDF()
-{
-    if (class_exists('TCPDF')) return true;
-
-    $paths = [
-        __DIR__ . '/../../vendor/autoload.php',
-        __DIR__ . '/../../vendor/tecnickcom/tcpdf/tcpdf.php',
-        __DIR__ . '/../../libs/tcpdf/tcpdf.php',
-        __DIR__ . '/../libs/tcpdf/tcpdf.php',
-        __DIR__ . '/libs/tcpdf/tcpdf.php'
-    ];
-
-    foreach ($paths as $path) {
-        if (file_exists($path)) {
-            require_once($path);
-            if (class_exists('TCPDF')) return true;
-        }
-    }
-    return false;
-}
-
-/**
- * Send PDF as clean binary download to avoid corruption.
- */
-function outputPdfDownload($pdf, string $filename): void
-{
-    // Clear any previous output buffers to avoid corrupting PDF binary
-    while (ob_get_level() > 0) {
-        ob_end_clean();
-    }
-    
-    // Ensure no output happens before or after this
-    ob_start();
-    $binary = $pdf->Output($filename, 'S');
-    ob_end_clean();
-
-    if ($binary === '') {
-        throw new Exception('Generated PDF content is empty.');
-    }
-
-    if (!headers_sent()) {
-        header('Content-Type: application/pdf');
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
-        header('Content-Transfer-Encoding: binary');
-        header('Content-Length: ' . strlen($binary));
-        header('Cache-Control: private, max-age=0, must-revalidate');
-        header('Pragma: public');
-    }
-
-    echo $binary;
-    exit;
-}
+// ============================================================================
+// savings_action.php - FULL REPLACE (SearchBy dropdown + exact numeric search)
+// ============================================================================
 
 require_once(__DIR__ . '/../../initialize_coreT2.php');
 require_once(__DIR__ . '/../inc/sess_auth.php');
@@ -149,228 +97,55 @@ if ($search !== '') {
     }
 
     $whereSql = count($where) ? "WHERE " . implode(' AND ', $where) : '';
-    $pdfPassword = trim($_GET['pdf_password'] ?? '');
 
-    // Fetch data
-    $sql = "SELECT s.*, u.full_name AS recorded_by_name FROM savings s LEFT JOIN users u ON s.recorded_by = u.user_id $whereSql ORDER BY s.transaction_date DESC, s.saving_id DESC";
-    $csv_data = [];
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="savings_export_' . date('Y-m-d') . '.csv"');
+
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['ID','Member ID','Date','Type','Amount','Balance','Recorded By']);
+
+    $sql = "
+        SELECT s.*, u.full_name AS recorded_by_name
+        FROM savings s
+        LEFT JOIN users u ON s.recorded_by = u.user_id
+        $whereSql
+        ORDER BY s.transaction_date DESC, s.saving_id DESC
+    ";
+
     if ($params) {
         $stmt = $conn->prepare($sql);
         $stmt->bind_param($types, ...$params);
         $stmt->execute();
         $res = $stmt->get_result();
-        while ($r = $res->fetch_assoc()) $csv_data[] = $r;
+        while ($r = $res->fetch_assoc()) {
+            fputcsv($out, [
+                $r['saving_id'],
+                $r['member_id'],
+                $r['transaction_date'],
+                $r['transaction_type'],
+                $r['amount'],
+                $r['balance'],
+                $r['recorded_by_name'] ?? '-'
+            ]);
+        }
         $stmt->close();
     } else {
         $res = $conn->query($sql);
-        while ($r = $res->fetch_assoc()) $csv_data[] = $r;
+        while ($r = $res->fetch_assoc()) {
+            fputcsv($out, [
+                $r['saving_id'],
+                $r['member_id'],
+                $r['transaction_date'],
+                $r['transaction_type'],
+                $r['amount'],
+                $r['balance'],
+                $r['recorded_by_name'] ?? '-'
+            ]);
+        }
     }
 
-    $filename_base = 'savings_export_' . date('Y-m-d_His');
-    $csv_filename = $filename_base . '.csv';
-
-    // Create CSV in memory
-    $out = fopen('php://temp', 'r+');
-    fputcsv($out, ['ID', 'Member ID', 'Date', 'Type', 'Amount', 'Balance', 'Recorded By']);
-    foreach ($csv_data as $r) {
-        fputcsv($out, [
-            $r['saving_id'], $r['member_id'], $r['transaction_date'], $r['transaction_type'],
-            $r['amount'], $r['balance'], $r['recorded_by_name'] ?? '-'
-        ]);
-    }
-    rewind($out);
-    $csv_content = stream_get_contents($out);
     fclose($out);
-
-    if ($pdfPassword !== '') {
-        if (!class_exists('ZipArchive')) {
-            // Fallback: Just standard CSV if ZipArchive missing
-            header('Content-Type: text/csv; charset=utf-8');
-            header('Content-Disposition: attachment; filename="' . $csv_filename . '"');
-            echo $csv_content;
-            exit;
-        }
-        $zip = new ZipArchive();
-        $zip_filename = $filename_base . '.zip';
-        $temp_file = tempnam(sys_get_temp_dir(), 'zip');
-        
-        if ($zip->open($temp_file, ZipArchive::CREATE) === TRUE) {
-            $zip->addFromString($csv_filename, $csv_content);
-            if (method_exists($zip, 'setEncryptionName')) {
-                $zip->setEncryptionName($csv_filename, ZipArchive::EM_AES_256, $pdfPassword);
-            }
-            $zip->close();
-            header('Content-Type: application/zip');
-            header('Content-Disposition: attachment; filename="' . $zip_filename . '"');
-            header('Content-Length: ' . filesize($temp_file));
-            readfile($temp_file);
-            unlink($temp_file);
-            exit;
-        }
-    }
-    
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="' . $csv_filename . '"');
-    echo $csv_content;
     exit;
-}
-
-// ---------------------------------------------------------------------------
-// PDF EXPORT
-// ---------------------------------------------------------------------------
-if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
-    $search = trim($_GET['search'] ?? '');
-    $search_by = $_GET['search_by'] ?? 'auto';
-    $filter = $_GET['filter'] ?? '';
-    $type = $_GET['type'] ?? '';
-    $member_id = intval($_GET['member_id'] ?? 0);
-    $recorded_by = intval($_GET['recorded_by'] ?? 0);
-    $date_from = $_GET['date_from'] ?? '';
-    $date_to = $_GET['date_to'] ?? '';
-    $pdfPassword = trim($_GET['pdf_password'] ?? '');
-
-    if (strlen($pdfPassword) < 6) {
-        header('Content-Type: application/json');
-        echo json_encode(['status' => 'error', 'msg' => 'PDF password must be at least 6 characters.']);
-        exit;
-    }
-
-    if (!loadTCPDF()) {
-        header('Content-Type: application/json');
-        echo json_encode(['status' => 'error', 'msg' => 'TCPDF library not found.']);
-        exit;
-    }
-
-    if (!class_exists('SavingsExportPDF')) {
-        class SavingsExportPDF extends TCPDF
-        {
-            public function Header(): void
-            {
-                $leftMargin = 10;
-                $top = 8;
-                $width = 277;
-                $this->SetFillColor(5, 150, 105);
-                $this->SetDrawColor(5, 150, 105);
-                $this->RoundedRect($leftMargin, $top, $width, 20, 2, '1111', 'FD');
-                $logoPath = __DIR__ . '/../../dist/img/logo.jpg';
-                if (is_file($logoPath)) {
-                    $this->Image($logoPath, $leftMargin + 3, $top + 2, 16, 16, 'JPG');
-                }
-                $this->SetTextColor(255, 255, 255);
-                $this->SetXY($leftMargin + 22, $top + 4);
-                $this->SetFont('helvetica', 'B', 13);
-                $this->Cell(0, 6, 'Golden Horizons Cooperative', 0, 1, 'L');
-                $this->SetX($leftMargin + 22);
-                $this->SetFont('helvetica', '', 9);
-                $this->Cell(0, 5, 'Savings Monitoring & Transactions Report', 0, 0, 'L');
-            }
-
-            public function Footer(): void
-            {
-                $this->SetY(-12);
-                $this->SetFont('helvetica', 'I', 8);
-                $this->SetTextColor(5, 150, 105);
-                $this->Cell(0, 8, 'Confidential • Page ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, 0, 'C');
-            }
-        }
-    }
-
-    $where = [];
-    $params = [];
-    $types = '';
-
-    if ($search !== '') {
-        if (preg_match('/^\d+$/', $search)) {
-            $where[] = "s.member_id = ?";
-            $params[] = intval($search);
-            $types .= 'i';
-        } else {
-            if ($search_by === 'transaction_type') {
-                $where[] = "s.transaction_type LIKE ?";
-                $params[] = "%$search%";
-                $types .= 's';
-            } elseif ($search_by === 'transaction_date') {
-                $where[] = "s.transaction_date LIKE ?";
-                $params[] = "%$search%";
-                $types .= 's';
-            } elseif ($search_by === 'recorded_by_name') {
-                $where[] = "s.recorded_by IN (SELECT user_id FROM users WHERE full_name LIKE ?)";
-                $params[] = "%$search%";
-                $types .= 's';
-            } else {
-                $where[] = "(CAST(s.member_id AS CHAR) LIKE ? OR s.transaction_type LIKE ? OR s.transaction_date LIKE ?)";
-                $s = "%$search%";
-                $params[] = $s; $params[] = $s; $params[] = $s;
-                $types .= 'sss';
-            }
-        }
-    }
-    if ($filter === 'deposit') $where[] = "s.transaction_type='Deposit'";
-    elseif ($filter === 'withdrawal') $where[] = "s.transaction_type='Withdrawal'";
-    if ($type !== '') { $where[] = "s.transaction_type=?"; $params[] = $type; $types .= 's'; }
-    if ($member_id > 0) { $where[] = "s.member_id=?"; $params[] = $member_id; $types .= 'i'; }
-    if ($recorded_by > 0) { $where[] = "s.recorded_by=?"; $params[] = $recorded_by; $types .= 'i'; }
-    if ($date_from !== '') { $where[] = "s.transaction_date >= ?"; $params[] = $date_from; $types .= 's'; }
-    if ($date_to !== '') { $where[] = "s.transaction_date <= ?"; $params[] = $date_to; $types .= 's'; }
-
-    $whereSql = count($where) ? "WHERE " . implode(' AND ', $where) : '';
-    $sql = "SELECT s.*, u.full_name AS recorded_by_name FROM savings s LEFT JOIN users u ON s.recorded_by = u.user_id $whereSql ORDER BY s.transaction_date DESC, s.saving_id DESC";
-
-    $stmt = $conn->prepare($sql);
-    if ($types !== '') $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $res = $stmt->get_result();
-
-    $pdf = new SavingsExportPDF('L', 'mm', 'A4', true, 'UTF-8', false);
-    $pdf->SetCreator('Savings System');
-    $pdf->SetTitle('Savings Transactions Report');
-    $ownerPassword = md5(uniqid(mt_rand(), true));
-    $pdf->SetProtection(['print', 'copy'], $pdfPassword, $ownerPassword, 0, null);
-    $pdf->SetMargins(10, 32, 10);
-    $pdf->SetAutoPageBreak(TRUE, 15);
-    $pdf->AddPage();
-
-    $html = '<style>
-        table { border-collapse: collapse; }
-        th { background-color: #059669; color: #ffffff; font-size: 10px; font-weight: bold; padding: 6px; border: 1px solid #065f46; text-align: center; }
-        td { font-size: 9px; color: #1f2937; padding: 5px; border: 1px solid #d1fae5; }
-        .row-alt { background-color: #f0fdf4; }
-        .center { text-align: center; }
-        .text-end { text-align: right; }
-    </style>
-    <table width="100%" cellpadding="5">
-        <thead>
-            <tr>
-                <th width="10%">ID</th>
-                <th width="15%">Member ID</th>
-                <th width="15%">Date</th>
-                <th width="15%">Type</th>
-                <th width="15%" class="text-end">Amount</th>
-                <th width="15%" class="text-end">Balance</th>
-                <th width="15%">Recorded By</th>
-            </tr>
-        </thead>
-        <tbody>';
-
-    $n = 0;
-    while ($r = $res->fetch_assoc()) {
-        $rowClass = ($n % 2 === 0) ? '' : 'row-alt';
-        $html .= '<tr class="' . $rowClass . '">'
-            . '<td class="center">' . $r['saving_id'] . '</td>'
-            . '<td class="center">' . $r['member_id'] . '</td>'
-            . '<td class="center">' . $r['transaction_date'] . '</td>'
-            . '<td class="center">' . $r['transaction_type'] . '</td>'
-            . '<td class="text-end">₱' . number_format($r['amount'], 2) . '</td>'
-            . '<td class="text-end">₱' . number_format($r['balance'], 2) . '</td>'
-            . '<td>' . htmlspecialchars($r['recorded_by_name'] ?? '-', ENT_QUOTES, 'UTF-8') . '</td>'
-            . '</tr>';
-        $n++;
-    }
-    if ($n === 0) $html .= '<tr><td colspan="7" class="center">No records found.</td></tr>';
-
-    $html .= '</tbody></table>';
-    $pdf->writeHTML($html, true, false, true, false, '');
-    outputPdfDownload($pdf, 'savings_report_' . date('Y-m-d_His') . '.pdf');
 }
 
 // JSON responses

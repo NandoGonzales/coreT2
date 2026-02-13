@@ -72,13 +72,13 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
         $mail->isSMTP();
         $mail->Host       = 'smtp.gmail.com';
         $mail->SMTPAuth   = true;
-        $mail->Username   = 'microfinancecore@gmail.com';
-        $mail->Password   = 'xmtjeqdoesrujaom';
+        $mail->Username   = 'fg708304@gmail.com';
+        $mail->Password   = 'smjvlpcetfunlqcc';
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = 587;
 
         // Recipients
-        $mail->setFrom('microfinancecore@gmail.com', 'CORET2 System');
+        $mail->setFrom('fg708304@gmail.com', 'CORET2 System');
         $mail->addAddress($recipientEmail, $recipientName);
 
         // Email content
@@ -205,7 +205,7 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
                     
                     <div class="expiry-info">
                         <strong>⏰ Expiry Notice:</strong>
-                        <p style="margin: 8px 0 0 0; color: #856404;">This OTP will expire in <strong>2 minutes</strong>. Please enter it as soon as possible.</p>
+                        <p style="margin: 8px 0 0 0; color: #856404;">This OTP will expire in <strong>10 minutes</strong>. Please enter it as soon as possible.</p>
                     </div>
                     
                     <div class="security-notice">

@@ -417,11 +417,11 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <button id="syncCore1Btn" class="btn btn-sm btn-outline-light btn-sync" title="Pull latest savings from Core1">
                             <i class="bi bi-arrow-repeat"></i> Sync Core1
                         </button>
-                        <button id="exportPdfBtn" class="btn btn-sm btn-danger">
-                            <i class="bi bi-file-earmark-pdf"></i> Export PDF
-                        </button>
-                        <button id="exportCsvBtn" class="btn btn-sm btn-success">
+                        <a id="exportCsvBtn" class="btn btn-sm btn-success" href="#">
                             <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
+                        </a>
+                        <button class="btn btn-sm btn-primary" id="addTxBtn">
+                            <i class="bi bi-plus-circle"></i> New Transaction
                         </button>
                     </div>
                 </div>
@@ -567,6 +567,43 @@ include(__DIR__ . '/../inc/sidebar.php');
 </div>
 
 <!-- Add Transaction Modal -->
+<div class="modal fade" id="txModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="txForm" class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>New Transaction</h5>
+                <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-2">
+                    <label class="form-label">Member ID</label>
+                    <input type="number" name="member_id" id="member_id" class="form-control" required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Transaction Date</label>
+                    <input type="date" name="transaction_date" id="transaction_date" class="form-control" required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Type</label>
+                    <select name="transaction_type" id="transaction_type" class="form-select" required>
+                        <option value="Deposit">Deposit</option>
+                        <option value="Withdrawal">Withdrawal</option>
+                    </select>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Amount</label>
+                    <input type="number" step="0.01" name="amount" id="amount" class="form-control" required>
+                </div>
+                <div class="form-text text-muted">Balance will be recalculated automatically.</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-success" type="submit">Save</button>
+                <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- View Transaction Modal -->
 <div class="modal fade" id="viewTxModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -756,88 +793,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const rowsPerPage = document.getElementById('rowsPerPage');
     const clearFilters = document.getElementById('clearFilters');
 
-    const exportPdfBtn = document.getElementById('exportPdfBtn');
     const exportCsvBtn = document.getElementById('exportCsvBtn');
-
-    async function handleExport(format) {
-        const passwordPrompt = await Swal.fire({
-            title: `Protect ${format.toUpperCase()} Export`,
-            text: `Enter a password before exporting this ${format.toUpperCase()}.`,
-            input: 'password',
-            inputLabel: 'Export Password',
-            inputPlaceholder: 'At least 6 characters',
-            showCancelButton: true,
-            confirmButtonText: `Export ${format.toUpperCase()}`,
-            cancelButtonText: 'Cancel',
-            inputValidator: (value) => (!value || value.trim().length < 6) ? 'Please enter at least 6 characters.' : null
-        });
-
-        if (!passwordPrompt.isConfirmed) return;
-        const pdfPassword = passwordPrompt.value;
-
-        const params = new URLSearchParams({
-            export: format,
-            search: currentSearch,
-            search_by: searchBy ? searchBy.value : 'auto',
-            filter: currentCardFilter,
-            type: typeFilter.value,
-            member_id: memberFilter.value,
-            recorded_by: recordedByFilter.value,
-            date_from: dateFrom.value,
-            date_to: dateTo.value,
-            pdf_password: pdfPassword
-        });
-
-        const btn = format === 'pdf' ? exportPdfBtn : exportCsvBtn;
-        const originalHTML = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
-        btn.disabled = true;
-
-        try {
-            const url = `savings_action.php?${params.toString()}`;
-            const response = await fetch(url);
-            if (!response.ok) throw new Error('Export failed');
-
-            const contentType = response.headers.get('content-type');
-            if (contentType && contentType.includes('application/json')) {
-                const errorData = await response.json();
-                throw new Error(errorData.msg || 'Export failed');
-            }
-
-            const blob = await response.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            const extension = format === 'pdf' ? 'pdf' : (pdfPassword ? 'zip' : 'csv');
-            a.download = `savings_export_${new Date().toISOString().split('T')[0]}.${extension}`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(downloadUrl);
-            a.remove();
-
-            Swal.fire({
-                icon: 'success',
-                title: 'Exported',
-                text: 'Your file has been generated successfully.',
-                timer: 3000,
-                showConfirmButton: false
-            });
-        } catch (error) {
-            Swal.fire({ icon: 'error', title: 'Export Failed', text: error.message });
-        } finally {
-            btn.innerHTML = originalHTML;
-            btn.disabled = false;
-        }
-    }
-
-    exportPdfBtn.addEventListener('click', () => handleExport('pdf'));
-    exportCsvBtn.addEventListener('click', () => handleExport('csv'));
+    const addTxBtn = document.getElementById('addTxBtn');
 
     const filterIndicator = document.getElementById('filterIndicator');
     const recordCount = document.getElementById('recordCount');
 
+    const txModal = new bootstrap.Modal(document.getElementById('txModal'));
     const viewModal = new bootstrap.Modal(document.getElementById('viewTxModal'));
     const breakdownModal = new bootstrap.Modal(document.getElementById('breakdownModal'));
+
+    const txForm = document.getElementById('txForm');
 
     let currentMemberData = null;
 
@@ -1031,6 +997,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 renderPagination(data.pagination?.current_page || 1, data.pagination?.total_pages || 1);
 
+                exportCsvBtn.href =
+                    `savings_action.php?export=csv` +
+                    `&search=${encodeURIComponent(currentSearch)}` +
+                    `&search_by=${encodeURIComponent(searchBy ? searchBy.value : 'auto')}` +
+                    `&filter=${encodeURIComponent(currentCardFilter)}` +
+                    `&type=${encodeURIComponent(typeFilter.value)}` +
+                    `&member_id=${encodeURIComponent(memberFilter.value)}` +
+                    `&recorded_by=${encodeURIComponent(recordedByFilter.value)}` +
+                    `&date_from=${encodeURIComponent(dateFrom.value)}` +
+                    `&date_to=${encodeURIComponent(dateTo.value)}`;
+
                 updateFilterIndicator();
             })
             .catch(err => {
@@ -1074,6 +1051,32 @@ document.addEventListener('DOMContentLoaded', () => {
             currentPage = 1;
             loadData();
         });
+    });
+
+    addTxBtn.addEventListener('click', () => {
+        txForm.reset();
+        document.getElementById('transaction_date').valueAsDate = new Date();
+        txModal.show();
+    });
+
+    txForm.addEventListener('submit', e => {
+        e.preventDefault();
+        const fd = new FormData(txForm);
+        fd.append('action', 'add');
+
+        fetch('savings_action.php', { method:'POST', body: fd })
+            .then(r => r.json())
+            .then(resp => {
+                if (resp.status === 'success') {
+                    Swal.fire('Saved', resp.msg, 'success');
+                    txModal.hide();
+                    loadFilterMeta();
+                    loadData();
+                } else {
+                    Swal.fire('Error', resp.msg, 'error');
+                }
+            })
+            .catch(() => Swal.fire('Error', 'Failed to save transaction', 'error'));
     });
 
     function loadMemberBreakdown(memberId) {
