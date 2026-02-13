@@ -350,6 +350,9 @@ include(__DIR__ . '/../inc/sidebar.php');
                             <i class="fas fa-plus"></i> Add User
                         </button>
                         <?php endif; ?>
+                        <button class="btn btn-sm btn-info" id="syncHR4Btn">
+                            <i class="fas fa-sync"></i> Sync with HR4
+                        </button>
                         <button class="btn btn-sm btn-outline-light" id="resetFiltersBtn">
                             <i class="fas fa-redo"></i> Reset Filters
                         </button>
@@ -462,7 +465,7 @@ include(__DIR__ . '/../inc/sidebar.php');
             </div>
 
             <!-- User Table -->
-            <div class="table-card">
+            <div class="table-card mb-4">
                 <div class="table-header">
                     <h6 class="table-title">
                         <i class="bi bi-table"></i>
@@ -498,6 +501,42 @@ include(__DIR__ . '/../inc/sidebar.php');
                     <nav>
                         <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
                     </nav>
+                </div>
+            </div>
+
+            <!-- HR4 Employee Directory -->
+            <div class="table-card" id="hr4Section">
+                <div class="table-header">
+                    <h6 class="table-title">
+                        <i class="bi bi-person-badge"></i>
+                        <span>HR4 Employee Directory</span>
+                    </h6>
+                    <div class="d-flex align-items-center gap-2">
+                        <input type="text" id="hr4SearchInput" class="form-control form-control-sm" style="width: 250px;" placeholder="Search employees...">
+                        <button class="btn btn-sm btn-info" onclick="loadHR4Employees()">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Emp ID</th>
+                                <th>Full Name</th>
+                                <th>Department</th>
+                                <th>Position</th>
+                                <th>Work Location</th>
+                                <th class="text-center">HR Status</th>
+                                <th class="text-center">Link Status</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hr4TableBody">
+                            <tr><td colspan="8" class="text-center">No data synced yet.</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -556,6 +595,41 @@ include(__DIR__ . '/../inc/sidebar.php');
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- Link Employee Modal -->
+<div class="modal fade" id="linkModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-link me-2"></i>Link Employee to User</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="link_hr4_id">
+                <div class="mb-3">
+                    <label class="form-label">Employee</label>
+                    <input type="text" id="link_emp_name" class="form-control" readonly>
+                    <small class="text-muted" id="link_emp_id_box"></small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Select CoreT2 User to Link <span class="text-danger">*</span></label>
+                    <select id="link_user_select" class="form-select" required>
+                        <option value="">-- Choose User --</option>
+                    </select>
+                    <small class="text-muted">Only unlinked users are shown.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="confirmLinkBtn">
+                    <i class="fas fa-link"></i> Create Link
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+            </div>
         </div>
     </div>
 </div>
