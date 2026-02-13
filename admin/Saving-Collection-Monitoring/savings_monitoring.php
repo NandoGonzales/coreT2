@@ -123,10 +123,10 @@ body {
 }
 .stat-hint {
     font-size: 0.75rem;
-    opacity: 0.8;
+    opacity: 0.85;
     display: flex;
     align-items: center;
-    gap: 0.25rem;
+    gap: 0.35rem;
 }
 .stat-card[data-filter="all"] { --card-color-1: #3b82f6; --card-color-2: #2563eb; }
 .stat-card[data-filter="deposit"] { --card-color-1: #059669; --card-color-2: #047857; }
@@ -314,14 +314,20 @@ body {
                         <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to view all</div>
                     </div>
                 </div>
+
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="deposit">
                         <div class="stat-card-icon"><i class="bi bi-arrow-down-circle"></i></div>
                         <div class="stat-title">Total Deposits</div>
                         <div id="card_total_deposit" class="stat-value">0</div>
+                        <div class="stat-hint">
+                            <i class="bi bi-cash-coin"></i>
+                            Total Interest: <span id="card_total_interest">0</span>
+                        </div>
                         <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to filter</div>
                     </div>
                 </div>
+
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="withdrawal">
                         <div class="stat-card-icon"><i class="bi bi-arrow-up-circle"></i></div>
@@ -330,6 +336,7 @@ body {
                         <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to filter</div>
                     </div>
                 </div>
+
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="balance">
                         <div class="stat-card-icon"><i class="bi bi-wallet2"></i></div>
@@ -524,7 +531,7 @@ body {
                     </div>
                 </div>
 
-                <div class="row g-3 mb-4">
+                <div class="row g-3 mb-3">
                     <div class="col-md-3">
                         <div class="card border-success h-100">
                             <div class="card-body text-center">
@@ -535,6 +542,7 @@ body {
                             </div>
                         </div>
                     </div>
+
                     <div class="col-md-3">
                         <div class="card border-danger h-100">
                             <div class="card-body text-center">
@@ -545,16 +553,18 @@ body {
                             </div>
                         </div>
                     </div>
+
                     <div class="col-md-3">
-                        <div class="card border-info h-100">
+                        <div class="card border-warning h-100">
                             <div class="card-body text-center">
-                                <i class="bi bi-calculator text-info fs-2"></i>
-                                <h6 class="mt-2 mb-1 text-muted small">Net Change</h6>
-                                <h4 class="mb-1" id="bd_net_change">₱0.00</h4>
-                                <small class="text-muted">Deposits - Withdrawals</small>
+                                <i class="bi bi-cash-coin text-warning fs-2"></i>
+                                <h6 class="mt-2 mb-1 text-muted small">Total Interest Earned</h6>
+                                <h4 class="mb-1" id="bd_total_interest">₱0.00</h4>
+                                <small class="text-muted"><span id="bd_interest_count">0</span> transactions</small>
                             </div>
                         </div>
                     </div>
+
                     <div class="col-md-3">
                         <div class="card border-primary h-100">
                             <div class="card-body text-center">
@@ -562,6 +572,19 @@ body {
                                 <h6 class="mt-2 mb-1 text-muted small">Total Transactions</h6>
                                 <h4 class="mb-1 text-primary" id="bd_total_txns">0</h4>
                                 <small class="text-muted">All time</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-12">
+                        <div class="card border-info h-100">
+                            <div class="card-body text-center">
+                                <i class="bi bi-calculator text-info fs-2"></i>
+                                <h6 class="mt-2 mb-1 text-muted small">Net Change</h6>
+                                <h4 class="mb-1" id="bd_net_change">₱0.00</h4>
+                                <small class="text-muted">Deposits - Withdrawals (Interest shown separately)</small>
                             </div>
                         </div>
                     </div>
@@ -641,9 +664,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let limit = 10;
     let currentSearch = '';
     let currentCardFilter = 'all';
-
-    let allTransactionsData = [];
-    let summaryData = {};
 
     async function handleExport(format) {
         const passwordPrompt = await Swal.fire({
@@ -860,14 +880,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                allTransactionsData = data.rows || [];
-                summaryData = data.summary || {};
+                const s = data.summary || {};
 
-                document.getElementById('card_total_tx').textContent = data.summary.total || 0;
-                document.getElementById('card_total_deposit').textContent = data.summary.total_deposits || 0;
-                document.getElementById('card_total_withdraw').textContent = data.summary.total_withdrawals || 0;
+                document.getElementById('card_total_tx').textContent = s.total || 0;
+                document.getElementById('card_total_deposit').textContent = s.total_deposits || 0;
+                document.getElementById('card_total_withdraw').textContent = s.total_withdrawals || 0;
+
+                document.getElementById('card_total_interest').textContent =
+                    '₱' + Number(s.total_interest || 0).toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 });
+
                 document.getElementById('card_balance').textContent =
-                    '₱' + parseFloat(data.summary.last_balance || 0).toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 });
+                    '₱' + parseFloat(s.last_balance || 0).toLocaleString(undefined, { minimumFractionDigits:2, maximumFractionDigits:2 });
 
                 const start = (currentPage - 1) * limit + 1;
                 const end = Math.min(currentPage * limit, data.pagination?.total_records || 0);
@@ -1002,6 +1025,10 @@ document.addEventListener('DOMContentLoaded', () => {
             '₱' + Number(summary.total_withdrawals || 0).toLocaleString(undefined, { minimumFractionDigits:2 });
         document.getElementById('bd_withdrawal_count').textContent = summary.withdrawal_count || 0;
 
+        document.getElementById('bd_total_interest').textContent =
+            '₱' + Number(summary.total_interest || 0).toLocaleString(undefined, { minimumFractionDigits:2 });
+        document.getElementById('bd_interest_count').textContent = summary.interest_count || 0;
+
         const netChange = Number(summary.total_deposits || 0) - Number(summary.total_withdrawals || 0);
         const netChangeEl = document.getElementById('bd_net_change');
         netChangeEl.textContent = '₱' + Math.abs(netChange).toLocaleString(undefined, { minimumFractionDigits:2 });
@@ -1090,7 +1117,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('v_type').innerHTML = `<span class="badge ${isIn ? 'badge-deposit' : 'badge-withdrawal'}">${d.transaction_type}</span>`;
                 document.getElementById('v_amount').textContent = Number(d.amount).toLocaleString(undefined, { minimumFractionDigits:2 });
                 document.getElementById('v_balance').textContent = Number(d.balance).toLocaleString(undefined, { minimumFractionDigits:2 });
-                document.getElementById('v_by').textContent = d.recorded_by_name || 'Unknown';
+                document.getElementById('v_by').textContent = d.recorded_by_name || 'System';
                 viewModal.show();
             })
             .catch(() => Swal.fire('Error', 'Failed to load transaction details', 'error'));
