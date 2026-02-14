@@ -136,7 +136,7 @@ include(__DIR__ . '/../inc/sidebar.php');
     }
 
     .table thead th {
-        color: #ffffff !important;
+        color: #1f2937 !important;
         font-weight: 700;
         font-size: 0.875rem;
         padding: 1rem 0.75rem;
