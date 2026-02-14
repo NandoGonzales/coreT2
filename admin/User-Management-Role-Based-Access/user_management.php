@@ -666,7 +666,7 @@ include(__DIR__ . '/../inc/sidebar.php');
         </div>
         <div class="modal-footer">
           <button type="submit" class="btn btn-success">
-            <i class="fas fa-save"></i> Request for Changes
+            <i class="fas fa-save"></i> Submit for Approval
           </button>
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
             <i class="fas fa-times"></i> Cancel
