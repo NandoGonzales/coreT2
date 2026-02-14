@@ -394,7 +394,7 @@ try {
                         'user_creation' => 'Account Created',
                         'role_permission_add' => 'Role Permission Approved',
                         'role_permission_edit' => 'Role Permission Edit Approved',
-                        'role_permission_delete' => 'Role Permission Deletion Approved'
+                        'role_permission_delete' => 'Role Permission Deactivation Approved'
                     ];
                     $msg_map = [
                         'termination' => "Your account termination request has been approved. Your account has been deactivated.",
@@ -403,7 +403,7 @@ try {
                         'user_creation' => "Your account has been created successfully. You can now log in using your credentials.",
                         'role_permission_add' => "The role permission addition has been approved.",
                         'role_permission_edit' => "The role permission update has been approved.",
-                        'role_permission_delete' => "The role permission deletion has been approved."
+                        'role_permission_delete' => "The role permission deactivation has been approved."
                     ];
 
                     $subject = $subject_map[$request['request_type']] ?? 'Account Request Approved';

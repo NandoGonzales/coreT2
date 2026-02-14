@@ -220,7 +220,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                         (isCreation ? 'New User Creation' :
                             (isRoleAdd ? 'Add Role Permission' :
                                 (isRoleEdit ? 'Edit Role Permission' :
-                                    (isRoleDelete ? 'Delete Role Permission' : 'Profile Update')))));
+                                    (isRoleDelete ? 'Deactivate Role Permission' : 'Profile Update')))));
 
                 const requested = req.request_data_parsed || {};
                 const displayFullname = req.full_name || requested.full_name || 'New User';
@@ -271,7 +271,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                         { label: 'View', key: 'can_view' },
                         { label: 'Add', key: 'can_add' },
                         { label: 'Edit', key: 'can_edit' },
-                        { label: 'Delete', key: 'can_delete' }
+                        { label: 'Deactivate', key: 'can_delete' }
                     ];
                     bodyContent = `
                         <div class="alert ${isRoleAdd ? 'alert-success' : 'alert-info'} mb-3">
@@ -291,8 +291,8 @@ include(__DIR__ . '/../inc/sidebar.php');
                 } else if (isRoleDelete) {
                     bodyContent = `
                         <div class="alert alert-danger mb-0">
-                            <i class="bi bi-trash-fill me-2"></i>
-                            Request to <strong>Delete</strong> Role Permission (ID: ${requested.perm_id}).
+                            <i class="bi bi-dash-circle-fill me-2"></i>
+                            Request to <strong>Deactivate</strong> Role Permission (ID: ${requested.perm_id}).
                         </div>
                     `;
                 } else {

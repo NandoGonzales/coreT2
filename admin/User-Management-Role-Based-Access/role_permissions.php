@@ -502,7 +502,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                                 <th>View</th>
                                 <th>Add</th>
                                 <th>Edit</th>
-                                <th>Delete</th>
+                                <th>Deactivate</th>
                                 <th class="text-center">Actions</th>
                             </tr>
                         </thead>
@@ -546,19 +546,18 @@ include(__DIR__ . '/../inc/sidebar.php');
                         </div>
                         <div class="col-md-6">
                             <label for="module" class="form-label">Module <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="module" name="module"
-                                placeholder="e.g., User Management" list="moduleList" required>
-                            <datalist id="moduleList">
-                                <option value="User Management">
-                                <option value="Loan Portfolio">
-                                <option value="Savings Monitoring">
-                                <option value="Disbursement Tracker">
-                                <option value="Repayment Tracker">
-                                <option value="Compliance & Audit Trail">
-                                    <?php foreach ($modules as $module): ?>
-                                    <option value="<?= htmlspecialchars($module) ?>">
-                                    <?php endforeach; ?>
-                            </datalist>
+                            <select class="form-select" id="module" name="module" required>
+                                <option value="">Select Module</option>
+                                <option value="Dashboard">Dashboard</option>
+                                <option value="Loan Portfolio">Loan Portfolio</option>
+                                <option value="Collection Monitoring">Collection Monitoring</option>
+                                <option value="Savings Monitoring">Savings Monitoring</option>
+                                <option value="Disbursement Tracker">Disbursement Tracker</option>
+                                <option value="Compliance & Audit">Compliance & Audit</option>
+                                <option value="User Management">User Management</option>
+                                <option value="Role Permissions">Role Permissions</option>
+                                <option value="Permission Logs">Permission Logs</option>
+                            </select>
                         </div>
                     </div>
 
@@ -593,7 +592,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" name="can_delete" id="can_delete">
                                     <label class="form-check-label" for="can_delete">
-                                        <i class="bi bi-trash"></i> Delete
+                                        <i class="bi bi-dash-circle"></i> Deactivate
                                     </label>
                                 </div>
                             </div>
@@ -766,13 +765,13 @@ include(__DIR__ . '/../inc/sidebar.php');
                 const id = e.target.closest('.delBtn').dataset.id;
 
                 Swal.fire({
-                    title: 'Delete Permission?',
-                    text: "This action cannot be undone!",
+                    title: 'Deactivate Permission?',
+                    text: "Are you sure you want to request deactivation for this permission?",
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#d33',
                     cancelButtonColor: '#3085d6',
-                    confirmButtonText: 'Yes, delete it!'
+                    confirmButtonText: 'Yes, Deactivate!'
                 }).then((result) => {
                     if (result.isConfirmed) {
                         const arFd = new FormData();
@@ -788,10 +787,10 @@ include(__DIR__ . '/../inc/sidebar.php');
                             .then(r => r.json())
                             .then(response => {
                                 if (response.status === 'success') {
-                                    Swal.fire('Submitted!', 'Deletion request has been submitted for approval.', 'success');
+                                    Swal.fire('Submitted!', 'Deactivation request has been submitted for approval.', 'success');
                                     loadPermissions();
                                 } else {
-                                    Swal.fire('Error', response.msg || 'Failed to submit deletion request', 'error');
+                                    Swal.fire('Error', response.msg || 'Failed to submit deactivation request', 'error');
                                 }
                             })
                             .catch(error => {
