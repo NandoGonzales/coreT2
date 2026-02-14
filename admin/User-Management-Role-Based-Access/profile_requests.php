@@ -154,7 +154,8 @@ include(__DIR__ . '/../inc/sidebar.php');
                 <input type="hidden" id="rejectRequestId">
                 <div class="mb-3">
                     <label class="form-label">Reason for Rejection <span class="text-danger">*</span></label>
-                    <textarea id="rejectReason" class="form-control" rows="4" placeholder="Please explain why this request is being rejected..." required></textarea>
+                    <textarea id="rejectReason" class="form-control" rows="4"
+                        placeholder="Please explain why this request is being rejected..." required></textarea>
                 </div>
             </div>
             <div class="modal-footer">
@@ -168,7 +169,7 @@ include(__DIR__ . '/../inc/sidebar.php');
 <?php include(__DIR__ . '/../inc/footer.php'); ?>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         loadRequests();
 
         async function loadRequests() {
@@ -203,8 +204,13 @@ include(__DIR__ . '/../inc/sidebar.php');
             container.innerHTML = requests.map(req => {
                 const isTermination = req.request_type === 'termination';
                 const isRemoval = req.request_type === 'removal';
-                const typeBadge = isTermination ? 'bg-warning text-dark' : (isRemoval ? 'bg-danger' : 'bg-info');
-                const typeText = isTermination ? 'Account Termination' : (isRemoval ? 'Account Removal' : 'Profile Update');
+                const isCreation = req.request_type === 'user_creation';
+                const typeBadge = isTermination ? 'bg-warning text-dark' : (isRemoval ? 'bg-danger' : (isCreation ? 'bg-success' : 'bg-info'));
+                const typeText = isTermination ? 'Account Termination' : (isRemoval ? 'Account Removal' : (isCreation ? 'New User Creation' : 'Profile Update'));
+
+                const requested = req.request_data_parsed || {};
+                const displayFullname = req.full_name || requested.full_name || 'New User';
+                const displayUsername = req.username || requested.username || 'new';
 
                 let bodyContent = '';
                 if (isTermination) {
@@ -221,10 +227,33 @@ include(__DIR__ . '/../inc/sidebar.php');
                             User removal has been requested. <strong>Warning:</strong> Approval will permanently delete this user record from the system.
                         </div>
                     `;
+                } else if (isCreation) {
+                    const fields = [
+                        { label: 'Username', key: 'username' },
+                        { label: 'Full Name', key: 'full_name' },
+                        { label: 'Email', key: 'email' },
+                        { label: 'Role', key: 'role' },
+                        { label: 'Status', key: 'status' }
+                    ];
+                    bodyContent = `
+                        <div class="alert alert-success mb-3">
+                            <i class="bi bi-person-plus-fill me-2"></i>
+                            Request to create a <strong>new user</strong> account.
+                        </div>
+                        <div class="data-box new-data">
+                            <div class="data-box-title">New User Details</div>
+                            ${fields.map(f => `
+                                <div class="data-item">
+                                    <span class="data-label">${f.label}:</span>
+                                    <span class="data-value">${requested[f.key] || '—'}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
                 } else {
                     const current = req.current_data_parsed || {};
                     const requested = req.request_data_parsed || {};
-                    
+
                     const fields = [
                         { label: 'Username', key: 'username' },
                         { label: 'Full Name', key: 'full_name' },
@@ -247,21 +276,14 @@ include(__DIR__ . '/../inc/sidebar.php');
                             <div class="data-box new-data">
                                 <div class="data-box-title">Requested Changes</div>
                                 ${fields.map(f => {
-                                    const isDiff = requested[f.key] && requested[f.key] !== current[f.key];
-                                    return `
+                        const isDiff = requested[f.key] && requested[f.key] !== current[f.key];
+                        return `
                                         <div class="data-item">
                                             <span class="data-label">${f.label}:</span>
                                             <span class="data-value ${isDiff ? 'diff-highlight' : ''}">${requested[f.key] || '—'}</span>
                                         </div>
                                     `;
-                                }).join('')}
-                                
-                                ${requested.profile_photo ? `
-                                    <div class="data-item mt-3">
-                                        <span class="data-label">New Photo:</span>
-                                        <img src="${requested.profile_photo}" class="avatar-circle ms-2" alt="New Profile">
-                                    </div>
-                                ` : ''}
+                    }).join('')}
                             </div>
                         </div>
                     `;
@@ -274,7 +296,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                                 <span class="badge ${typeBadge} me-2">${typeText}</span>
                                 <span class="text-muted small">ID: #${req.request_id} • Requested by <strong>${req.requested_by_name}</strong> on ${req.created_at}</span>
                             </div>
-                            <div class="text-primary fw-bold">${req.full_name} (${req.username})</div>
+                            <div class="text-primary fw-bold">${displayFullname} (${displayUsername})</div>
                         </div>
                         <div class="request-body">
                             ${bodyContent}
@@ -355,7 +377,7 @@ include(__DIR__ . '/../inc/sidebar.php');
             }
         }
 
-        document.getElementById('confirmRejectBtn').addEventListener('click', async function() {
+        document.getElementById('confirmRejectBtn').addEventListener('click', async function () {
             const requestId = document.getElementById('rejectRequestId').value;
             const reason = document.getElementById('rejectReason').value.trim();
 
