@@ -226,9 +226,11 @@ include(__DIR__ . '/../inc/sidebar.php');
                     const requested = req.request_data_parsed || {};
                     
                     const fields = [
+                        { label: 'Username', key: 'username' },
                         { label: 'Full Name', key: 'full_name' },
                         { label: 'Email', key: 'email' },
-                        { label: 'Phone', key: 'phone' }
+                        { label: 'Role', key: 'role' },
+                        { label: 'Status', key: 'status' }
                     ];
 
                     bodyContent = `
@@ -307,36 +309,21 @@ include(__DIR__ . '/../inc/sidebar.php');
             const btn = document.querySelector(`.approve-btn[data-id="${requestId}"]`);
             const originalText = btn.innerHTML;
 
-            let apiKey = '';
-            if (requestType === 'removal') {
-                const { value: key } = await Swal.fire({
-                    title: 'Administrative API Key Required',
-                    input: 'password',
-                    inputLabel: 'Please enter the administrative API key to proceed with user removal.',
-                    inputPlaceholder: 'Enter API Key',
-                    inputAttributes: {
-                        autocapitalize: 'off',
-                        autocorrect: 'off'
-                    },
-                    showCancelButton: true,
-                    confirmButtonText: 'Verify & Approve',
-                    confirmButtonColor: '#ef4444'
-                });
+            const { value: apiKey } = await Swal.fire({
+                title: 'Administrative API Key Required',
+                input: 'password',
+                inputLabel: `Please enter the administrative API key to approve this ${requestType.replace('_', ' ')} request.`,
+                inputPlaceholder: 'Enter API Key',
+                inputAttributes: {
+                    autocapitalize: 'off',
+                    autocorrect: 'off'
+                },
+                showCancelButton: true,
+                confirmButtonText: 'Verify & Approve',
+                confirmButtonColor: requestType === 'removal' ? '#ef4444' : '#059669'
+            });
 
-                if (!key) return; // User cancelled or left empty
-                apiKey = key;
-            } else {
-                const confirmResult = await Swal.fire({
-                    title: 'Approve Request?',
-                    text: "The changes will be applied immediately.",
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, Approve',
-                    confirmButtonColor: '#059669'
-                });
-
-                if (!confirmResult.isConfirmed) return;
-            }
+            if (!apiKey) return; // User cancelled or left empty
 
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';

@@ -295,8 +295,8 @@ try {
             // Potentially allow other roles too, but for now stick to request
             }
 
-            // Rule: Removal requests require an administrative API key
-            if ($request['request_type'] === 'removal') {
+            // Rule: Sensitive requests (edit/deactivate) require an administrative API key
+            if (in_array($request['request_type'], ['profile_update', 'termination', 'removal'])) {
                 $stmt_key = $conn->prepare("SELECT meta_value FROM system_info WHERE meta_field = 'admin_api_key'");
                 $stmt_key->execute();
                 $sys_api_key = $stmt_key->get_result()->fetch_assoc()['meta_value'] ?? 'admin123';
@@ -326,18 +326,14 @@ try {
             else {
                 // Profile Update: Update user record
                 $full_name = $request_data['full_name'] ?? $request['full_name'];
+                $username = $request_data['username'] ?? $request['username'];
                 $email = $request_data['email'] ?? $request['email'];
+                $role = $request_data['role'] ?? $request['target_role'];
+                $status = $request_data['status'] ?? $request['status'];
                 $phone = $request_data['phone'] ?? '';
-                $profile_photo = $request_data['profile_photo'] ?? null;
 
-                if ($profile_photo) {
-                    $stmt = $conn->prepare("UPDATE users SET full_name=?, email=?, phone=?, profile_photo=? WHERE user_id=?");
-                    $stmt->bind_param('ssssi', $full_name, $email, $phone, $profile_photo, $user_id);
-                }
-                else {
-                    $stmt = $conn->prepare("UPDATE users SET full_name=?, email=?, phone=? WHERE user_id=?");
-                    $stmt->bind_param('sssi', $full_name, $email, $phone, $user_id);
-                }
+                $stmt = $conn->prepare("UPDATE users SET username=?, full_name=?, email=?, role=?, status=?, phone=? WHERE user_id=?");
+                $stmt->bind_param('ssssssi', $username, $full_name, $email, $role, $status, $phone, $user_id);
             }
 
             if ($stmt->execute()) {

@@ -642,12 +642,20 @@ endif; ?>
 
       let actions = '';
 
-      // Request Removal button — Super Admin & Admin only
-      const current_user_id = <?php echo $_SESSION['userdata']['user_id'] ?? 0; ?>;
-      if (isAdmin && u.user_id != current_user_id) {
+      // Edit button — Super Admin & Admin only
+      if (isAdmin) {
         actions += `
-          <button class="btn btn-sm btn-danger requestRemovalBtn" data-id="${u.user_id}" data-username="${escapeHtml(u.username)}" title="Request Removal">
-            <i class="fas fa-trash-alt"></i> Request Removal
+          <button class="btn btn-sm btn-warning editBtn" data-id="${u.user_id}" title="Edit User">
+            <i class="fas fa-edit"></i>
+          </button>`;
+      }
+
+      // Request Deactivation button — Super Admin & Admin only
+      const current_user_id = <?php echo $_SESSION['userdata']['user_id'] ?? 0; ?>;
+      if (isAdmin && u.user_id != current_user_id && u.status === 'Active') {
+        actions += `
+          <button class="btn btn-sm btn-danger requestDeactivateBtn" data-id="${u.user_id}" data-username="${escapeHtml(u.username)}" title="Request Deactivation">
+            <i class="fas fa-ban"></i> Deactivate
           </button>`;
       }
 
@@ -766,29 +774,29 @@ endif; ?>
     applyFilters();
   });
 
-  /* ── request removal ── */
+  /* ── request deactivation ── */
   document.getElementById('userTableBody').addEventListener('click', function(e) {
-    const btn = e.target.closest('.requestRemovalBtn');
+    const btn = e.target.closest('.requestDeactivateBtn');
     if (!btn) return;
 
     const userId = btn.dataset.id;
     const username = btn.dataset.username;
 
     Swal.fire({
-      title: 'Request User Removal?',
-      text: `Are you sure you want to request the removal of user "${username}"? This will be sent to admin management for approval.`,
+      title: 'Request User Deactivation?',
+      text: `Are you sure you want to request the deactivation of user "${username}"? This will be sent to admin management for approval.`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#ef4444',
       cancelButtonColor: '#6b7280',
-      confirmButtonText: 'Yes, Request Removal'
+      confirmButtonText: 'Yes, Request Deactivation'
     }).then((result) => {
       if (result.isConfirmed) {
         const fd = new FormData();
         fd.append('action', 'submit_request');
         fd.append('user_id', userId);
-        fd.append('request_type', 'removal');
-        fd.append('request_data', JSON.stringify({ action: 'delete' }));
+        fd.append('request_type', 'termination');
+        fd.append('request_data', JSON.stringify({ action: 'deactivate' }));
 
         fetch('approval_action.php', {
           method: 'POST',
@@ -846,9 +854,43 @@ endif; ?>
   document.getElementById('userForm').addEventListener('submit', function(e){
     e.preventDefault();
     const fd = new FormData(this);
-    fd.append('action', currentUserId ? 'edit' : 'add');
+    const isEdit = !!currentUserId;
+    
+    // If Editing, we submit for approval instead of direct update
+    if (isEdit) {
+      const requestData = {
+        username: fd.get('username'),
+        full_name: fd.get('full_name'),
+        email: fd.get('email'),
+        role: fd.get('role'),
+        status: document.getElementById('status').checked ? 'Active' : 'Inactive'
+      };
+
+      const arFd = new FormData();
+      arFd.append('action', 'submit_request');
+      arFd.append('user_id', currentUserId);
+      arFd.append('request_type', 'profile_update');
+      arFd.append('request_data', JSON.stringify(requestData));
+
+      fetch('approval_action.php', { method: 'POST', body: arFd })
+        .then(r => r.json())
+        .then(resp => {
+          if (resp.status === 'success') {
+            Swal.fire('Request Submitted', 'Your changes have been submitted for administrative approval.', 'success');
+            userModal.hide();
+            loadUsers();
+          } else {
+            Swal.fire('Error', resp.msg, 'error');
+          }
+        })
+        .catch(() => Swal.fire('Error', 'Failed to submit update request.', 'error'));
+      
+      return;
+    }
+
+    // Adding still works directly (or you can make it request-based too if needed)
+    fd.append('action', 'add');
     fd.append('status', document.getElementById('status').checked ? 'Active' : 'Inactive');
-    if (currentUserId) fd.append('user_id', currentUserId);
 
     fetch('user_action.php', { method:'POST', body:fd })
       .then(r => r.json())
