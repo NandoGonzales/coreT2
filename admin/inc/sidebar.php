@@ -386,14 +386,11 @@ $default_logo = '/dist/img/default-logo.png';
 <aside class="sidebar-desktop d-none d-md-flex flex-column" id="desktopSidebar">
     <!-- Brand -->
     <div class="border-bottom px-3" style="height:4rem; display:flex; align-items:center;">
-        <a href="<?= $base_url ?>/dashboard.php" class="brand-link d-flex align-items-center gap-3 text-decoration-none w-100 rounded-4 px-2 py-2">
+        <a href="<?= $base_url ?>/dashboard.php"
+            class="brand-link d-flex align-items-center gap-3 text-decoration-none w-100 rounded-4 px-2 py-2">
             <!-- ✅ SIDEBAR LOGO (Golden.png) with ABSOLUTE PATH -->
-            <img src="<?= htmlspecialchars($sidebar_logo_path) ?>"
-                alt="<?= htmlspecialchars($system_name) ?> Logo"
-                width="40"
-                height="40"
-                class="flex-shrink-0"
-                style="object-fit: contain;"
+            <img src="<?= htmlspecialchars($sidebar_logo_path) ?>" alt="<?= htmlspecialchars($system_name) ?> Logo"
+                width="40" height="40" class="flex-shrink-0" style="object-fit: contain;"
                 onerror="this.onerror=null; this.src='<?= $default_logo ?>';">
             <div class="lh-sm">
                 <div class="brand-title"><?= htmlspecialchars($system_name) ?></div>
@@ -423,7 +420,7 @@ $default_logo = '/dist/img/default-logo.png';
         <a href="<?= $base_url ?>/Repayment-Tracker/repayments.php"
             class="btn menu-btn <?= get_active_class('Repayment-Tracker', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
             <span class="icon-box"><i class="bi bi-cash-stack"></i></span>
-            <span>Collection Monitoring</span> 
+            <span>Collection Monitoring</span>
         </a>
 
         <a href="<?= $base_url ?>/Saving-Collection-Monitoring/savings_monitoring.php"
@@ -438,47 +435,49 @@ $default_logo = '/dist/img/default-logo.png';
             <span>Disbursement Tracker</span>
         </a>
 
-        <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_logs.php"
-            class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
-            <span class="icon-box"><i class="bi bi-shield-check"></i></span>
-            <span>Compliance & Audit</span>
-        </a>
+        <?php if ($_SESSION['userdata']['role'] !== 'Staff'): ?>
+            <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_logs.php"
+                class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
+                <span class="icon-box"><i class="bi bi-shield-check"></i></span>
+                <span>Compliance & Audit</span>
+            </a>
+        <?php endif; ?>
 
         <?php if (in_array($_SESSION['userdata']['role'], ['Super Admin', 'Admin'])): ?>
-        <div class="menu-heading">System Admin</div>
-        
-        <!-- User Management with Submenu -->
-        <button class="btn menu-btn w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
-            data-bs-toggle="collapse"
-            data-bs-target="#userManagementSubmenu"
-            aria-expanded="false">
-            <span class="d-flex align-items-center gap-3">
-                <span class="icon-box"><i class="bi bi-people-fill"></i></span>
-                <span>User Management</span>
-            </span>
-            <span class="collapse-arrow">▾</span>
-        </button>
+            <div class="menu-heading">System Admin</div>
 
-        <div class="collapse submenu-container" id="userManagementSubmenu">
-            <div class="submenu-items">
-                <a href="<?= $base_url ?>/User-Management-Role-Based-Access/user_management.php"
-                    class="submenu-link <?= is_active('user_management.php', $current_path) ? 'active' : '' ?>">
-                    Users
-                </a>
-                <a href="<?= $base_url ?>/User-Management-Role-Based-Access/role_permissions.php"
-                    class="submenu-link <?= is_active('role_permissions.php', $current_path) ? 'active' : '' ?>">
-                    Role Permissions
-                </a>
-                <a href="<?= $base_url ?>/User-Management-Role-Based-Access/permission_logs.php"
-                    class="submenu-link <?= is_active('permission_logs.php', $current_path) ? 'active' : '' ?>">
-                    Permission Logs
-                </a>
-                <a href="<?= $base_url ?>/User-Management-Role-Based-Access/profile_requests.php"
-                    class="submenu-link <?= is_active('profile_requests.php', $current_path) ? 'active' : '' ?>">
-                    Approval Requests
-                </a>
+            <!-- User Management with Submenu -->
+            <button class="btn menu-btn w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
+                data-bs-toggle="collapse" data-bs-target="#userManagementSubmenu" aria-expanded="false">
+                <span class="d-flex align-items-center gap-3">
+                    <span class="icon-box"><i class="bi bi-people-fill"></i></span>
+                    <span>User Management</span>
+                </span>
+                <span class="collapse-arrow">▾</span>
+            </button>
+
+            <div class="collapse submenu-container" id="userManagementSubmenu">
+                <div class="submenu-items">
+                    <?php if ($_SESSION['userdata']['role'] === 'Super Admin'): ?>
+                        <a href="<?= $base_url ?>/User-Management-Role-Based-Access/user_management.php"
+                            class="submenu-link <?= is_active('user_management.php', $current_path) ? 'active' : '' ?>">
+                            Users
+                        </a>
+                        <a href="<?= $base_url ?>/User-Management-Role-Based-Access/role_permissions.php"
+                            class="submenu-link <?= is_active('role_permissions.php', $current_path) ? 'active' : '' ?>">
+                            Role Permissions
+                        </a>
+                        <a href="<?= $base_url ?>/User-Management-Role-Based-Access/permission_logs.php"
+                            class="submenu-link <?= is_active('permission_logs.php', $current_path) ? 'active' : '' ?>">
+                            Permission Logs
+                        </a>
+                    <?php endif; ?>
+                    <a href="<?= $base_url ?>/User-Management-Role-Based-Access/profile_requests.php"
+                        class="submenu-link <?= is_active('profile_requests.php', $current_path) ? 'active' : '' ?>">
+                        Approval Requests
+                    </a>
+                </div>
             </div>
-        </div>
         <?php endif; ?>
 
         <!-- System Status -->
@@ -498,13 +497,11 @@ $default_logo = '/dist/img/default-logo.png';
 <!-- ✅ MOBILE SIDEBAR (Offcanvas) -->
 <div class="offcanvas offcanvas-start d-md-none" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
     <div class="offcanvas-header border-bottom">
-        <a href="<?= $base_url ?>/dashboard.php" class="brand-link d-flex align-items-center gap-3 text-decoration-none w-100 rounded-4 px-2 py-2">
+        <a href="<?= $base_url ?>/dashboard.php"
+            class="brand-link d-flex align-items-center gap-3 text-decoration-none w-100 rounded-4 px-2 py-2">
             <!-- ✅ SIDEBAR LOGO (Golden.png) with ABSOLUTE PATH -->
-            <img src="<?= htmlspecialchars($sidebar_logo_path) ?>"
-                alt="<?= htmlspecialchars($system_name) ?> Logo"
-                width="40"
-                height="40"
-                style="object-fit: contain;"
+            <img src="<?= htmlspecialchars($sidebar_logo_path) ?>" alt="<?= htmlspecialchars($system_name) ?> Logo"
+                width="40" height="40" style="object-fit: contain;"
                 onerror="this.onerror=null; this.src='<?= $default_logo ?>';">
             <div class="lh-sm">
                 <div class="brand-title"><?= htmlspecialchars($system_name) ?></div>
@@ -549,46 +546,48 @@ $default_logo = '/dist/img/default-logo.png';
             <span>Disbursement Tracker</span>
         </a>
 
-        <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_logs.php"
-            class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
-            <span class="icon-box"><i class="bi bi-shield-check"></i></span>
-            <span>Compliance & Audit</span>
-        </a>
+        <?php if ($_SESSION['userdata']['role'] !== 'Staff'): ?>
+            <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_logs.php"
+                class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
+                <span class="icon-box"><i class="bi bi-shield-check"></i></span>
+                <span>Compliance & Audit</span>
+            </a>
+        <?php endif; ?>
 
         <?php if (in_array($_SESSION['userdata']['role'], ['Super Admin', 'Admin'])): ?>
-        <div class="menu-heading">System Admin</div>
+            <div class="menu-heading">System Admin</div>
 
-        <button class="btn menu-btn w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
-            data-bs-toggle="collapse"
-            data-bs-target="#userManagementSubmenuMobile"
-            aria-expanded="false">
-            <span class="d-flex align-items-center gap-3">
-                <span class="icon-box"><i class="bi bi-people-fill"></i></span>
-                <span>User Management</span>
-            </span>
-            <span class="collapse-arrow">▾</span>
-        </button>
+            <button class="btn menu-btn w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
+                data-bs-toggle="collapse" data-bs-target="#userManagementSubmenuMobile" aria-expanded="false">
+                <span class="d-flex align-items-center gap-3">
+                    <span class="icon-box"><i class="bi bi-people-fill"></i></span>
+                    <span>User Management</span>
+                </span>
+                <span class="collapse-arrow">▾</span>
+            </button>
 
-        <div class="collapse submenu-container" id="userManagementSubmenuMobile">
-            <div class="submenu-items">
-                <a href="<?= $base_url ?>/User-Management-Role-Based-Access/user_management.php"
-                    class="submenu-link <?= is_active('user_management.php', $current_path) ? 'active' : '' ?>">
-                    Users
-                </a>
-                <a href="<?= $base_url ?>/User-Management-Role-Based-Access/role_permissions.php"
-                    class="submenu-link <?= is_active('role_permissions.php', $current_path) ? 'active' : '' ?>">
-                    Role Permissions
-                </a>
-                <a href="<?= $base_url ?>/User-Management-Role-Based-Access/permission_logs.php"
-                    class="submenu-link <?= is_active('permission_logs.php', $current_path) ? 'active' : '' ?>">
-                    Permission Logs
-                </a>
-                <a href="<?= $base_url ?>/User-Management-Role-Based-Access/profile_requests.php"
-                    class="submenu-link <?= is_active('profile_requests.php', $current_path) ? 'active' : '' ?>">
-                    Approval Requests
-                </a>
+            <div class="collapse submenu-container" id="userManagementSubmenuMobile">
+                <div class="submenu-items">
+                    <?php if ($_SESSION['userdata']['role'] === 'Super Admin'): ?>
+                        <a href="<?= $base_url ?>/User-Management-Role-Based-Access/user_management.php"
+                            class="submenu-link <?= is_active('user_management.php', $current_path) ? 'active' : '' ?>">
+                            Users
+                        </a>
+                        <a href="<?= $base_url ?>/User-Management-Role-Based-Access/role_permissions.php"
+                            class="submenu-link <?= is_active('role_permissions.php', $current_path) ? 'active' : '' ?>">
+                            Role Permissions
+                        </a>
+                        <a href="<?= $base_url ?>/User-Management-Role-Based-Access/permission_logs.php"
+                            class="submenu-link <?= is_active('permission_logs.php', $current_path) ? 'active' : '' ?>">
+                            Permission Logs
+                        </a>
+                    <?php endif; ?>
+                    <a href="<?= $base_url ?>/User-Management-Role-Based-Access/profile_requests.php"
+                        class="submenu-link <?= is_active('profile_requests.php', $current_path) ? 'active' : '' ?>">
+                        Approval Requests
+                    </a>
+                </div>
             </div>
-        </div>
         <?php endif; ?>
 
         <div class="system-status">
@@ -606,13 +605,13 @@ $default_logo = '/dist/img/default-logo.png';
 
 <!-- Toggle Sidebar Script -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const sidebarToggle = document.getElementById('sidebarToggle');
         const desktopSidebar = document.getElementById('desktopSidebar');
         const mainWrap = document.querySelector('.main-wrap');
 
         if (sidebarToggle && desktopSidebar && mainWrap) {
-            sidebarToggle.addEventListener('click', function() {
+            sidebarToggle.addEventListener('click', function () {
                 desktopSidebar.classList.toggle('collapsed');
                 mainWrap.classList.toggle('expanded');
 
