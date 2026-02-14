@@ -1,6 +1,6 @@
 <?php
 /**
- * Finance API - Approve/Reject a Disbursement Approval Request
+ * Finance API - Approve/Reject Disbursement
  * Path: /api/finance/process_request.php
  */
 
@@ -14,10 +14,8 @@ date_default_timezone_set('Asia/Manila');
 require_once(__DIR__ . '/../../initialize_coreT2.php');
 header('Content-Type: application/json; charset=utf-8');
 
-// OPTIONAL SIMPLE API KEY (recommended)
-define('FINANCE_API_KEY', 'CHANGE_THIS_TO_A_SECRET_KEY');
+define('FINANCE_API_KEY', 'CHANGE_THIS_TO_SECRET_KEY');
 
-// Check API Key header
 $headers = function_exists('getallheaders') ? getallheaders() : [];
 $apiKey  = $headers['X-API-Key'] ?? $headers['x-api-key'] ?? '';
 
@@ -34,19 +32,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 try {
-    // Ensure table exists
-    $conn->query("
-        CREATE TABLE IF NOT EXISTS disbursement_approval_requests (
-          request_id       INT AUTO_INCREMENT PRIMARY KEY,
-          disbursement_id  INT NOT NULL UNIQUE,
-          requested_by     INT,
-          requested_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          status           VARCHAR(20) DEFAULT 'Pending',
-          finance_by       INT NULL,
-          finance_at       DATETIME NULL,
-          finance_remarks  TEXT NULL
-        )
-    ");
 
     $raw = file_get_contents('php://input');
     $body = json_decode($raw, true);
@@ -57,12 +42,31 @@ try {
     $financeBy = (int)($body['finance_user_id'] ?? 0);
     $remarks   = trim($body['remarks'] ?? '');
 
-    if ($requestId <= 0) throw new Exception('request_id is required');
-    if (!in_array($action, ['approve', 'reject'], true)) throw new Exception('action must be approve or reject');
+    if ($requestId <= 0) throw new Exception('request_id required');
+    if (!in_array($action, ['approve','reject'], true)) throw new Exception('Invalid action');
 
     $newStatus = ($action === 'approve') ? 'Approved' : 'Rejected';
 
-    // Only allow processing when Pending
+    // Get disbursement_id first
+    $stmt = $conn->prepare("
+        SELECT disbursement_id 
+        FROM disbursement_approval_requests
+        WHERE request_id = ?
+          AND status = 'Pending'
+    ");
+    $stmt->bind_param('i', $requestId);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    if ($res->num_rows === 0) {
+        throw new Exception('Request not found or already processed');
+    }
+
+    $row = $res->fetch_assoc();
+    $disbursementId = (int)$row['disbursement_id'];
+    $stmt->close();
+
+    // Update approval table
     $stmt = $conn->prepare("
         UPDATE disbursement_approval_requests
         SET status = ?,
@@ -70,24 +74,33 @@ try {
             finance_at = NOW(),
             finance_remarks = ?
         WHERE request_id = ?
-          AND status = 'Pending'
     ");
-    if (!$stmt) throw new Exception('Prepare failed: ' . $conn->error);
-
     $stmt->bind_param('sisi', $newStatus, $financeBy, $remarks, $requestId);
     $stmt->execute();
+    $stmt->close();
 
-    if ($stmt->affected_rows === 0) {
-        $stmt->close();
-        throw new Exception('Request not found or already processed');
+    // Update disbursement status
+    if ($action === 'approve') {
+        $disbStatus = 'Finance Approved';
+    } else {
+        $disbStatus = 'Cancelled';
     }
+
+    $stmt = $conn->prepare("
+        UPDATE disbursements
+        SET status = ?
+        WHERE disbursement_id = ?
+    ");
+    $stmt->bind_param('si', $disbStatus, $disbursementId);
+    $stmt->execute();
     $stmt->close();
 
     while (@ob_end_clean());
     echo json_encode([
         'success' => true,
-        'message' => "Request {$requestId} marked as {$newStatus}",
-        'status'  => $newStatus
+        'message' => "Request processed successfully",
+        'approval_status' => $newStatus,
+        'disbursement_status' => $disbStatus
     ]);
     exit;
 
