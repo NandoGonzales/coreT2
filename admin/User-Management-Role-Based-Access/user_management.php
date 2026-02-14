@@ -550,7 +550,7 @@ endif; ?>
                 </div>
                 <div class="modal-footer">
                     <button type="submit" class="btn btn-success">
-                        <i class="fas fa-save"></i> Save
+                        <i class="fas fa-save"></i> Request for Changes
                     </button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="fas fa-times"></i> Cancel
