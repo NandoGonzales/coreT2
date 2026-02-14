@@ -1,7 +1,7 @@
 <?php
 /**
  * Core1 Disbursement Receiver
- * Path: /api/loans/receive_disbursements.php
+ * Path: /api/loan/receive_disbursements.php
  */
 
 while (@ob_end_clean());
@@ -11,7 +11,7 @@ error_reporting(0);
 ini_set('display_errors', 0);
 date_default_timezone_set('Asia/Manila');
 
-require_once(__DIR__ . '/../../initialize_core1.php'); // Adjust path
+require_once(__DIR__ . '/../../initialize_core1.php'); // make sure this exists on CORE1
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
@@ -48,34 +48,49 @@ try {
             fund_source     VARCHAR(100),
             status          VARCHAR(50),
             imported_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            source          VARCHAR(50) DEFAULT 'Core2'
+            source          VARCHAR(50) DEFAULT 'Core2',
+            INDEX idx_disbursement_id (disbursement_id),
+            INDEX idx_loan_code (loan_code)
         )
     ");
+
+    $stmt = $conn->prepare("
+        INSERT INTO disbursement_imports
+            (disbursement_id, loan_code, member_name, amount, fund_source, status)
+        VALUES
+            (?, ?, ?, ?, ?, ?)
+    ");
+
+    if (!$stmt) {
+        throw new Exception('DB prepare failed: ' . $conn->error);
+    }
 
     $imported = 0;
     $errors = [];
 
     foreach ($data as $record) {
         $disbId   = intval($record['disbursement_id'] ?? 0);
-        $loanCode = $conn->real_escape_string($record['loan_code'] ?? '');
-        $member   = $conn->real_escape_string($record['member_name'] ?? '');
+        $loanCode = (string)($record['loan_code'] ?? '');
+        $member   = (string)($record['member_name'] ?? '');
         $amount   = floatval($record['amount'] ?? 0);
-        $fund     = $conn->real_escape_string($record['fund_source'] ?? '');
-        $status   = $conn->real_escape_string($record['status'] ?? '');
+        $fund     = (string)($record['fund_source'] ?? '');
+        $status   = (string)($record['status'] ?? '');
 
-        $ins = $conn->query("
-            INSERT INTO disbursement_imports
-                (disbursement_id, loan_code, member_name, amount, fund_source, status)
-            VALUES
-                ($disbId, '$loanCode', '$member', $amount, '$fund', '$status')
-        ");
+        if ($disbId <= 0) {
+            $errors[] = "Skipped: invalid disbursement_id";
+            continue;
+        }
 
-        if ($ins) {
+        $stmt->bind_param('issdss', $disbId, $loanCode, $member, $amount, $fund, $status);
+
+        if ($stmt->execute()) {
             $imported++;
         } else {
-            $errors[] = "Failed disbursement_id {$disbId}: " . $conn->error;
+            $errors[] = "Failed disbursement_id {$disbId}: " . $stmt->error;
         }
     }
+
+    $stmt->close();
 
     echo json_encode([
         'success'  => true,
