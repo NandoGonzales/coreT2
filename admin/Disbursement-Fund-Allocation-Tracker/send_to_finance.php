@@ -1,6 +1,6 @@
 <?php
 /**
- * Send Disbursement to Finance Team (UPDATED - Connected to loan_portfolio)
+ * Send Disbursement to Finance Team (CORRECTED - Status: For Finance Approval)
  * Location: CORE2 - /admin/Disbursement-Fund-Allocation-Tracker/send_to_finance.php
  */
 
@@ -15,10 +15,6 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 
 require_once(__DIR__ . '/../../initialize_coreT2.php');
 header('Content-Type: application/json; charset=utf-8');
-
-// API Configuration
-define('FINANCE_API_URL', 'https://finance.microfinancial-1.com/api/financial/receive_disbursement_requests.php');
-define('FINANCE_API_KEY', 'finance_core2_secure_key_2026_v1');
 
 // Authentication
 if (!isset($_SESSION['userdata']) || empty($_SESSION['userdata'])) {
@@ -98,13 +94,13 @@ try {
     throw new Exception('No valid disbursements found. Only Pending disbursements can be sent.');
   }
 
-  // Update status to "Finance Approved" (waiting for Finance decision)
+  // Update status to "For Finance Approval"
   $conn->begin_transaction();
   
   try {
     $updateStmt = $conn->prepare("
       UPDATE disbursements 
-      SET status = 'Pending',
+      SET status = 'For Finance Approval',
           sent_to_finance_at = NOW(),
           remarks = CONCAT(
             COALESCE(remarks, ''), 
@@ -132,10 +128,11 @@ try {
   while (@ob_end_clean());
   echo json_encode([
     'success'       => true,
-    'message'       => "Successfully sent " . count($disbursements) . " disbursement(s) to Finance Team",
+    'message'       => "Successfully sent " . count($disbursements) . " disbursement(s) to Finance Team. Status: For Finance Approval",
     'records_sent'  => count($disbursements),
     'disbursement_ids' => $ids,
-    'next_step'     => 'Finance Team will review via their API endpoint'
+    'new_status'    => 'For Finance Approval',
+    'next_step'     => 'Waiting for Finance Team decision. Approve button will be enabled after Finance approval.'
   ]);
   exit;
 

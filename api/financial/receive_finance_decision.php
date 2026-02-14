@@ -1,6 +1,6 @@
 <?php
 /**
- * Receive Finance Team Decision (UPDATED - Connected to loan_portfolio)
+ * Receive Finance Team Decision (CORRECTED)
  * Location: CORE 2 - /api/receive_finance_decision.php
  */
 
@@ -102,14 +102,18 @@ try {
     $stmt->close();
 
     $loanCode = $disbursement['loan_code'];
-    $amount = $disbursement['amount'];
-    $disbDate = $disbursement['disbursement_date'];
     $currentStatus = $disbursement['status'];
+
+    // Check if already approved/rejected
+    if (!in_array($currentStatus, ['For Finance Approval', 'Pending'], true)) {
+        throw new Exception("Disbursement already processed. Current status: {$currentStatus}");
+    }
 
     // Update Core2 disbursements
     $conn->begin_transaction();
 
     try {
+        // Set new status based on Finance decision
         $newStatus = ($decision === 'Approved') ? 'Finance Approved' : 'Cancelled';
 
         $updateStmt = $conn->prepare("
@@ -155,15 +159,24 @@ try {
         throw new Exception('Database update failed: ' . $e->getMessage());
     }
 
+    $message = "Disbursement {$decision} successfully.";
+    
+    if ($decision === 'Approved') {
+        $message .= " Status changed to 'Finance Approved'. User can now click approve button to release funds.";
+    } else {
+        $message .= " Status changed to 'Cancelled'. Disbursement cannot be processed.";
+    }
+
     // Success response
     while (@ob_end_clean());
     echo json_encode([
         'success' => true,
-        'message' => "Disbursement {$decision} successfully",
+        'message' => $message,
         'data' => [
             'disbursement_id' => $disbursementId,
             'loan_code'       => $loanCode,
             'decision'        => $decision,
+            'old_status'      => $currentStatus,
             'new_status'      => $newStatus
         ]
     ]);
