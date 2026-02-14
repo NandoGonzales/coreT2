@@ -136,7 +136,7 @@ include(__DIR__ . '/../inc/sidebar.php');
     }
 
     .table thead th {
-        color: #1f2937 !important;
+        color: #ffffff !important;
         font-weight: 700;
         font-size: 0.875rem;
         padding: 1rem 0.75rem;
@@ -526,11 +526,28 @@ include(__DIR__ . '/../inc/sidebar.php');
                                 r.compliance_status === 'Pending' ? 'bg-warning text-dark' :
                                 'bg-info text-dark';
 
+                            // ── Risk level badge ──
+                            const actionText = r.action_type || '';
+                            let riskBadge = '';
+                            if (actionText.includes('(High Risk)')) {
+                                riskBadge = '<span class="badge ms-1" style="background:#dc2626;">🔴 High Risk</span>';
+                            } else if (actionText.includes('(Medium Risk)')) {
+                                riskBadge = '<span class="badge ms-1" style="background:#ea580c;">🟠 Medium Risk</span>';
+                            } else if (actionText.includes('(Low Risk)')) {
+                                riskBadge = '<span class="badge ms-1" style="background:#ca8a04;">🟡 Low Risk</span>';
+                            }
+
+                            // ── Clean action text (remove risk label) ──
+                            const cleanAction = actionText
+                                .replace(' (High Risk)', '')
+                                .replace(' (Medium Risk)', '')
+                                .replace(' (Low Risk)', '');
+
                             const tr = document.createElement('tr');
                             tr.innerHTML = `
                         <td>${startRecord + index}</td>
                         <td>${escapeHtml(r.full_name || r.username || 'System')}</td>
-                        <td><small>${escapeHtml(r.action_type)}</small></td>
+                        <td><small>${escapeHtml(cleanAction)}${riskBadge}</small></td>
                         <td><small>${escapeHtml(r.module_name)}</small></td>
                         <td class="text-start"><small>${escapeHtml(r.remarks || '-')}</small></td>
                         <td><span class="badge ${badgeClass}">${escapeHtml(r.compliance_status)}</span></td>
@@ -716,7 +733,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                         exportUrl,
                         'compliance_logs_' + new Date().toISOString().split('T')[0] + (pdfPassword ? '.zip' : '.csv')
                     );
-                    
+
                     Swal.fire({
                         icon: 'success',
                         title: 'CSV Exported',
