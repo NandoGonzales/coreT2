@@ -538,10 +538,9 @@ include(__DIR__ . '/../inc/sidebar.php');
                             <label for="role_id" class="form-label">Role <span class="text-danger">*</span></label>
                             <select class="form-select" id="role_id" name="role_id" required>
                                 <option value="">Select Role</option>
-                                <?php foreach ($roles as $role): ?>
-                                    <option value="<?= $role['role_id'] ?>"><?= htmlspecialchars($role['role_name']) ?>
-                                    </option>
-                                <?php endforeach; ?>
+                                <option value="1">Super Admin</option>
+                                <option value="2">Admin</option>
+                                <option value="3">Staff</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -562,46 +561,61 @@ include(__DIR__ . '/../inc/sidebar.php');
                     </div>
 
                     <div class="mt-4">
-                        <label class="fw-bold mb-3 d-block">Permissions</label>
-                        <div class="row g-3">
-                            <div class="col-6">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="can_view" id="can_view">
-                                    <label class="form-check-label" for="can_view">
-                                        <i class="bi bi-eye"></i> View
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="can_add" id="can_add">
-                                    <label class="form-check-label" for="can_add">
-                                        <i class="bi bi-plus-circle"></i> Add
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="can_edit" id="can_edit">
-                                    <label class="form-check-label" for="can_edit">
-                                        <i class="bi bi-pencil"></i> Edit
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" name="can_delete" id="can_delete">
-                                    <label class="form-check-label" for="can_delete">
-                                        <i class="bi bi-dash-circle"></i> Deactivate
-                                    </label>
-                                </div>
-                            </div>
+                        <label class="fw-bold mb-3 d-block">Module Access & Actions</label>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Module</th>
+                                        <th class="text-center">View</th>
+                                        <th class="text-center">Add</th>
+                                        <th class="text-center">Edit</th>
+                                        <th class="text-center">Deactivate</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="configuratorBody">
+                                    <?php
+                                    $all_modules = [
+                                        'Dashboard',
+                                        'Loan Portfolio',
+                                        'Collection Monitoring',
+                                        'Savings Monitoring',
+                                        'Disbursement Tracker',
+                                        'Compliance & Audit',
+                                        'User Management',
+                                        'Role Permissions',
+                                        'Permission Logs'
+                                    ];
+                                    foreach ($all_modules as $mod):
+                                        ?>
+                                        <tr>
+                                            <td class="small fw-bold"><?= $mod ?></td>
+                                            <td class="text-center">
+                                                <input class="form-check-input mod-perm" type="checkbox"
+                                                    data-module="<?= $mod ?>" data-perm="can_view">
+                                            </td>
+                                            <td class="text-center">
+                                                <input class="form-check-input mod-perm" type="checkbox"
+                                                    data-module="<?= $mod ?>" data-perm="can_add">
+                                            </td>
+                                            <td class="text-center">
+                                                <input class="form-check-input mod-perm" type="checkbox"
+                                                    data-module="<?= $mod ?>" data-perm="can_edit">
+                                            </td>
+                                            <td class="text-center">
+                                                <input class="form-check-input mod-perm" type="checkbox"
+                                                    data-module="<?= $mod ?>" data-perm="can_delete">
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-check-circle"></i> Submit for Approval
+                    <button type="submit" id="submitConfigBtn" class="btn btn-success">
+                        <i class="bi bi-check-circle"></i> Submit Changes for Approval
                     </button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="bi bi-x-circle"></i> Cancel
@@ -664,12 +678,13 @@ include(__DIR__ . '/../inc/sidebar.php');
                     modules = new Set();
 
                 data.forEach(p => {
-                    roles.add(p.role_name || p.role);
+                    const roleName = p.role_name || (p.role_id == 1 ? 'Super Admin' : (p.role_id == 2 ? 'Admin' : (p.role_id == 3 ? 'Staff' : 'Unknown')));
+                    roles.add(roleName);
                     modules.add(p.module_name);
 
                     tbody.innerHTML += `
             <tr>
-              <td><span class="badge bg-secondary">${escapeHtml(p.role_name || p.role)}</span></td>
+              <td><span class="badge bg-secondary">${escapeHtml(roleName)}</span></td>
               <td><strong>${escapeHtml(p.module_name)}</strong></td>
               <td>${p.can_view == 1 ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-x-circle text-muted"></i>'}</td>
               <td>${p.can_add == 1 ? '<i class="bi bi-check-circle-fill text-success"></i>' : '<i class="bi bi-x-circle text-muted"></i>'}</td>
@@ -679,8 +694,8 @@ include(__DIR__ . '/../inc/sidebar.php');
                 <button class="btn btn-sm btn-info editBtn" data-id="${p.perm_id}" title="Edit">
                   <i class="bi bi-pencil-square"></i>
                 </button>
-                <button class="btn btn-sm btn-danger delBtn" data-id="${p.perm_id}" title="Delete">
-                  <i class="bi bi-trash"></i>
+                <button class="btn btn-sm btn-danger delBtn" data-id="${p.perm_id}" title="Deactivate">
+                  <i class="bi bi-dash-circle"></i>
                 </button>
               </td>
             </tr>`;
@@ -726,7 +741,9 @@ include(__DIR__ . '/../inc/sidebar.php');
         document.getElementById('addPermissionBtn').addEventListener('click', () => {
             document.getElementById('permForm').reset();
             document.getElementById('permission_id').value = '';
-            document.getElementById('permModalLabel').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Add Permission';
+            // Clear checks in configurator
+            document.querySelectorAll('.mod-perm').forEach(chk => chk.checked = false);
+            document.getElementById('permModalLabel').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Configure Role Permissions';
             new bootstrap.Modal(document.getElementById('permModal')).show();
         });
 
@@ -747,12 +764,15 @@ include(__DIR__ . '/../inc/sidebar.php');
                     .then(p => {
                         document.getElementById('permission_id').value = p.perm_id;
                         document.getElementById('role_id').value = p.role_id;
-                        document.getElementById('module').value = p.module_name;
-                        document.getElementById('can_view').checked = p.can_view == 1;
-                        document.getElementById('can_add').checked = p.can_add == 1;
-                        document.getElementById('can_edit').checked = p.can_edit == 1;
-                        document.getElementById('can_delete').checked = p.can_delete == 1;
-                        document.getElementById('permModalLabel').innerHTML = '<i class="bi bi-pencil me-2"></i>Edit Permission';
+                        // For editing a single module's row, we highlight/check only that one in the configurator
+                        document.querySelectorAll('.mod-perm').forEach(chk => {
+                            if (chk.dataset.module === p.module_name) {
+                                chk.checked = p[chk.dataset.perm] == 1;
+                            } else {
+                                chk.checked = false;
+                            }
+                        });
+                        document.getElementById('permModalLabel').innerHTML = '<i class="bi bi-pencil me-2"></i>Edit Module Permission';
                         new bootstrap.Modal(document.getElementById('permModal')).show();
                     })
                     .catch(error => {
@@ -802,46 +822,83 @@ include(__DIR__ . '/../inc/sidebar.php');
             }
         });
 
-        document.getElementById('permForm').addEventListener('submit', e => {
+        document.getElementById('permForm').addEventListener('submit', async e => {
             e.preventDefault();
-            const formData = new FormData(e.target);
+            const role_id = document.getElementById('role_id').value;
             const permId = document.getElementById('permission_id').value;
-            const type = permId ? 'role_permission_edit' : 'role_permission_add';
+            
+            if (!role_id) {
+                Swal.fire('Required', 'Please select a role first.', 'warning');
+                return;
+            }
 
-            const requestData = {
-                perm_id: permId,
-                role_id: formData.get('role_id'),
-                module: formData.get('module'),
-                can_view: document.getElementById('can_view').checked ? 1 : 0,
-                can_add: document.getElementById('can_add').checked ? 1 : 0,
-                can_edit: document.getElementById('can_edit').checked ? 1 : 0,
-                can_delete: document.getElementById('can_delete').checked ? 1 : 0
-            };
+            // Group checkboxes by module
+            const config = {};
+            document.querySelectorAll('.mod-perm').forEach(chk => {
+                const mod = chk.dataset.module;
+                const perm = chk.dataset.perm;
+                if (!config[mod]) config[mod] = { can_view: 0, can_add: 0, can_edit: 0, can_delete: 0 };
+                config[mod][perm] = chk.checked ? 1 : 0;
+            });
 
-            const arFd = new FormData();
-            arFd.append('action', 'submit_request');
-            arFd.append('user_id', '0');
-            arFd.append('request_type', type);
-            arFd.append('request_data', JSON.stringify(requestData));
-
-            fetch('approval_action.php', {
-                method: 'POST',
-                body: arFd
-            })
-                .then(r => r.json())
-                .then(response => {
-                    if (response.status === 'success') {
-                        Swal.fire('Submitted', 'The permission change request has been submitted for approval.', 'success');
-                        loadPermissions();
-                        bootstrap.Modal.getInstance(document.getElementById('permModal')).hide();
-                    } else {
-                        Swal.fire('Error', response.msg || 'Failed to submit request', 'error');
+            // If editing a specific ID, we only submit that one mod.
+            // If adding/configuring, we find modules that have at least one permission checked.
+            const modulesToSubmit = [];
+            if (permId) {
+                for (const [mod, perms] of Object.entries(config)) {
+                    if (perms.can_view || perms.can_add || perms.can_edit || perms.can_delete) {
+                        modulesToSubmit.push({ mod, perms, perm_id: permId });
+                        break; 
                     }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    Swal.fire('Error', 'Failed to submit request', 'error');
-                });
+                }
+            } else {
+                for (const [mod, perms] of Object.entries(config)) {
+                    if (perms.can_view || perms.can_add || perms.can_edit || perms.can_delete) {
+                        modulesToSubmit.push({ mod, perms });
+                    }
+                }
+            }
+
+            if (modulesToSubmit.length === 0) {
+                Swal.fire('Empty', 'Please select at least one permission for any module.', 'warning');
+                return;
+            }
+
+            const results = [];
+            for (const item of modulesToSubmit) {
+                const type = item.perm_id ? 'role_permission_edit' : 'role_permission_add';
+                const requestData = {
+                    perm_id: item.perm_id || '',
+                    role_id: role_id,
+                    module: item.mod,
+                    can_view: item.perms.can_view,
+                    can_add: item.perms.can_add,
+                    can_edit: item.perms.can_edit,
+                    can_delete: item.perms.can_delete
+                };
+
+                const arFd = new FormData();
+                arFd.append('action', 'submit_request');
+                arFd.append('user_id', '0');
+                arFd.append('request_type', type);
+                arFd.append('request_data', JSON.stringify(requestData));
+
+                try {
+                    const r = await fetch('approval_action.php', { method: 'POST', body: arFd });
+                    results.push(await r.json());
+                } catch (err) {
+                    results.push({ status: 'error', msg: 'Fetch failed' });
+                }
+            }
+
+            const successCount = results.filter(r => r.status === 'success').length;
+            if (successCount > 0) {
+                Swal.fire('Submitted', `${successCount} permission request(s) submitted for approval.`, 'success');
+                loadPermissions();
+                bootstrap.Modal.getInstance(document.getElementById('permModal')).hide();
+            } else {
+                Swal.fire('Error', 'Failed to submit any requests. ' + (results[0]?.msg || ''), 'error');
+            }
         });
     });
 </script>
