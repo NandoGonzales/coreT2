@@ -1,41 +1,101 @@
 <?php
-/**
- * compliance_logger.php
- * Shared helper for logging compliance events.
- *
- * DEPENDS ON: log_audit_trial.php  (must be included first so that
- *             determine_compliance_status() is available)
- *
- * USAGE EXAMPLE:
- *   require_once __DIR__ . '/log_audit_trial.php';
- *   require_once __DIR__ . '/compliance_logger.php';
- *
- *   // Auto-status (recommended):
- *   log_compliance($user_id, 'Login Failed - Wrong Password', 'Authentication', 'Bad password from IP: 1.2.3.4');
- *
- *   // Manual-status override:
- *   log_compliance($user_id, 'Large Loan Approved', 'Loan Portfolio', 'Loan #123 PHP 500,000', 'Under Review');
- */
+// ==================================================
+// Compliance Logger Helper
+// ==================================================
+
+// ✅ determine_compliance_status() is defined HERE because
+//    compliance_logger.php is loaded first via initialize_coreT2.php
+//    (before log_audit_trial.php). This makes the function available
+//    to both files.
+
+if (!function_exists('determine_compliance_status')) {
+    function determine_compliance_status(string $action_type, ?string $description = null): string
+    {
+        $action = strtolower(trim($action_type));
+        $desc   = strtolower(trim($description ?? ''));
+
+        // ❌ NON-COMPLIANT — Failed / security violations
+        // Includes Low Risk, Medium Risk, High Risk failed attempts
+        $nonCompliant = [
+            'failed',
+            'wrong',
+            'invalid',
+            'incorrect',
+            'unauthorized',
+            'denied',
+            'blocked',
+            'expired',
+            'error',
+            'rejected',
+            'violation',
+            'suspicious',
+            'banned',
+            'locked',
+            'inactive',
+            'unknown user',
+            'low risk',       // ← Non-Compliant pero low risk (typo lang)
+            'medium risk',    // ← Non-Compliant + warning
+            'high risk',      // ← Non-Compliant + auto-lock
+        ];
+        foreach ($nonCompliant as $kw) {
+            if (str_contains($action, $kw) || str_contains($desc, $kw)) {
+                return 'Non-Compliant';
+            }
+        }
+
+        // 🟡 UNDER REVIEW — Needs admin verification
+        $underReview = [
+            'large',
+            'high amount',
+            'ai result',
+            'ai scored',
+            'credit score',
+            'credit scoring',
+            'ai decision',
+            'manual verification',
+            'review needed',
+            'flagged',
+            'override',
+            'bulk',
+            'mass',
+            'role change',
+            'permission change',
+            'high value',
+        ];
+        foreach ($underReview as $kw) {
+            if (str_contains($action, $kw) || str_contains($desc, $kw)) {
+                return 'Under Review';
+            }
+        }
+
+        // 🟠 PENDING — Started but not yet completed
+        $pending = [
+            'otp sent',
+            'awaiting',
+            'waiting',
+            'pending approval',
+            'disbursement request',
+            'loan request',
+            'submitted',
+            'queued',
+            'in progress',
+            'processing',
+            'sent for approval',
+        ];
+        foreach ($pending as $kw) {
+            if (str_contains($action, $kw) || str_contains($desc, $kw)) {
+                return 'Pending';
+            }
+        }
+
+        // ✅ COMPLIANT — Default for all successful actions
+        return 'Compliant';
+    }
+}
 
 if (!function_exists('log_compliance')) {
-    /**
-     * Log a compliance + audit event to the audit_trail table.
-     *
-     * @param int|null    $user_id           User performing the action
-     * @param string      $action_type       Action label (e.g. "OTP Sent", "Delete Record")
-     * @param string      $module_name       Module name (e.g. "Authentication")
-     * @param string      $description       Detailed description / remarks
-     * @param string|null $compliance_status Override ('Compliant'|'Non-Compliant'|'Under Review'|'Pending')
-     *                                       Pass null (default) to auto-determine from action_type + description.
-     * @return bool
-     */
-    function log_compliance(
-        $user_id,
-        string $action_type,
-        string $module_name,
-        string $description = '',
-        ?string $compliance_status = null
-    ): bool {
+    function log_compliance($user_id, $action_type, $module_name, $description, $status = null)
+    {
         global $conn;
 
         if (!$conn) {
@@ -44,43 +104,30 @@ if (!function_exists('log_compliance')) {
         }
 
         // Auto-determine status if not provided
-        if ($compliance_status === null) {
-            // Reuse the same logic from log_audit_trial.php
-            if (function_exists('determine_compliance_status')) {
-                $compliance_status = determine_compliance_status($action_type, $description);
-            } else {
-                $compliance_status = 'Compliant'; // safe fallback
-            }
+        if ($status === null) {
+            $status = determine_compliance_status($action_type, $description);
         }
 
         $ip = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
 
-        try {
-            $stmt = $conn->prepare("
-                INSERT INTO audit_trail
-                    (user_id, action_type, module_name, remarks, ip_address, compliance_status, review_date)
-                VALUES 
-                    (?, ?, ?, ?, ?, ?, NOW())
-            ");
+        $stmt = $conn->prepare("
+            INSERT INTO compliance_logs (user_id, action_type, module_name, description, status, ip_address)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
 
-            if (!$stmt) {
-                error_log("Compliance Log Prepare Failed: " . $conn->error);
-                return false;
-            }
-
-            $stmt->bind_param("isssss", $user_id, $action_type, $module_name, $description, $ip, $compliance_status);
-            $stmt->execute();
-            $stmt->close();
-            return true;
-
-        } catch (Exception $e) {
-            error_log('Compliance Log Error: ' . $e->getMessage());
+        if (!$stmt) {
+            error_log("Compliance Log Prepare Failed: " . $conn->error);
             return false;
         }
+
+        $stmt->bind_param("isssss", $user_id, $action_type, $module_name, $description, $status, $ip);
+        $stmt->execute();
+        $stmt->close();
+        return true;
     }
 }
 
-// Alias for backward compatibility
+// Optional wrapper to match old calls
 if (!function_exists('log_compliance_event')) {
     function log_compliance_event($user_id, $action_type, $module_name, $description, $status = null)
     {

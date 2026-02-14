@@ -18,9 +18,7 @@ $show_logout_success = isset($_GET['logout']);
 // Helper function to log to BOTH tables
 function log_to_both_tables($user_id, $action, $module, $remarks, $status = 'Success') {
     global $conn;
-    
     log_audit_trial($user_id, $action, $module, $remarks);
-    
     try {
         $stmt = $conn->prepare("
             INSERT INTO permission_logs (user_id, module_name, action_name, action_status, action_time)
@@ -34,15 +32,75 @@ function log_to_both_tables($user_id, $action, $module, $remarks, $status = 'Suc
     }
 }
 
+// ================================================================
+// Failed Attempt Helpers
+// ================================================================
+
+/**
+ * Count failed login attempts for a user in the last 15 minutes.
+ */
+function get_failed_attempts(int $user_id): int {
+    global $conn;
+    $stmt = $conn->prepare("
+        SELECT COUNT(*) AS cnt
+        FROM audit_trail
+        WHERE user_id = ?
+          AND action_type LIKE 'Login Failed%'
+          AND action_time >= NOW() - INTERVAL 15 MINUTE
+    ");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return (int)($row['cnt'] ?? 0);
+}
+
+/**
+ * Lock user account for X minutes.
+ */
+function lock_account(int $user_id, int $minutes = 30): void {
+    global $conn;
+    $stmt = $conn->prepare("
+        UPDATE users 
+        SET locked_until = NOW() + INTERVAL ? MINUTE,
+            failed_attempts = failed_attempts + 1
+        WHERE user_id = ?
+    ");
+    $stmt->bind_param("ii", $minutes, $user_id);
+    $stmt->execute();
+    $stmt->close();
+}
+
+/**
+ * Reset failed attempts after successful login.
+ */
+function reset_failed_attempts(int $user_id): void {
+    global $conn;
+    $stmt = $conn->prepare("
+        UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE user_id = ?
+    ");
+    $stmt->bind_param("i", $user_id);
+    $stmt->execute();
+    $stmt->close();
+}
+
+/**
+ * Check if account is currently locked.
+ */
+function is_account_locked(array $user): bool {
+    if (empty($user['locked_until'])) return false;
+    return strtotime($user['locked_until']) > time();
+}
+
 // Login processing
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username_or_email = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
+    $ip = $_SERVER['REMOTE_ADDR'];
 
     if ($username_or_email === '' || $password === '') {
         $error_message = "Please enter both username/email and password.";
     } else {
-        // Check if input is email or username
         $stmt = $conn->prepare("SELECT * FROM users WHERE username=? OR email=? LIMIT 1");
         $stmt->bind_param("ss", $username_or_email, $username_or_email);
         $stmt->execute();
@@ -50,58 +108,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($result->num_rows === 1) {
             $user = $result->fetch_assoc();
+            $user_id = $user['user_id'];
 
-            if ($user['status'] !== 'Active') {
+            // ── Check if account is locked ──────────────────────────────
+            if (is_account_locked($user)) {
+                $locked_until = date('h:i A', strtotime($user['locked_until']));
+                $error_message = "Your account is temporarily locked due to too many failed attempts. Try again after $locked_until.";
+                log_to_both_tables(
+                    $user_id,
+                    'Login Failed - Account Locked (High Risk)',
+                    'Authentication',
+                    "Account locked. Attempted login from IP: $ip",
+                    'Failed'
+                );
+
+            // ── Inactive account ────────────────────────────────────────
+            } elseif ($user['status'] !== 'Active') {
                 $error_message = "Your account is inactive. Please contact admin.";
                 log_to_both_tables(
-                    $user['user_id'], 
-                    'Login Failed - Inactive', 
-                    'Authentication', 
+                    $user_id,
+                    'Login Failed - Inactive',
+                    'Authentication',
                     'Inactive user tried login',
                     'Failed'
                 );
+
+            // ── Wrong password ──────────────────────────────────────────
             } elseif (!password_verify($password, $user['password_hash'])) {
-                $error_message = "Invalid username/email or password.";
-                log_to_both_tables(
-                    $user['user_id'], 
-                    'Login Failed - Wrong Password', 
-                    'Authentication', 
-                    'Incorrect password from IP: ' . $_SERVER['REMOTE_ADDR'],
-                    'Failed'
-                );
+                $attempts = get_failed_attempts($user_id) + 1; // +1 for current attempt
+
+                if ($attempts >= 5) {
+                    // High Risk → lock account 30 minutes
+                    lock_account($user_id, 30);
+                    $action  = 'Login Failed - Wrong Password (High Risk)';
+                    $remarks = "Attempt #$attempts from IP: $ip. Account locked for 30 minutes.";
+                    $error_message = "Too many failed attempts. Your account has been locked for 30 minutes.";
+                } elseif ($attempts >= 3) {
+                    // Medium Risk → warning
+                    $remaining = 5 - $attempts;
+                    $action  = 'Login Failed - Wrong Password (Medium Risk)';
+                    $remarks = "Attempt #$attempts from IP: $ip. $remaining attempt(s) left before lockout.";
+                    $error_message = "Invalid username/email or password. Warning: $remaining attempt(s) left before your account is locked.";
+                } else {
+                    // Low Risk → normal error
+                    $action  = 'Login Failed - Wrong Password (Low Risk)';
+                    $remarks = "Attempt #$attempts from IP: $ip.";
+                    $error_message = "Invalid username/email or password.";
+                }
+
+                log_to_both_tables($user_id, $action, 'Authentication', $remarks, 'Failed');
+
+            // ── Correct password → OTP ──────────────────────────────────
             } else {
                 if (empty($user['email'])) {
                     $error_message = "No email address found for this account. Please contact admin.";
                     log_to_both_tables(
-                        $user['user_id'], 
-                        'Login Failed - No Email', 
-                        'Authentication', 
+                        $user_id,
+                        'Login Failed - No Email',
+                        'Authentication',
                         'User has no email for OTP',
                         'Failed'
                     );
                 } else {
                     $otp = generateOTP(6);
-                    
-                    if (storeOTP($user['user_id'], $otp, $conn)) {
+                    if (storeOTP($user_id, $otp, $conn)) {
                         if (sendOTPEmail($user['email'], $user['full_name'], $otp)) {
-                            $_SESSION['otp_user_id'] = $user['user_id'];
-                            $_SESSION['otp_username'] = $user['username'];
+                            // ✅ Success — reset failed attempts counter
+                            reset_failed_attempts($user_id);
+
+                            $_SESSION['otp_user_id']   = $user_id;
+                            $_SESSION['otp_username']  = $user['username'];
                             $_SESSION['otp_sent_time'] = time();
-                            
+
                             log_to_both_tables(
-                                $user['user_id'],
+                                $user_id,
                                 'OTP Sent',
                                 'Authentication',
                                 'OTP sent to email: ' . $user['email'],
                                 'Success'
                             );
-                            
                             header("Location: verify_otp.php");
                             exit();
                         } else {
                             $error_message = "Failed to send OTP email. Please try again.";
                             log_to_both_tables(
-                                $user['user_id'],
+                                $user_id,
                                 'OTP Send Failed',
                                 'Authentication',
                                 'Email sending failed',
@@ -111,7 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } else {
                         $error_message = "Failed to generate OTP. Please try again.";
                         log_to_both_tables(
-                            $user['user_id'],
+                            $user_id,
                             'OTP Generation Failed',
                             'Authentication',
                             'Database error storing OTP',
@@ -123,10 +214,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error_message = "Invalid username/email or password.";
             log_to_both_tables(
-                0, 
-                'Login Failed - Unknown User', 
-                'Authentication', 
-                'Unknown username/email: ' . $username_or_email . ' from IP: ' . $_SERVER['REMOTE_ADDR'],
+                0,
+                'Login Failed - Unknown User',
+                'Authentication',
+                "Unknown username/email: $username_or_email from IP: $ip",
                 'Failed'
             );
         }
