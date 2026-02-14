@@ -1,5 +1,4 @@
 <?php
-
 /**
  * ============================================================
  * Send to Finance AJAX Handler
@@ -24,8 +23,6 @@ if (!isset($_SESSION['userdata']) || empty($_SESSION['userdata'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }
-
-define('FINANCE_API_URL', 'https://core1.microfinancial-1.com/api/financial/disbursements.php');
 
 $userId   = $_SESSION['userdata']['user_id']   ?? 0;
 $userName = $_SESSION['userdata']['full_name'] ?? 'Admin';
@@ -126,7 +123,7 @@ try {
             $errBody = json_decode($response, true);
             throw new Exception(
                 "Core1 error (HTTP {$httpCode}): " .
-                    ($errBody['message'] ?? $errBody['error'] ?? substr($response, 0, 200))
+                ($errBody['message'] ?? $errBody['error'] ?? substr($response, 0, 200))
             );
         }
 
@@ -149,6 +146,7 @@ try {
     }
 
     throw new Exception("Invalid action: {$action}");
+
 } catch (Exception $e) {
     error_log("send_to_finance.php Error: " . $e->getMessage());
     while (@ob_end_clean());
