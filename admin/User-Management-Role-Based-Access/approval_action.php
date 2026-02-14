@@ -135,17 +135,21 @@ try {
                 ]);
                 $notif_user_name = $current_user['full_name'] . " (" . $current_user['username'] . ")";
             } else {
-                // For new users, we use data from the request itself for notification
+                // For new users or global requests, we use data from the request itself for notification
                 $parsed_req = json_decode($request_data, true);
-                $notif_user_name = ($parsed_req['full_name'] ?? 'New User') . " (" . ($parsed_req['username'] ?? 'new') . ")";
+                if (strpos($request_type, 'role_permission_') === 0) {
+                    $notif_user_name = "Role: " . ($parsed_req['role_name'] ?? ('ID ' . ($parsed_req['role_id'] ?? 'Unknown'))) . " (Module: " . ($parsed_req['module'] ?? 'Unknown') . ")";
+                } else {
+                    $notif_user_name = ($parsed_req['full_name'] ?? 'New User') . " (" . ($parsed_req['username'] ?? 'new') . ")";
+                }
             }
 
             // Rule: Only 1 pending request at a time per user
-            $stmt = $conn->prepare("SELECT request_id FROM approval_requests WHERE user_id = ? AND status = 'pending'");
-            $stmt->bind_param("i", $target_user_id);
+            $stmt = $conn->prepare("SELECT request_id FROM approval_requests WHERE user_id = ? AND request_type = ? AND status = 'pending'");
+            $stmt->bind_param("is", $target_user_id, $request_type);
             $stmt->execute();
-            if ($stmt->get_result()->num_rows > 0) {
-                echo json_encode(['status' => 'error', 'msg' => 'You already have a pending request. Please wait for it to be processed.']);
+            if ($stmt->get_result()->num_rows > 0 && strpos($request_type, 'role_permission_') === false) {
+                echo json_encode(['status' => 'error', 'msg' => 'A pending request of this type already exists. Please wait for it to be processed.']);
                 exit;
             }
 
@@ -301,7 +305,7 @@ try {
             }
 
             // Rule: Sensitive requests require an administrative API key
-            if (in_array($request['request_type'], ['profile_update', 'termination', 'removal', 'user_creation'])) {
+            if (in_array($request['request_type'], ['profile_update', 'termination', 'removal', 'user_creation', 'role_permission_add', 'role_permission_edit', 'role_permission_delete'])) {
                 $stmt_key = $conn->prepare("SELECT meta_value FROM system_info WHERE meta_field = 'admin_api_key'");
                 $stmt_key->execute();
                 $sys_api_key = $stmt_key->get_result()->fetch_assoc()['meta_value'] ?? 'admin123';
@@ -326,22 +330,34 @@ try {
                 // Removal: Delete user
                 $stmt = $conn->prepare("DELETE FROM users WHERE user_id=?");
                 $stmt->bind_param('i', $user_id);
-            } elseif ($request['request_type'] === 'user_creation') {
-                // User Creation: Insert new user
-                $username = $request_data['username'];
-                $hash = password_hash($request_data['password'], PASSWORD_DEFAULT);
-                $full_name = $request_data['full_name'];
-                $email = $request_data['email'];
-                $role = $request_data['role'];
-                $status = $request_data['status'] ?? 'Active';
+            } elseif ($request['request_type'] === 'role_permission_add') {
+                // Role Permission: Add
+                $role_id = $request_data['role_id'];
+                $module = $request_data['module'];
+                $v = $request_data['can_view'];
+                $a = $request_data['can_add'];
+                $e = $request_data['can_edit'];
+                $d = $request_data['can_delete'];
 
-                // Get next ID if not auto-increment
-                $res_id = $conn->query("SELECT MAX(user_id) as max_id FROM users");
-                $next_id = ($res_id->fetch_assoc()['max_id'] ?? 0) + 1;
-                $role_id = null;
+                $stmt = $conn->prepare("INSERT INTO role_permissions (role_id, module_name, can_view, can_add, can_edit, can_delete) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param('isiiii', $role_id, $module, $v, $a, $e, $d);
+            } elseif ($request['request_type'] === 'role_permission_edit') {
+                // Role Permission: Edit
+                $perm_id = $request_data['perm_id'];
+                $role_id = $request_data['role_id'];
+                $module = $request_data['module'];
+                $v = $request_data['can_view'];
+                $a = $request_data['can_add'];
+                $e = $request_data['can_edit'];
+                $d = $request_data['can_delete'];
 
-                $stmt = $conn->prepare("INSERT INTO users (user_id, role_id, username, password_hash, full_name, email, role, status, date_created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-                $stmt->bind_param('iissssss', $next_id, $role_id, $username, $hash, $full_name, $email, $role, $status);
+                $stmt = $conn->prepare("UPDATE role_permissions SET role_id=?, module_name=?, can_view=?, can_add=?, can_edit=?, can_delete=? WHERE perm_id=?");
+                $stmt->bind_param('isiiiii', $role_id, $module, $v, $a, $e, $d, $perm_id);
+            } elseif ($request['request_type'] === 'role_permission_delete') {
+                // Role Permission: Delete
+                $perm_id = $request_data['perm_id'];
+                $stmt = $conn->prepare("DELETE FROM role_permissions WHERE perm_id=?");
+                $stmt->bind_param('i', $perm_id);
             } else {
                 // Profile Update: Update user record
                 $full_name = $request_data['full_name'] ?? ($request['full_name'] ?? '');
@@ -375,13 +391,19 @@ try {
                         'termination' => 'Account Termination Approved',
                         'removal' => 'Account Removal Approved',
                         'profile_update' => 'Profile Update Approved',
-                        'user_creation' => 'Account Created'
+                        'user_creation' => 'Account Created',
+                        'role_permission_add' => 'Role Permission Approved',
+                        'role_permission_edit' => 'Role Permission Edit Approved',
+                        'role_permission_delete' => 'Role Permission Deletion Approved'
                     ];
                     $msg_map = [
                         'termination' => "Your account termination request has been approved. Your account has been deactivated.",
                         'removal' => "Your account removal request has been approved. Your account has been permanently removed from the system.",
                         'profile_update' => "Your profile update request has been approved by an administrator.",
-                        'user_creation' => "Your account has been created successfully. You can now log in using your credentials."
+                        'user_creation' => "Your account has been created successfully. You can now log in using your credentials.",
+                        'role_permission_add' => "The role permission addition has been approved.",
+                        'role_permission_edit' => "The role permission update has been approved.",
+                        'role_permission_delete' => "The role permission deletion has been approved."
                     ];
 
                     $subject = $subject_map[$request['request_type']] ?? 'Account Request Approved';

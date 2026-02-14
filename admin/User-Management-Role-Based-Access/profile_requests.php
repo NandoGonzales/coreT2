@@ -203,10 +203,24 @@ include(__DIR__ . '/../inc/sidebar.php');
 
             container.innerHTML = requests.map(req => {
                 const isTermination = req.request_type === 'termination';
-                const isRemoval = req.request_type === 'removal';
                 const isCreation = req.request_type === 'user_creation';
-                const typeBadge = isTermination ? 'bg-warning text-dark' : (isRemoval ? 'bg-danger' : (isCreation ? 'bg-success' : 'bg-info'));
-                const typeText = isTermination ? 'Account Termination' : (isRemoval ? 'Account Removal' : (isCreation ? 'New User Creation' : 'Profile Update'));
+                const isRoleAdd = req.request_type === 'role_permission_add';
+                const isRoleEdit = req.request_type === 'role_permission_edit';
+                const isRoleDelete = req.request_type === 'role_permission_delete';
+
+                const typeBadge = isTermination ? 'bg-warning text-dark' :
+                    (isRemoval ? 'bg-danger' :
+                        (isCreation ? 'bg-success' :
+                            (isRoleAdd ? 'bg-success' :
+                                (isRoleEdit ? 'bg-info' :
+                                    (isRoleDelete ? 'bg-danger' : 'bg-info')))));
+
+                const typeText = isTermination ? 'Account Termination' :
+                    (isRemoval ? 'Account Removal' :
+                        (isCreation ? 'New User Creation' :
+                            (isRoleAdd ? 'Add Role Permission' :
+                                (isRoleEdit ? 'Edit Role Permission' :
+                                    (isRoleDelete ? 'Delete Role Permission' : 'Profile Update')))));
 
                 const requested = req.request_data_parsed || {};
                 const displayFullname = req.full_name || requested.full_name || 'New User';
@@ -248,6 +262,37 @@ include(__DIR__ . '/../inc/sidebar.php');
                                     <span class="data-value">${requested[f.key] || '—'}</span>
                                 </div>
                             `).join('')}
+                        </div>
+                    `;
+                } else if (isRoleAdd || isRoleEdit) {
+                    const fields = [
+                        { label: 'Role ID', key: 'role_id' },
+                        { label: 'Module', key: 'module' },
+                        { label: 'View', key: 'can_view' },
+                        { label: 'Add', key: 'can_add' },
+                        { label: 'Edit', key: 'can_edit' },
+                        { label: 'Delete', key: 'can_delete' }
+                    ];
+                    bodyContent = `
+                        <div class="alert ${isRoleAdd ? 'alert-success' : 'alert-info'} mb-3">
+                            <i class="bi bi-shield-lock-fill me-2"></i>
+                            Request to <strong>${isRoleAdd ? 'add' : 'update'}</strong> role permissions.
+                        </div>
+                        <div class="data-box new-data">
+                            <div class="data-box-title">Permission Details</div>
+                            ${fields.map(f => `
+                                <div class="data-item">
+                                    <span class="data-label">${f.label}:</span>
+                                    <span class="data-value">${requested[f.key] === 1 ? '<span class="text-success">Yes</span>' : (requested[f.key] === 0 ? '<span class="text-danger">No</span>' : (requested[f.key] || '—'))}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                } else if (isRoleDelete) {
+                    bodyContent = `
+                        <div class="alert alert-danger mb-0">
+                            <i class="bi bi-trash-fill me-2"></i>
+                            Request to <strong>Delete</strong> Role Permission (ID: ${requested.perm_id}).
                         </div>
                     `;
                 } else {
