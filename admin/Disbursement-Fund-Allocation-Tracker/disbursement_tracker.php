@@ -3,16 +3,12 @@ require_once(__DIR__ . '/../../initialize_coreT2.php');
 require_once(__DIR__ . '/../inc/sess_auth.php');
 require_once(__DIR__ . '/../inc/access_control.php');
 require_once __DIR__ . '/../inc/check_auth.php';
-
-// Comment out permission check if it's causing issues
 // checkPermission('disbursement_tracker');
-
 include(__DIR__ . '/../inc/header.php');
 include(__DIR__ . '/../inc/navbar.php');
 include(__DIR__ . '/../inc/sidebar.php');
 ?>
 
-<!-- CDN Libraries -->
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
@@ -25,10 +21,10 @@ include(__DIR__ . '/../inc/sidebar.php');
         --brand-warning: #f59e0b;
         --brand-danger: #ef4444;
         --brand-info: #3b82f6;
-        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, .05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, .1);
+        --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, .1);
+        --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, .1);
     }
 
     body {
@@ -36,7 +32,6 @@ include(__DIR__ . '/../inc/sidebar.php');
         background: #f9fafb;
     }
 
-    /* Enhanced Header */
     .page-header {
         background: linear-gradient(135deg, var(--brand-primary) 0%, #047857 100%);
         padding: 2rem;
@@ -50,22 +45,21 @@ include(__DIR__ . '/../inc/sidebar.php');
         margin: 0;
         font-size: 1.75rem;
         font-weight: 700;
-        letter-spacing: -0.025em;
+        letter-spacing: -.025em;
     }
 
     .page-header .subtitle {
-        opacity: 0.9;
-        font-size: 0.95rem;
-        margin-top: 0.25rem;
+        opacity: .9;
+        font-size: .95rem;
+        margin-top: .25rem;
     }
 
-    /* Enhanced Stat Cards */
     .stat-card {
         padding: 1.75rem;
         border-radius: 1rem;
         color: #fff;
         cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all .3s cubic-bezier(.4, 0, .2, 1);
         position: relative;
         border: 2px solid transparent;
         overflow: hidden;
@@ -80,10 +74,10 @@ include(__DIR__ . '/../inc/sidebar.php');
         right: 0;
         width: 100px;
         height: 100px;
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, .1);
         border-radius: 50%;
         transform: translate(30%, -30%);
-        transition: all 0.3s ease;
+        transition: all .3s ease;
     }
 
     .stat-card:hover {
@@ -96,8 +90,8 @@ include(__DIR__ . '/../inc/sidebar.php');
     }
 
     .stat-card.active {
-        border: 2px solid rgba(255, 255, 255, 0.8);
-        box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.2), var(--shadow-xl);
+        border: 2px solid rgba(255, 255, 255, .8);
+        box-shadow: 0 0 0 4px rgba(255, 255, 255, .2), var(--shadow-xl);
         transform: translateY(-8px) scale(1.05);
     }
 
@@ -106,19 +100,19 @@ include(__DIR__ . '/../inc/sidebar.php');
         position: absolute;
         top: 12px;
         right: 12px;
-        font-size: 0.65rem;
+        font-size: .65rem;
         font-weight: 700;
-        background: rgba(255, 255, 255, 0.25);
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.375rem;
-        letter-spacing: 0.05em;
+        background: rgba(255, 255, 255, .25);
+        padding: .25rem .5rem;
+        border-radius: .375rem;
+        letter-spacing: .05em;
     }
 
     .stat-card-icon {
         width: 3rem;
         height: 3rem;
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 0.75rem;
+        background: rgba(255, 255, 255, .2);
+        border-radius: .75rem;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -127,31 +121,30 @@ include(__DIR__ . '/../inc/sidebar.php');
     }
 
     .stat-title {
-        font-size: 0.875rem;
-        opacity: 0.95;
+        font-size: .875rem;
+        opacity: .95;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 0.5rem;
+        letter-spacing: .05em;
+        margin-bottom: .5rem;
     }
 
     .stat-value {
         font-size: 2.25rem;
         font-weight: 800;
         line-height: 1;
-        margin-bottom: 0.5rem;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: .5rem;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, .1);
     }
 
     .stat-hint {
-        font-size: 0.75rem;
-        opacity: 0.8;
+        font-size: .75rem;
+        opacity: .8;
         display: flex;
         align-items: center;
-        gap: 0.25rem;
+        gap: .25rem;
     }
 
-    /* Card color schemes */
     .stat-card[data-filter="all"] {
         --card-color-1: #3b82f6;
         --card-color-2: #2563eb;
@@ -172,7 +165,6 @@ include(__DIR__ . '/../inc/sidebar.php');
         --card-color-2: #7c3aed;
     }
 
-    /* Enhanced Filter Section */
     .filter-section {
         background: white;
         padding: 1.5rem;
@@ -185,26 +177,25 @@ include(__DIR__ . '/../inc/sidebar.php');
     .filter-section .form-label {
         font-weight: 600;
         color: #374151;
-        font-size: 0.875rem;
-        margin-bottom: 0.5rem;
+        font-size: .875rem;
+        margin-bottom: .5rem;
     }
 
     .filter-section .form-control,
     .filter-section .form-select {
         border: 1.5px solid #e5e7eb;
-        border-radius: 0.5rem;
-        padding: 0.625rem 0.875rem;
-        font-size: 0.875rem;
-        transition: all 0.2s;
+        border-radius: .5rem;
+        padding: .625rem .875rem;
+        font-size: .875rem;
+        transition: all .2s;
     }
 
     .filter-section .form-control:focus,
     .filter-section .form-select:focus {
         border-color: var(--brand-primary);
-        box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+        box-shadow: 0 0 0 3px rgba(5, 150, 105, .1);
     }
 
-    /* Enhanced Table */
     .table-card {
         background: white;
         padding: 1.5rem;
@@ -229,25 +220,25 @@ include(__DIR__ . '/../inc/sidebar.php');
         margin: 0;
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: .5rem;
     }
 
     #filterIndicator {
-        font-size: 0.75rem;
-        padding: 0.375rem 0.75rem;
-        border-radius: 0.5rem;
+        font-size: .75rem;
+        padding: .375rem .75rem;
+        border-radius: .5rem;
         font-weight: 600;
     }
 
     #recordCount {
         color: #6b7280;
-        font-size: 0.875rem;
+        font-size: .875rem;
         font-weight: 500;
     }
 
     .table-wrapper {
         overflow-x: auto;
-        border-radius: 0.75rem;
+        border-radius: .75rem;
         border: 1px solid #e5e7eb;
     }
 
@@ -260,45 +251,44 @@ include(__DIR__ . '/../inc/sidebar.php');
     }
 
     .table thead th {
-        color: #1f2937 !important;
+        color: #fff !important;
         font-weight: 700;
-        font-size: 0.875rem;
-        padding: 1rem 0.75rem;
+        font-size: .875rem;
+        padding: 1rem .75rem;
         border: none;
         text-transform: uppercase;
-        letter-spacing: 0.025em;
+        letter-spacing: .025em;
     }
 
     .table tbody tr {
-        transition: all 0.2s ease;
+        transition: all .2s ease;
         border-bottom: 1px solid #f3f4f6;
     }
 
     .table tbody tr:hover {
         background: #f9fafb;
         transform: scale(1.005);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, .05);
     }
 
     .table tbody td {
-        padding: 0.875rem 0.75rem;
-        font-size: 0.875rem;
+        padding: .875rem .75rem;
+        font-size: .875rem;
         color: #374151;
         vertical-align: middle;
     }
 
     .table .badge {
-        padding: 0.375rem 0.75rem;
+        padding: .375rem .75rem;
         font-weight: 600;
-        font-size: 0.75rem;
-        border-radius: 0.5rem;
+        font-size: .75rem;
+        border-radius: .5rem;
     }
 
-    /* Enhanced Buttons */
     .btn {
-        border-radius: 0.5rem;
+        border-radius: .5rem;
         font-weight: 600;
-        transition: all 0.2s ease;
+        transition: all .2s ease;
         box-shadow: var(--shadow-sm);
     }
 
@@ -312,8 +302,8 @@ include(__DIR__ . '/../inc/sidebar.php');
     }
 
     .btn-sm {
-        padding: 0.5rem 1rem;
-        font-size: 0.875rem;
+        padding: .5rem 1rem;
+        font-size: .875rem;
     }
 
     .btn-outline-primary {
@@ -352,12 +342,12 @@ include(__DIR__ . '/../inc/sidebar.php');
     }
 
     .btn-outline-light {
-        border: 2px solid rgba(255, 255, 255, 0.5);
+        border: 2px solid rgba(255, 255, 255, .5);
         color: white;
     }
 
     .btn-outline-light:hover {
-        background: rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, .2);
         border-color: white;
         color: white;
     }
@@ -369,11 +359,10 @@ include(__DIR__ . '/../inc/sidebar.php');
     }
 
     .action-btn-group .btn {
-        padding: 0.35rem 0.65rem;
-        font-size: 0.8rem;
+        padding: .35rem .65rem;
+        font-size: .8rem;
     }
 
-    /* Pagination */
     .pagination-wrapper {
         display: flex;
         justify-content: space-between;
@@ -385,15 +374,14 @@ include(__DIR__ . '/../inc/sidebar.php');
 
     #paginationInfo {
         color: #6b7280;
-        font-size: 0.875rem;
+        font-size: .875rem;
         font-weight: 500;
     }
 
     #paginationControls .btn {
-        margin-left: 0.5rem;
+        margin-left: .5rem;
     }
 
-    /* Modal Enhancements */
     .modal-content {
         border-radius: 1rem;
         border: none;
@@ -413,8 +401,7 @@ include(__DIR__ . '/../inc/sidebar.php');
         border-top: 2px solid #f3f4f6;
     }
 
-    /* Responsive improvements */
-    @media (max-width: 768px) {
+    @media (max-width:768px) {
         .page-header {
             padding: 1.5rem;
         }
@@ -437,7 +424,7 @@ include(__DIR__ . '/../inc/sidebar.php');
     <main class="main-content" id="main-content">
         <div class="container-fluid py-4">
 
-            <!-- Enhanced Header -->
+            <!-- Header -->
             <div class="page-header">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <div>
@@ -445,6 +432,10 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <p class="subtitle mb-0">Track and monitor loan disbursements and fund allocations</p>
                     </div>
                     <div class="d-flex gap-2">
+                        <!-- Send to Finance button injected here by JS -->
+                        <button id="syncStatusBtn" class="btn btn-sm btn-outline-light" title="Sync disbursement status from Core1">
+                            <i class="bi bi-cloud-download"></i> Sync Core1
+                        </button>
                         <button id="exportPdfBtn" class="btn btn-sm btn-danger">
                             <i class="bi bi-file-earmark-pdf"></i> Export PDF
                         </button>
@@ -458,59 +449,43 @@ include(__DIR__ . '/../inc/sidebar.php');
                 </div>
             </div>
 
-            <!-- Enhanced Summary Cards -->
+            <!-- Summary Cards -->
             <div class="row g-4 mb-4">
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="all">
-                        <div class="stat-card-icon">
-                            <i class="bi bi-list-ul"></i>
-                        </div>
+                        <div class="stat-card-icon"><i class="bi bi-list-ul"></i></div>
                         <div class="stat-title">Total Disbursements</div>
                         <div id="card_total" class="stat-value">0</div>
-                        <div class="stat-hint">
-                            <i class="bi bi-hand-index"></i> Click to view all
-                        </div>
+                        <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to view all</div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="Released">
-                        <div class="stat-card-icon">
-                            <i class="bi bi-check-circle"></i>
-                        </div>
+                        <div class="stat-card-icon"><i class="bi bi-check-circle"></i></div>
                         <div class="stat-title">Total Released</div>
                         <div id="card_released" class="stat-value">0</div>
-                        <div class="stat-hint">
-                            <i class="bi bi-hand-index"></i> Click to filter
-                        </div>
+                        <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to filter</div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="Pending">
-                        <div class="stat-card-icon">
-                            <i class="bi bi-exclamation-triangle"></i>
-                        </div>
+                        <div class="stat-card-icon"><i class="bi bi-exclamation-triangle"></i></div>
                         <div class="stat-title">Total Pending</div>
                         <div id="card_pending" class="stat-value">0</div>
-                        <div class="stat-hint">
-                            <i class="bi bi-hand-index"></i> Click to filter
-                        </div>
+                        <div class="stat-hint"><i class="bi bi-hand-index"></i> Click to filter</div>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="card stat-card" data-filter="amount">
-                        <div class="stat-card-icon">
-                            <i class="bi bi-wallet2"></i>
-                        </div>
+                        <div class="stat-card-icon"><i class="bi bi-wallet2"></i></div>
                         <div class="stat-title">Total Amount</div>
                         <div id="card_amount" class="stat-value">₱0.00</div>
-                        <div class="stat-hint">
-                            <i class="bi bi-info-circle"></i> Total disbursed
-                        </div>
+                        <div class="stat-hint"><i class="bi bi-info-circle"></i> Total disbursed</div>
                     </div>
                 </div>
             </div>
 
-            <!-- Enhanced Filters Section -->
+            <!-- Filters -->
             <div class="filter-section">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-4">
@@ -551,21 +526,21 @@ include(__DIR__ . '/../inc/sidebar.php');
                 </div>
             </div>
 
-            <!-- Enhanced Disbursement Table -->
+            <!-- Table -->
             <div class="table-card">
                 <div class="table-header">
                     <h6 class="table-title">
                         <i class="bi bi-table"></i>
                         <span>Disbursement Records</span>
-                        <span id="filterIndicator" class="badge bg-info ms-2" style="display: none;"></span>
+                        <span id="filterIndicator" class="badge bg-info ms-2" style="display:none;"></span>
                     </h6>
                     <span id="recordCount"></span>
                 </div>
-
                 <div class="table-wrapper">
                     <table class="table table-hover" id="disbTable">
                         <thead>
                             <tr>
+                                <th></th><!-- checkbox col -->
                                 <th>ID</th>
                                 <th>Loan ID</th>
                                 <th>Member</th>
@@ -580,12 +555,11 @@ include(__DIR__ . '/../inc/sidebar.php');
                         </thead>
                         <tbody id="disbTbody">
                             <tr>
-                                <td colspan="10" class="text-center">Loading...</td>
+                                <td colspan="11" class="text-center">Loading...</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-
                 <div class="pagination-wrapper">
                     <div id="paginationInfo"></div>
                     <div id="paginationControls" class="btn-group"></div>
@@ -595,7 +569,7 @@ include(__DIR__ . '/../inc/sidebar.php');
     </main>
 </div>
 
-<!-- View Disbursement Modal -->
+<!-- View Modal -->
 <div class="modal fade" id="disbModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -639,26 +613,46 @@ include(__DIR__ . '/../inc/sidebar.php');
             cardFilter: 'all'
         };
         let allDisbursements = [];
+        let selectedIds = new Set();
 
         const tbody = document.getElementById('disbTbody');
         const paginationControls = document.getElementById('paginationControls');
         const paginationInfo = document.getElementById('paginationInfo');
         const filterIndicator = document.getElementById('filterIndicator');
 
+        // ── Inject selectAll checkbox in header ──────────────────
+        const firstTh = document.querySelector('#disbTable thead tr th:first-child');
+        if (firstTh) firstTh.innerHTML = `<input type="checkbox" id="selectAllChk" title="Select All">`;
+
+        // ── Inject Send to Finance button ────────────────────────
+        const pageHeaderBtns = document.querySelector('.page-header .d-flex.gap-2');
+        if (pageHeaderBtns) {
+            const sendBtn = document.createElement('button');
+            sendBtn.id = 'sendToFinanceBtn';
+            sendBtn.className = 'btn btn-sm btn-warning';
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="bi bi-send"></i> Send to Finance <span id="selectedCount" class="badge bg-dark ms-1">0</span>';
+            pageHeaderBtns.insertBefore(sendBtn, pageHeaderBtns.firstChild);
+        }
+
+        function updateSelectedCount() {
+            const badge = document.getElementById('selectedCount');
+            const sendBtn = document.getElementById('sendToFinanceBtn');
+            if (badge) badge.textContent = selectedIds.size;
+            if (sendBtn) sendBtn.disabled = selectedIds.size === 0;
+        }
+
         function escapeHtml(text) {
             if (!text) return '';
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
         }
 
         function showAlert(message, type = 'danger') {
-            const icon = type === 'success' ? 'success' : type === 'warning' ? 'warning' : type === 'info' ? 'info' : 'error';
-            const title = type === 'success' ? 'Success!' : type === 'warning' ? 'Warning!' : type === 'info' ? 'Info' : 'Error!';
-
             Swal.fire({
-                icon: icon,
-                title: title,
+                icon: type === 'success' ? 'success' : type === 'warning' ? 'warning' : type === 'info' ? 'info' : 'error',
+                title: type === 'success' ? 'Success!' : type === 'warning' ? 'Warning!' : type === 'info' ? 'Info' : 'Error!',
                 text: message,
                 toast: true,
                 position: 'top-end',
@@ -672,7 +666,7 @@ include(__DIR__ . '/../inc/sidebar.php');
             const params = new URLSearchParams({
                 action: 'list',
                 page: currentPage,
-                limit: limit,
+                limit,
                 search: currentFilters.search,
                 status: currentFilters.status,
                 fund: currentFilters.fund,
@@ -680,23 +674,21 @@ include(__DIR__ . '/../inc/sidebar.php');
                 cardFilter: currentFilters.cardFilter
             });
 
-            tbody.innerHTML = '<tr><td colspan="10" class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
 
             fetch('ajax_disbursement.php?' + params)
                 .then(r => {
-                    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
                     return r.text();
                 })
                 .then(text => {
                     try {
                         return JSON.parse(text);
                     } catch (e) {
-                        console.error('Invalid JSON response:', text);
-                        throw new Error('Server returned invalid JSON. Check console for details.');
+                        throw new Error('Invalid JSON response');
                     }
                 })
                 .then(data => {
-                    console.log('Received data:', data);
                     if (data.error) throw new Error(data.message || 'Server error');
                     allDisbursements = data.all_disbursements || data.disbursements || [];
                     renderTable(data);
@@ -705,50 +697,46 @@ include(__DIR__ . '/../inc/sidebar.php');
                 })
                 .catch(err => {
                     console.error('Fetch error:', err);
-                    showError('Failed to fetch data: ' + err.message);
+                    tbody.innerHTML = `<tr><td colspan="11" class="text-center text-danger">
+                    <i class="bi bi-exclamation-triangle"></i> ${escapeHtml(err.message)}
+                    <br><small class="text-muted">Check console (F12)</small>
+                </td></tr>`;
                     showAlert(err.message, 'danger');
                 });
         }
 
-        function showError(message) {
-            tbody.innerHTML = `<tr><td colspan="10" class="text-center text-danger">
-            <i class="bi bi-exclamation-triangle"></i> ${escapeHtml(message)}
-            <br><small class="text-muted mt-2">Check the browser console (F12) for more details</small>
-        </td></tr>`;
-        }
-
         function updateFilterIndicator() {
-            const filterTexts = {
-                'all': '',
+            const texts = {
                 'Released': 'Released Only',
                 'Pending': 'Pending Only',
                 'Cancelled': 'Cancelled Only'
             };
             if (currentFilters.cardFilter !== 'all') {
-                filterIndicator.textContent = filterTexts[currentFilters.cardFilter];
+                filterIndicator.textContent = texts[currentFilters.cardFilter] || currentFilters.cardFilter;
                 filterIndicator.style.display = 'inline-block';
-                filterIndicator.className = 'badge ms-2 ' + (currentFilters.cardFilter === 'Released' ? 'bg-success' :
-                    currentFilters.cardFilter === 'Pending' ? 'bg-warning text-dark' : 'bg-danger');
+                filterIndicator.className = 'badge ms-2 ' + (
+                    currentFilters.cardFilter === 'Released' ? 'bg-success' :
+                    currentFilters.cardFilter === 'Pending' ? 'bg-warning text-dark' : 'bg-danger'
+                );
             } else {
                 filterIndicator.style.display = 'none';
             }
         }
 
         function populateFundSources(sources) {
-            const fundFilter = document.getElementById('fundFilter');
-            const currentValue = fundFilter.value;
-            fundFilter.innerHTML = '<option value="">All Funds</option>';
-            sources.forEach(source => {
-                const option = document.createElement('option');
-                option.value = source;
-                option.textContent = source;
-                fundFilter.appendChild(option);
+            const ff = document.getElementById('fundFilter');
+            const cv = ff.value;
+            ff.innerHTML = '<option value="">All Funds</option>';
+            sources.forEach(s => {
+                const o = document.createElement('option');
+                o.value = s;
+                o.textContent = s;
+                ff.appendChild(o);
             });
-            fundFilter.value = currentValue;
+            ff.value = cv;
         }
 
         function renderTable(data) {
-            // Update summary cards
             document.getElementById('card_total').textContent = data.summary?.total || 0;
             document.getElementById('card_released').textContent = data.summary?.released || 0;
             document.getElementById('card_pending').textContent = data.summary?.pending || 0;
@@ -756,19 +744,18 @@ include(__DIR__ . '/../inc/sidebar.php');
                 minimumFractionDigits: 2
             });
 
-            // Update record count
-            const start = (currentPage - 1) * limit + 1;
-            const end = Math.min(currentPage * limit, data.pagination?.total_records || 0);
             const total = data.pagination?.total_records || 0;
+            const start = (currentPage - 1) * limit + 1;
+            const end = Math.min(currentPage * limit, total);
             document.getElementById('recordCount').textContent = total > 0 ? `Showing ${start}-${end} of ${total} records` : 'No records found';
 
-            // Render table rows
             tbody.innerHTML = '';
             if (data.disbursements?.length > 0) {
                 data.disbursements.forEach(d => {
                     const statusBadge = d.status === 'Released' ? 'bg-success' : d.status === 'Cancelled' ? 'bg-danger' : 'bg-warning text-dark';
                     const row = document.createElement('tr');
                     row.innerHTML = `
+                    <td><input type="checkbox" class="row-select-chk" data-id="${d.disbursement_id}" ${selectedIds.has(d.disbursement_id) ? 'checked' : ''}></td>
                     <td>${escapeHtml(String(d.disbursement_id))}</td>
                     <td>${escapeHtml(String(d.loan_id))}</td>
                     <td>${escapeHtml(d.member_name || 'N/A')}</td>
@@ -788,26 +775,24 @@ include(__DIR__ . '/../inc/sidebar.php');
                                 <i class="bi bi-check-circle"></i>
                             </button>` : ''}
                         </div>
-                    </td>
-                `;
+                    </td>`;
                     tbody.appendChild(row);
                 });
-
                 document.querySelectorAll('.view-disb-btn').forEach(btn => btn.addEventListener('click', onViewDisbursement));
                 document.querySelectorAll('.approve-btn').forEach(btn => btn.addEventListener('click', onApproveDisbursement));
             } else {
-                const filterMsg = currentFilters.cardFilter !== 'all' ? ` matching "${filterIndicator.textContent}"` : '';
-                tbody.innerHTML = `<tr><td colspan="10" class="text-center text-muted"><i class="bi bi-inbox"></i> No disbursements found${filterMsg}</td></tr>`;
+                const fm = currentFilters.cardFilter !== 'all' ? ` matching "${filterIndicator.textContent}"` : '';
+                tbody.innerHTML = `<tr><td colspan="11" class="text-center text-muted"><i class="bi bi-inbox"></i> No disbursements found${fm}</td></tr>`;
             }
 
             renderPagination(data.pagination?.current_page || 1, data.pagination?.total_pages || 1);
+            updateSelectedCount();
         }
 
         function renderPagination(current, total) {
             paginationControls.innerHTML = '';
             paginationInfo.textContent = total > 0 ? `Page ${current} of ${total}` : '';
             if (total <= 1) return;
-
             const prev = document.createElement('button');
             prev.textContent = 'Prev';
             prev.className = 'btn btn-sm btn-outline-primary';
@@ -817,7 +802,6 @@ include(__DIR__ . '/../inc/sidebar.php');
                 loadData();
             };
             paginationControls.appendChild(prev);
-
             const next = document.createElement('button');
             next.textContent = 'Next';
             next.className = 'btn btn-sm btn-outline-primary';
@@ -832,91 +816,158 @@ include(__DIR__ . '/../inc/sidebar.php');
         function onViewDisbursement(e) {
             const id = e.currentTarget.dataset.id;
             const disb = allDisbursements.find(d => d.disbursement_id == id);
-            if (disb) {
-                document.getElementById('view_disb_id').textContent = disb.disbursement_id || '';
-                document.getElementById('view_loan_id').textContent = disb.loan_id || '';
-                document.getElementById('view_member').textContent = disb.member_name || 'N/A';
-                document.getElementById('view_date').textContent = disb.disbursement_date || '';
-                document.getElementById('view_amount').textContent = '₱' + Number(disb.amount || 0).toLocaleString('en-PH', {
-                    minimumFractionDigits: 2
-                });
-                document.getElementById('view_fund').textContent = disb.fund_source || '-';
-                document.getElementById('view_status').innerHTML = `<span class="badge bg-${disb.status === 'Released' ? 'success' : disb.status === 'Cancelled' ? 'danger' : 'warning'}">${escapeHtml(disb.status)}</span>`;
-                document.getElementById('view_approved').textContent = disb.approved_by_name || '-';
-                document.getElementById('view_remarks').textContent = disb.remarks || 'No remarks';
-                new bootstrap.Modal(document.getElementById('disbModal')).show();
-            }
+            if (!disb) return;
+            document.getElementById('view_disb_id').textContent = disb.disbursement_id || '';
+            document.getElementById('view_loan_id').textContent = disb.loan_id || '';
+            document.getElementById('view_member').textContent = disb.member_name || 'N/A';
+            document.getElementById('view_date').textContent = disb.disbursement_date || '';
+            document.getElementById('view_amount').textContent = '₱' + Number(disb.amount || 0).toLocaleString('en-PH', {
+                minimumFractionDigits: 2
+            });
+            document.getElementById('view_fund').textContent = disb.fund_source || '-';
+            document.getElementById('view_status').innerHTML = `<span class="badge bg-${disb.status === 'Released' ? 'success' : disb.status === 'Cancelled' ? 'danger' : 'warning'}">${escapeHtml(disb.status)}</span>`;
+            document.getElementById('view_approved').textContent = disb.approved_by_name || '-';
+            document.getElementById('view_remarks').textContent = disb.remarks || 'No remarks';
+            new bootstrap.Modal(document.getElementById('disbModal')).show();
         }
 
         function onApproveDisbursement(e) {
             const id = e.currentTarget.dataset.id;
-
             Swal.fire({
                 title: 'Approve Disbursement?',
-                text: `Are you sure you want to approve disbursement ${id}?`,
+                text: `Approve disbursement ${id}?`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#198754',
                 cancelButtonColor: '#6c757d',
                 confirmButtonText: 'Yes, approve it!',
                 cancelButtonText: 'Cancel'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Processing...',
-                        text: 'Please wait',
-                        allowOutsideClick: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
-
-                    fetch('disbursement_action.php', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/x-www-form-urlencoded',
-                                'X-Requested-With': 'XMLHttpRequest'
-                            },
-                            body: new URLSearchParams({
-                                action: 'approve',
-                                id: id
-                            }),
-                            credentials: 'same-origin'
-                        })
-                        .then(r => {
-                            if (!r.ok) {
-                                throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-                            }
-                            return r.json();
-                        })
-                        .then(res => {
-                            Swal.close();
-                            if (res.status === 'ok') {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Approved!',
-                                    text: 'Disbursement has been approved successfully.',
-                                    timer: 2000,
-                                    showConfirmButton: false
-                                });
-                                loadData();
-                            } else {
-                                throw new Error(res.msg || 'Failed to approve');
-                            }
-                        })
-                        .catch(err => {
-                            console.error(err);
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                Swal.fire({
+                    title: 'Processing...',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+                fetch('disbursement_action.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: new URLSearchParams({
+                            action: 'approve',
+                            id
+                        }),
+                        credentials: 'same-origin'
+                    })
+                    .then(r => {
+                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                        return r.json();
+                    })
+                    .then(res => {
+                        Swal.close();
+                        if (res.status === 'ok') {
                             Swal.fire({
-                                icon: 'error',
-                                title: 'Failed!',
-                                text: err.message || 'Failed to approve disbursement'
+                                icon: 'success',
+                                title: 'Approved!',
+                                text: 'Disbursement approved.',
+                                timer: 2000,
+                                showConfirmButton: false
                             });
-                        });
-                }
+                            loadData();
+                        } else throw new Error(res.msg || 'Failed to approve');
+                    })
+                    .catch(err => Swal.fire({
+                        icon: 'error',
+                        title: 'Failed!',
+                        text: err.message
+                    }));
             });
         }
 
-        // Clickable stat cards
+        // ── Checkbox: Select All ─────────────────────────────────
+        document.addEventListener('change', function(e) {
+            if (e.target.id === 'selectAllChk') {
+                document.querySelectorAll('.row-select-chk').forEach(chk => {
+                    chk.checked = e.target.checked;
+                    const id = parseInt(chk.dataset.id);
+                    e.target.checked ? selectedIds.add(id) : selectedIds.delete(id);
+                });
+                updateSelectedCount();
+                return;
+            }
+            if (e.target.classList.contains('row-select-chk')) {
+                const id = parseInt(e.target.dataset.id);
+                e.target.checked ? selectedIds.add(id) : selectedIds.delete(id);
+                updateSelectedCount();
+                const all = document.querySelectorAll('.row-select-chk');
+                const checked = document.querySelectorAll('.row-select-chk:checked');
+                const sa = document.getElementById('selectAllChk');
+                if (sa) {
+                    sa.indeterminate = checked.length > 0 && checked.length < all.length;
+                    sa.checked = all.length > 0 && checked.length === all.length;
+                }
+            }
+        });
+
+        // ── Send to Finance ──────────────────────────────────────
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('#sendToFinanceBtn')) return;
+            if (selectedIds.size === 0) return;
+            Swal.fire({
+                title: 'Send to Finance?',
+                html: `Ipapadala ang <strong>${selectedIds.size}</strong> record(s) sa Financial Team (Core1).`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#f59e0b',
+                confirmButtonText: '<i class="bi bi-send"></i> Yes, Send Now',
+                cancelButtonText: 'Cancel'
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                Swal.fire({
+                    title: 'Sending...',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+                fetch('send_to_finance.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            action: 'send',
+                            disbursement_ids: Array.from(selectedIds)
+                        }),
+                        credentials: 'same-origin'
+                    })
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Sent!',
+                                html: `<strong>${res.records_sent}</strong> record(s) sent to Core1.`,
+                                timer: 3000,
+                                showConfirmButton: false
+                            });
+                            selectedIds.clear();
+                            updateSelectedCount();
+                            const sa = document.getElementById('selectAllChk');
+                            if (sa) {
+                                sa.checked = false;
+                                sa.indeterminate = false;
+                            }
+                            loadData();
+                        } else {
+                            Swal.fire('Send Failed', res.message || 'Unknown error', 'error');
+                        }
+                    })
+                    .catch(err => Swal.fire('Error', 'Failed: ' + err.message, 'error'));
+            });
+        });
+
+        // ── Stat card clicks ─────────────────────────────────────
         document.querySelectorAll('.stat-card').forEach(card => {
             card.addEventListener('click', function() {
                 const filter = this.dataset.filter;
@@ -941,37 +992,31 @@ include(__DIR__ . '/../inc/sidebar.php');
             };
         }
 
-        // Filter event listeners
-        document.getElementById('searchInput').addEventListener('input', debounce((e) => {
+        document.getElementById('searchInput').addEventListener('input', debounce(e => {
             currentFilters.search = e.target.value.trim();
             currentPage = 1;
             loadData();
         }, 500));
-
-        document.getElementById('statusFilter').addEventListener('change', (e) => {
+        document.getElementById('statusFilter').addEventListener('change', e => {
             currentFilters.status = e.target.value;
             currentPage = 1;
             loadData();
         });
-
-        document.getElementById('fundFilter').addEventListener('change', (e) => {
+        document.getElementById('fundFilter').addEventListener('change', e => {
             currentFilters.fund = e.target.value;
             currentPage = 1;
             loadData();
         });
-
-        document.getElementById('dateFilter').addEventListener('change', (e) => {
+        document.getElementById('dateFilter').addEventListener('change', e => {
             currentFilters.date = e.target.value;
             currentPage = 1;
             loadData();
         });
-
-        document.getElementById('rowsPerPage').addEventListener('change', (e) => {
+        document.getElementById('rowsPerPage').addEventListener('change', e => {
             limit = parseInt(e.target.value);
             currentPage = 1;
             loadData();
         });
-
         document.getElementById('clearFilters').addEventListener('click', () => {
             currentFilters = {
                 search: '',
@@ -980,441 +1025,196 @@ include(__DIR__ . '/../inc/sidebar.php');
                 date: '',
                 cardFilter: 'all'
             };
-            document.getElementById('searchInput').value = '';
-            document.getElementById('statusFilter').value = '';
-            document.getElementById('fundFilter').value = '';
-            document.getElementById('dateFilter').value = '';
+            ['searchInput', 'statusFilter', 'fundFilter', 'dateFilter'].forEach(id => document.getElementById(id).value = '');
             document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
             currentPage = 1;
             loadData();
         });
-
         document.getElementById('reloadBtn').addEventListener('click', () => loadData());
 
-        // Export PDF
+        // ── Sync Core1 (manual) ──────────────────────────────────
+        document.getElementById('syncStatusBtn').addEventListener('click', function() {
+            const btn = this;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Syncing...';
+            fetch('poll_core1_disbursements.php', {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success) {
+                        Swal.fire({
+                            icon: res.updated > 0 ? 'success' : 'info',
+                            title: 'Core1 Sync Complete',
+                            html: (res.updated > 0 ? `✅ ${res.updated} updated!` : `ℹ️ Already in sync.`) +
+                                `<br><small class="text-muted">${res.message}</small>`,
+                            timer: 4000,
+                            showConfirmButton: false
+                        });
+                        if (res.updated > 0) loadData();
+                    } else {
+                        Swal.fire('Sync Failed', res.message, 'error');
+                    }
+                })
+                .catch(err => Swal.fire('Error', 'Sync failed: ' + err.message, 'error'))
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="bi bi-cloud-download"></i> Sync Core1';
+                });
+        });
+
+        // ── Auto-poll Core1 every 5 minutes ─────────────────────
+        function autoPollCore1() {
+            fetch('poll_core1_disbursements.php', {
+                    method: 'GET',
+                    credentials: 'same-origin'
+                })
+                .then(r => r.json())
+                .then(res => {
+                    if (res.success && res.updated > 0) {
+                        loadData();
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Status Updated',
+                            html: `<small>${res.updated} disbursement(s) synced from Core1.</small>`,
+                            toast: true,
+                            position: 'bottom-end',
+                            timer: 4000,
+                            showConfirmButton: false
+                        });
+                    }
+                })
+                .catch(() => {}); // silent fail
+        }
+        setInterval(autoPollCore1, 5 * 60 * 1000);
+        setTimeout(autoPollCore1, 10000);
+
+        // ── Export PDF ───────────────────────────────────────────
         document.getElementById('exportPdfBtn').addEventListener('click', async function() {
-            const passwordPrompt = await Swal.fire({
+            const prompt = await Swal.fire({
                 title: 'Protect PDF Export',
-                text: 'Enter a password before exporting this PDF.',
+                text: 'Enter a password before exporting.',
                 input: 'password',
                 inputLabel: 'PDF Password',
                 inputPlaceholder: 'At least 6 characters',
                 showCancelButton: true,
                 confirmButtonText: 'Export PDF',
                 cancelButtonText: 'Cancel',
-                inputValidator: (value) => (!value || value.trim().length < 6) ? 'Please enter at least 6 characters.' : null
+                inputValidator: v => (!v || v.trim().length < 6) ? 'At least 6 characters.' : null
             });
-
-            if (!passwordPrompt.isConfirmed) return;
-            const pdfPassword = passwordPrompt.value;
-
-            const params = new URLSearchParams({
-                export: 'pdf',
-                search: currentFilters.search,
-                status: currentFilters.status,
-                fund: currentFilters.fund,
-                date: currentFilters.date,
-                cardFilter: currentFilters.cardFilter,
-                pdf_password: pdfPassword
-            });
-
-            const btn = this;
-            const originalHTML = btn.innerHTML;
+            if (!prompt.isConfirmed) return;
+            const btn = this,
+                orig = btn.innerHTML;
             btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
             btn.disabled = true;
-
             try {
-                const url = `disbursement_action.php?${params.toString()}`;
-
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('Export failed');
-
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Export failed');
+                const params = new URLSearchParams({
+                    export: 'pdf',
+                    search: currentFilters.search,
+                    status: currentFilters.status,
+                    fund: currentFilters.fund,
+                    date: currentFilters.date,
+                    cardFilter: currentFilters.cardFilter,
+                    pdf_password: prompt.value
+                });
+                const res = await fetch(`disbursement_action.php?${params}`);
+                if (!res.ok) throw new Error('Export failed');
+                const ct = res.headers.get('content-type');
+                if (ct?.includes('application/json')) {
+                    const e = await res.json();
+                    throw new Error(e.message || 'Export failed');
                 }
-
-                const blob = await response.blob();
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                a.download = `disbursement_tracker_${new Date().toISOString().split('T')[0]}.pdf`;
+                const blob = await res.blob(),
+                    url = URL.createObjectURL(blob),
+                    a = document.createElement('a');
+                a.href = url;
+                a.download = `disbursement_${new Date().toISOString().split('T')[0]}.pdf`;
                 document.body.appendChild(a);
                 a.click();
-                window.URL.revokeObjectURL(downloadUrl);
+                URL.revokeObjectURL(url);
                 a.remove();
-
                 Swal.fire({
                     icon: 'success',
                     title: 'PDF Exported',
-                    text: 'Use your entered password to open the PDF.',
+                    text: 'Use your password to open it.',
                     timer: 3000,
                     showConfirmButton: false
                 });
-            } catch (error) {
+            } catch (err) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Export Failed',
-                    text: error.message
+                    text: err.message
                 });
             } finally {
-                btn.innerHTML = originalHTML;
+                btn.innerHTML = orig;
                 btn.disabled = false;
             }
         });
 
-        // Export Excel/CSV
+        // ── Export Excel ─────────────────────────────────────────
         document.getElementById('exportExcelBtn').addEventListener('click', async function() {
-            const passwordPrompt = await Swal.fire({
+            const prompt = await Swal.fire({
                 title: 'Protect Excel Export',
-                text: 'Enter a password to encrypt this Excel/CSV export in a ZIP file.',
+                text: 'Enter a password to encrypt the ZIP file.',
                 input: 'password',
                 inputLabel: 'Export Password',
                 inputPlaceholder: 'At least 6 characters',
                 showCancelButton: true,
                 confirmButtonText: 'Export Excel',
                 cancelButtonText: 'Cancel',
-                inputValidator: (value) => (!value || value.trim().length < 6) ? 'Please enter at least 6 characters.' : null
+                inputValidator: v => (!v || v.trim().length < 6) ? 'At least 6 characters.' : null
             });
-
-            if (!passwordPrompt.isConfirmed) return;
-            const pdfPassword = passwordPrompt.value;
-
-            const params = new URLSearchParams({
-                export: 'csv',
-                search: currentFilters.search,
-                status: currentFilters.status,
-                fund: currentFilters.fund,
-                date: currentFilters.date,
-                cardFilter: currentFilters.cardFilter,
-                pdf_password: pdfPassword
-            });
-
-            const btn = this;
-            const originalHTML = btn.innerHTML;
+            if (!prompt.isConfirmed) return;
+            const btn = this,
+                orig = btn.innerHTML;
             btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Processing...';
             btn.disabled = true;
-
             try {
-                const url = `disbursement_action.php?${params.toString()}`;
-
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('Export failed');
-
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Export failed');
+                const params = new URLSearchParams({
+                    export: 'csv',
+                    search: currentFilters.search,
+                    status: currentFilters.status,
+                    fund: currentFilters.fund,
+                    date: currentFilters.date,
+                    cardFilter: currentFilters.cardFilter,
+                    pdf_password: prompt.value
+                });
+                const res = await fetch(`disbursement_action.php?${params}`);
+                if (!res.ok) throw new Error('Export failed');
+                const ct = res.headers.get('content-type');
+                if (ct?.includes('application/json')) {
+                    const e = await res.json();
+                    throw new Error(e.message || 'Export failed');
                 }
-
-                const blob = await response.blob();
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                const extension = pdfPassword ? 'zip' : 'csv';
-                a.download = `disbursement_tracker_${new Date().toISOString().split('T')[0]}.${extension}`;
+                const blob = await res.blob(),
+                    url = URL.createObjectURL(blob),
+                    a = document.createElement('a');
+                a.href = url;
+                a.download = `disbursement_${new Date().toISOString().split('T')[0]}.${prompt.value ? 'zip' : 'csv'}`;
                 document.body.appendChild(a);
                 a.click();
-                window.URL.revokeObjectURL(downloadUrl);
+                URL.revokeObjectURL(url);
                 a.remove();
-
                 Swal.fire({
                     icon: 'success',
                     title: 'Excel Exported',
-                    text: pdfPassword ? 'The ZIP file is password protected.' : 'File downloaded successfully.',
+                    text: prompt.value ? 'ZIP is password protected.' : 'File downloaded.',
                     timer: 3000,
                     showConfirmButton: false
                 });
-            } catch (error) {
+            } catch (err) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Export Failed',
-                    text: error.message
+                    text: err.message
                 });
             } finally {
-                btn.innerHTML = originalHTML;
+                btn.innerHTML = orig;
                 btn.disabled = false;
             }
         });
-
-        // ─── 1. ADD CHECKBOX SA TABLE HEADER ─────────────────────────
-        const disbTableHead = document.querySelector('#disbTable thead tr');
-        if (disbTableHead) {
-            const th = document.createElement('th');
-            th.innerHTML = `<input type="checkbox" id="selectAllChk" title="Select All">`;
-            disbTableHead.insertBefore(th, disbTableHead.firstChild);
-        }
-
-        // ─── 2. ADD BUTTONS SA PAGE HEADER ───────────────────────────
-        const pageHeaderBtns = document.querySelector('.page-header .d-flex.gap-2');
-        if (pageHeaderBtns) {
-            const sendBtn = document.createElement('button');
-            sendBtn.id = 'sendToFinanceBtn';
-            sendBtn.className = 'btn btn-sm btn-warning';
-            sendBtn.disabled = true;
-            sendBtn.innerHTML = '<i class="bi bi-send"></i> Send to Finance <span id="selectedCount" class="badge bg-dark ms-1">0</span>';
-            pageHeaderBtns.insertBefore(sendBtn, pageHeaderBtns.firstChild);
-
-            const manageKeysBtn = document.createElement('button');
-            manageKeysBtn.id = 'manageApiKeysBtn';
-            manageKeysBtn.className = 'btn btn-sm btn-outline-light';
-            manageKeysBtn.innerHTML = '<i class="bi bi-key"></i> API Keys';
-            pageHeaderBtns.insertBefore(manageKeysBtn, pageHeaderBtns.firstChild);
-        }
-
-        // ─── 3. TRACK SELECTED IDS ────────────────────────────────────
-        let selectedIds = new Set();
-
-        function updateSelectedCount() {
-            const count = selectedIds.size;
-            const badge = document.getElementById('selectedCount');
-            const sendBtn = document.getElementById('sendToFinanceBtn');
-            if (badge) badge.textContent = count;
-            if (sendBtn) sendBtn.disabled = count === 0;
-        }
-
-        // ─── 4. ADD CHECKBOXES AFTER EACH loadData() CALL ────────────
-        // FIXED: Hindi na ini-override ang renderTable —
-        //        gumagamit ng MutationObserver para ma-detect
-        //        kapag nag-update ang tbody
-        const disbTbody = document.getElementById('disbTbody');
-
-        if (disbTbody) {
-            const observer = new MutationObserver(function() {
-                // Kapag nag-change ang tbody, dagdagan ng checkboxes ang mga rows
-                const rows = disbTbody.querySelectorAll('tr');
-                rows.forEach(row => {
-                    // Skip kung may checkbox na o kung "no records" row
-                    if (row.querySelector('.row-select-chk')) return;
-                    if (row.querySelector('td[colspan]')) return;
-
-                    const viewBtn = row.querySelector('.view-disb-btn');
-                    if (!viewBtn) return;
-
-                    const disbId = viewBtn.dataset.id;
-                    if (!disbId) return;
-
-                    const td = document.createElement('td');
-                    td.innerHTML = `<input type="checkbox" class="row-select-chk" data-id="${disbId}"
-                            ${selectedIds.has(parseInt(disbId)) ? 'checked' : ''}>`;
-                    row.insertBefore(td, row.firstChild);
-                });
-
-                updateSelectedCount();
-            });
-
-            observer.observe(disbTbody, {
-                childList: true,
-                subtree: false
-            });
-        }
-
-        // ─── 5. CHECKBOX EVENT LISTENERS ─────────────────────────────
-        document.addEventListener('change', function(e) {
-            // Select All
-            if (e.target.id === 'selectAllChk') {
-                const allChks = document.querySelectorAll('.row-select-chk');
-                allChks.forEach(chk => {
-                    chk.checked = e.target.checked;
-                    const id = parseInt(chk.dataset.id);
-                    if (e.target.checked) selectedIds.add(id);
-                    else selectedIds.delete(id);
-                });
-                updateSelectedCount();
-                return;
-            }
-
-            // Individual checkbox
-            if (e.target.classList.contains('row-select-chk')) {
-                const id = parseInt(e.target.dataset.id);
-                if (e.target.checked) selectedIds.add(id);
-                else selectedIds.delete(id);
-                updateSelectedCount();
-
-                // Sync selectAll state
-                const allChks = document.querySelectorAll('.row-select-chk');
-                const checkedChks = document.querySelectorAll('.row-select-chk:checked');
-                const selectAll = document.getElementById('selectAllChk');
-                if (selectAll) {
-                    selectAll.indeterminate = checkedChks.length > 0 && checkedChks.length < allChks.length;
-                    selectAll.checked = allChks.length > 0 && checkedChks.length === allChks.length;
-                }
-            }
-        });
-
-        // ─── 6. BUTTON CLICK HANDLERS ────────────────────────────────
-        document.addEventListener('click', function(e) {
-
-            // ── Send to Finance ──────────────────────────────────────
-            if (e.target.closest('#sendToFinanceBtn')) {
-                if (selectedIds.size === 0) return;
-
-                Swal.fire({
-                    title: 'Send to Finance?',
-                    html: `You are about to send <strong>${selectedIds.size}</strong> record(s) to the Financial Team.`,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#f59e0b',
-                    confirmButtonText: '<i class="bi bi-send"></i> Yes, Send Now',
-                    cancelButtonText: 'Cancel'
-                }).then(result => {
-                    if (!result.isConfirmed) return;
-
-                    Swal.fire({
-                        title: 'Sending...',
-                        allowOutsideClick: false,
-                        didOpen: () => Swal.showLoading()
-                    });
-
-                    fetch('send_to_finance.php', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                action: 'send',
-                                disbursement_ids: Array.from(selectedIds)
-                            }),
-                            credentials: 'same-origin'
-                        })
-                        .then(r => r.json())
-                        .then(res => {
-                            if (res.success) {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Sent Successfully!',
-                                    html: `<strong>${res.records_sent}</strong> record(s) sent to Financial Team.`,
-                                    timer: 3000,
-                                    showConfirmButton: false
-                                });
-                                // Clear selections
-                                selectedIds.clear();
-                                updateSelectedCount();
-                                const selectAll = document.getElementById('selectAllChk');
-                                if (selectAll) {
-                                    selectAll.checked = false;
-                                    selectAll.indeterminate = false;
-                                }
-                                loadData();
-                            } else {
-                                Swal.fire('Send Failed', res.message || 'Unknown error', 'error');
-                            }
-                        })
-                        .catch(err => {
-                            Swal.fire('Error', 'Failed to send: ' + err.message, 'error');
-                        });
-                });
-            }
-
-            // ── Manage API Keys ──────────────────────────────────────
-            if (e.target.closest('#manageApiKeysBtn')) {
-                fetch('send_to_finance.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            action: 'list_keys'
-                        }),
-                        credentials: 'same-origin'
-                    })
-                    .then(r => r.json())
-                    .then(res => {
-                        let keysHtml = '';
-                        if (res.keys && res.keys.length > 0) {
-                            keysHtml = `<table class="table table-sm table-bordered mt-2">
-                    <thead><tr><th>Label</th><th>Key (masked)</th><th>Last Used</th><th>Status</th></tr></thead><tbody>`;
-                            res.keys.forEach(k => {
-                                keysHtml += `<tr>
-                        <td>${k.label}</td>
-                        <td><code>${k.api_key}</code></td>
-                        <td>${k.last_used}</td>
-                        <td><span class="badge ${k.is_active ? 'bg-success' : 'bg-secondary'}">${k.is_active ? 'Active' : 'Inactive'}</span></td>
-                    </tr>`;
-                            });
-                            keysHtml += '</tbody></table>';
-                        } else {
-                            keysHtml = '<p class="text-muted mt-2">Wala pang API keys. Gumawa ng bago sa ibaba.</p>';
-                        }
-
-                        Swal.fire({
-                            title: '<i class="bi bi-key"></i> Financial Team API Keys',
-                            html: `
-                    <div class="text-start">
-                        <div class="alert alert-info p-2 small mb-2">
-                            <strong>Endpoint URL:</strong><br>
-                            <code>https://core2.microfinancial-1.com/api/financial/disbursements.php</code>
-                        </div>
-                        ${keysHtml}
-                        <hr>
-                        <label class="form-label fw-bold">Generate New Key:</label>
-                        <input type="text" id="newKeyLabel" class="form-control"
-                               placeholder="e.g. Financial Team - Accounting" value="Financial Team">
-                    </div>
-                `,
-                            showCancelButton: true,
-                            confirmButtonText: '<i class="bi bi-plus-circle"></i> Generate Key',
-                            confirmButtonColor: '#059669',
-                            cancelButtonText: 'Close',
-                            width: '620px'
-                        }).then(result => {
-                            if (!result.isConfirmed) return;
-                            const label = document.getElementById('newKeyLabel')?.value || 'Financial Team';
-
-                            fetch('send_to_finance.php', {
-                                    method: 'POST',
-                                    headers: {
-                                        'Content-Type': 'application/json'
-                                    },
-                                    body: JSON.stringify({
-                                        action: 'generate_key',
-                                        label
-                                    }),
-                                    credentials: 'same-origin'
-                                })
-                                .then(r => r.json())
-                                .then(res => {
-                                    if (res.success) {
-                                        Swal.fire({
-                                            title: '✅ API Key Generated!',
-                                            html: `
-                                <div class="text-start">
-                                    <div class="alert alert-success p-2 small">
-                                        <strong>Endpoint:</strong><br>
-                                        <code>${res.endpoint}</code>
-                                    </div>
-                                    <div class="alert alert-warning p-2">
-                                        <strong>API Key (isang beses lang makikita — kopyahin ngayon!):</strong><br>
-                                        <code>${res.api_key}</code>
-                                        <br>
-                                        <button class="btn btn-sm btn-dark mt-1"
-                                            onclick="navigator.clipboard.writeText('${res.api_key}');this.textContent='Copied!'">
-                                            <i class="bi bi-clipboard"></i> Copy Key
-                                        </button>
-                                    </div>
-                                    <div class="alert alert-info p-2 small">
-                                        <strong>Financial team usage (GET):</strong><br>
-                                        <code>${res.instructions?.GET ?? ''}</code>
-                                    </div>
-                                </div>
-                            `,
-                                            width: '620px',
-                                            confirmButtonText: 'Done'
-                                        });
-                                    } else {
-                                        Swal.fire('Error', res.message, 'error');
-                                    }
-                                });
-                        });
-                    })
-                    .catch(() => {
-                        Swal.fire('Error', 'Failed to load API keys', 'error');
-                    });
-            }
-
-        });
-
 
         // Initial load
         loadData();

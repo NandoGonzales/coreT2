@@ -73,7 +73,8 @@ try {
     $types = '';
 
     if (!empty($search)) {
-        $whereConditions[] = "(loan_id LIKE ? OR member_id LIKE ? OR fund_source LIKE ? OR remarks LIKE ?)";
+        // PATCHED: search by member full_name via JOIN
+        $whereConditions[] = "(d.loan_id LIKE ? OR m.full_name LIKE ? OR d.fund_source LIKE ? OR d.remarks LIKE ?)";
         $searchParam = "%{$search}%";
         $params[] = $searchParam;
         $params[] = $searchParam;
@@ -84,23 +85,23 @@ try {
 
     // Status filter (from dropdown OR card click)
     if (!empty($status)) {
-        $whereConditions[] = "status = ?";
+        $whereConditions[] = "d.status = ?";
         $params[] = $status;
         $types .= 's';
     } elseif ($cardFilter !== 'all' && in_array($cardFilter, ['Released', 'Pending', 'Cancelled'])) {
-        $whereConditions[] = "status = ?";
+        $whereConditions[] = "d.status = ?";
         $params[] = $cardFilter;
         $types .= 's';
     }
 
     if (!empty($fund)) {
-        $whereConditions[] = "fund_source = ?";
+        $whereConditions[] = "d.fund_source = ?";
         $params[] = $fund;
         $types .= 's';
     }
 
     if (!empty($date)) {
-        $whereConditions[] = "DATE(disbursement_date) >= ?";
+        $whereConditions[] = "DATE(d.disbursement_date) >= ?";
         $params[] = $date;
         $types .= 's';
     }
@@ -124,8 +125,8 @@ try {
     }
     $summary = $summaryResult->fetch_assoc();
 
-    // Get total count for pagination (WITH filters)
-    $countQuery = "SELECT COUNT(*) as total FROM disbursements {$whereClause}";
+    // PATCHED: count query now uses JOINs so WHERE aliases work
+    $countQuery = "SELECT COUNT(*) as total FROM disbursements d LEFT JOIN members m ON d.member_id = m.member_id LEFT JOIN users u ON d.approved_by = u.user_id {$whereClause}";
     
     if (!empty($params)) {
         $countStmt = $conn->prepare($countQuery);
@@ -145,8 +146,17 @@ try {
 
     $totalPages = ceil($totalRecords / $limit);
 
-    // Get disbursements with pagination (WITH filters)
-    $query = "SELECT * FROM disbursements {$whereClause} ORDER BY disbursement_date DESC, disbursement_id DESC LIMIT ? OFFSET ?";
+    // PATCHED: main query with LEFT JOIN to members + users
+    $query = "
+        SELECT d.*,
+            COALESCE(m.full_name, 'N/A') AS member_name,
+            COALESCE(u.full_name, 'Admin') AS approved_by_name
+        FROM disbursements d
+        LEFT JOIN members m ON d.member_id = m.member_id
+        LEFT JOIN users u ON d.approved_by = u.user_id
+        {$whereClause}
+        ORDER BY d.disbursement_date DESC, d.disbursement_id DESC LIMIT ? OFFSET ?
+    ";
     
     // Add limit and offset to params
     $queryParams = $params;
@@ -169,20 +179,29 @@ try {
             'disbursement_id' => $row['disbursement_id'],
             'loan_id' => $row['loan_id'],
             'member_id' => $row['member_id'] ?? '',
-            'member_name' => $row['member_id'] ?? 'N/A',
+            'member_name' => $row['member_name'] ?? 'N/A',       // PATCHED: was $row['member_id']
             'disbursement_date' => date('M d, Y', strtotime($row['disbursement_date'])),
             'amount' => floatval($row['amount']),
             'fund_source' => $row['fund_source'] ?? 'N/A',
             'status' => $row['status'],
             'approved_by' => $row['approved_by'] ?? 0,
-            'approved_by_name' => 'Admin',
+            'approved_by_name' => $row['approved_by_name'] ?? 'Admin', // PATCHED: was hardcoded 'Admin'
             'remarks' => $row['remarks'] ?? ''
         ];
     }
     $stmt->close();
 
-    // Get all disbursements for export (WITH filters)
-    $allQuery = "SELECT * FROM disbursements {$whereClause} ORDER BY disbursement_date DESC, disbursement_id DESC";
+    // PATCHED: all disbursements query also uses JOINs
+    $allQuery = "
+        SELECT d.*,
+            COALESCE(m.full_name, 'N/A') AS member_name,
+            COALESCE(u.full_name, 'Admin') AS approved_by_name
+        FROM disbursements d
+        LEFT JOIN members m ON d.member_id = m.member_id
+        LEFT JOIN users u ON d.approved_by = u.user_id
+        {$whereClause}
+        ORDER BY d.disbursement_date DESC, d.disbursement_id DESC
+    ";
     
     if (!empty($params)) {
         $allStmt = $conn->prepare($allQuery);
@@ -203,13 +222,13 @@ try {
             'disbursement_id' => $row['disbursement_id'],
             'loan_id' => $row['loan_id'],
             'member_id' => $row['member_id'] ?? '',
-            'member_name' => $row['member_id'] ?? 'N/A',
+            'member_name' => $row['member_name'] ?? 'N/A',       // PATCHED
             'disbursement_date' => date('M d, Y', strtotime($row['disbursement_date'])),
             'amount' => floatval($row['amount']),
             'fund_source' => $row['fund_source'] ?? 'N/A',
             'status' => $row['status'],
             'approved_by' => $row['approved_by'] ?? 0,
-            'approved_by_name' => 'Admin',
+            'approved_by_name' => $row['approved_by_name'] ?? 'Admin', // PATCHED
             'remarks' => $row['remarks'] ?? ''
         ];
     }
