@@ -402,7 +402,7 @@ include(__DIR__ . '/../inc/sidebar.php');
 <div class="main-wrap">
     <main class="main-content" id="main-content">
         <div class="container-fluid py-4">
-            
+
             <!-- Enhanced Header -->
             <div class="page-header">
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
@@ -539,14 +539,15 @@ include(__DIR__ . '/../inc/sidebar.php');
                             <select class="form-select" id="role_id" name="role_id" required>
                                 <option value="">Select Role</option>
                                 <?php foreach ($roles as $role): ?>
-                                    <option value="<?= $role['role_id'] ?>"><?= htmlspecialchars($role['role_name']) ?></option>
+                                    <option value="<?= $role['role_id'] ?>"><?= htmlspecialchars($role['role_name']) ?>
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         <div class="col-md-6">
                             <label for="module" class="form-label">Module <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="module" name="module" 
-                                   placeholder="e.g., User Management" list="moduleList" required>
+                            <input type="text" class="form-control" id="module" name="module"
+                                placeholder="e.g., User Management" list="moduleList" required>
                             <datalist id="moduleList">
                                 <option value="User Management">
                                 <option value="Loan Portfolio">
@@ -554,9 +555,9 @@ include(__DIR__ . '/../inc/sidebar.php');
                                 <option value="Disbursement Tracker">
                                 <option value="Repayment Tracker">
                                 <option value="Compliance & Audit Trail">
-                                <?php foreach ($modules as $module): ?>
+                                    <?php foreach ($modules as $module): ?>
                                     <option value="<?= htmlspecialchars($module) ?>">
-                                <?php endforeach; ?>
+                                    <?php endforeach; ?>
                             </datalist>
                         </div>
                     </div>
@@ -601,7 +602,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                 </div>
                 <div class="modal-footer">
                     <button type="submit" class="btn btn-success">
-                        <i class="bi bi-check-circle"></i> Save
+                        <i class="bi bi-check-circle"></i> Submit for Approval
                     </button>
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                         <i class="bi bi-x-circle"></i> Cancel
@@ -615,59 +616,59 @@ include(__DIR__ . '/../inc/sidebar.php');
 <?php include(__DIR__ . '/../inc/footer.php'); ?>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const tbody = document.querySelector('#permTable tbody');
-    const totalPermCount = document.getElementById('totalPermCount');
-    const roleCount = document.getElementById('roleCount');
-    const moduleCount = document.getElementById('moduleCount');
-    const filterRole = document.getElementById('filterRole');
-    const filterModule = document.getElementById('filterModule');
-    const clearFilterBtn = document.getElementById('clearFilter');
+    document.addEventListener('DOMContentLoaded', () => {
+        const tbody = document.querySelector('#permTable tbody');
+        const totalPermCount = document.getElementById('totalPermCount');
+        const roleCount = document.getElementById('roleCount');
+        const moduleCount = document.getElementById('moduleCount');
+        const filterRole = document.getElementById('filterRole');
+        const filterModule = document.getElementById('filterModule');
+        const clearFilterBtn = document.getElementById('clearFilter');
 
-    let allPermissions = [];
+        let allPermissions = [];
 
-    function loadPermissions() {
-      fetch('role_permissions_action.php', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            action: 'list'
-          })
-        })
-        .then(r => {
-          if (!r.ok) throw new Error('Network response was not ok');
-          return r.json();
-        })
-        .then(data => {
-          allPermissions = data;
-          displayPermissions(data);
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          Swal.fire('Error', 'Failed to load permissions', 'error');
-          tbody.innerHTML = '<tr><td colspan="7" class="text-danger"><i class="bi bi-exclamation-triangle"></i> Error loading permissions</td></tr>';
-        });
-    }
+        function loadPermissions() {
+            fetch('role_permissions_action.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    action: 'list'
+                })
+            })
+                .then(r => {
+                    if (!r.ok) throw new Error('Network response was not ok');
+                    return r.json();
+                })
+                .then(data => {
+                    allPermissions = data;
+                    displayPermissions(data);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire('Error', 'Failed to load permissions', 'error');
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-danger"><i class="bi bi-exclamation-triangle"></i> Error loading permissions</td></tr>';
+                });
+        }
 
-    function displayPermissions(data) {
-      tbody.innerHTML = '';
-      
-      if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="text-muted"><i class="bi bi-inbox"></i> No permissions defined yet</td></tr>';
-        totalPermCount.textContent = '0';
-        roleCount.textContent = '0';
-        moduleCount.textContent = '0';
-      } else {
-        let roles = new Set(),
-          modules = new Set();
-        
-        data.forEach(p => {
-          roles.add(p.role_name || p.role);
-          modules.add(p.module_name);
-          
-          tbody.innerHTML += `
+        function displayPermissions(data) {
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-muted"><i class="bi bi-inbox"></i> No permissions defined yet</td></tr>';
+                totalPermCount.textContent = '0';
+                roleCount.textContent = '0';
+                moduleCount.textContent = '0';
+            } else {
+                let roles = new Set(),
+                    modules = new Set();
+
+                data.forEach(p => {
+                    roles.add(p.role_name || p.role);
+                    modules.add(p.module_name);
+
+                    tbody.innerHTML += `
             <tr>
               <td><span class="badge bg-secondary">${escapeHtml(p.role_name || p.role)}</span></td>
               <td><strong>${escapeHtml(p.module_name)}</strong></td>
@@ -684,154 +685,164 @@ include(__DIR__ . '/../inc/sidebar.php');
                 </button>
               </td>
             </tr>`;
+                });
+
+                totalPermCount.textContent = data.length;
+                roleCount.textContent = roles.size;
+                moduleCount.textContent = modules.size;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function filterPermissions() {
+            const roleFilter = filterRole.value;
+            const moduleFilter = filterModule.value.toLowerCase();
+
+            const filtered = allPermissions.filter(p => {
+                const matchRole = !roleFilter || p.role_id == roleFilter;
+                const matchModule = !moduleFilter || p.module_name.toLowerCase().includes(moduleFilter);
+                return matchRole && matchModule;
+            });
+
+            displayPermissions(filtered);
+        }
+
+        // Event Listeners
+        filterRole.addEventListener('change', filterPermissions);
+        filterModule.addEventListener('change', filterPermissions);
+
+        clearFilterBtn.addEventListener('click', () => {
+            filterRole.value = '';
+            filterModule.value = '';
+            displayPermissions(allPermissions);
         });
-        
-        totalPermCount.textContent = data.length;
-        roleCount.textContent = roles.size;
-        moduleCount.textContent = modules.size;
-      }
-    }
 
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
+        loadPermissions();
 
-    function filterPermissions() {
-      const roleFilter = filterRole.value;
-      const moduleFilter = filterModule.value.toLowerCase();
-
-      const filtered = allPermissions.filter(p => {
-        const matchRole = !roleFilter || p.role_id == roleFilter;
-        const matchModule = !moduleFilter || p.module_name.toLowerCase().includes(moduleFilter);
-        return matchRole && matchModule;
-      });
-
-      displayPermissions(filtered);
-    }
-
-    // Event Listeners
-    filterRole.addEventListener('change', filterPermissions);
-    filterModule.addEventListener('change', filterPermissions);
-    
-    clearFilterBtn.addEventListener('click', () => {
-      filterRole.value = '';
-      filterModule.value = '';
-      displayPermissions(allPermissions);
-    });
-
-    loadPermissions();
-
-    document.getElementById('addPermissionBtn').addEventListener('click', () => {
-      document.getElementById('permForm').reset();
-      document.getElementById('permission_id').value = '';
-      document.getElementById('permModalLabel').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Add Permission';
-      new bootstrap.Modal(document.getElementById('permModal')).show();
-    });
-
-    tbody.addEventListener('click', e => {
-      if (e.target.closest('.editBtn')) {
-        const id = e.target.closest('.editBtn').dataset.id;
-        fetch('role_permissions_action.php', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-              action: 'get',
-              id
-            })
-          })
-          .then(r => r.json())
-          .then(p => {
-            document.getElementById('permission_id').value = p.perm_id;
-            document.getElementById('role_id').value = p.role_id;
-            document.getElementById('module').value = p.module_name;
-            document.getElementById('can_view').checked = p.can_view == 1;
-            document.getElementById('can_add').checked = p.can_add == 1;
-            document.getElementById('can_edit').checked = p.can_edit == 1;
-            document.getElementById('can_delete').checked = p.can_delete == 1;
-            document.getElementById('permModalLabel').innerHTML = '<i class="bi bi-pencil me-2"></i>Edit Permission';
+        document.getElementById('addPermissionBtn').addEventListener('click', () => {
+            document.getElementById('permForm').reset();
+            document.getElementById('permission_id').value = '';
+            document.getElementById('permModalLabel').innerHTML = '<i class="bi bi-plus-circle me-2"></i>Add Permission';
             new bootstrap.Modal(document.getElementById('permModal')).show();
-          })
-          .catch(error => {
-            console.error('Error:', error);
-            Swal.fire('Error', 'Failed to load permission details', 'error');
-          });
-      }
+        });
 
-      if (e.target.closest('.delBtn')) {
-        const id = e.target.closest('.delBtn').dataset.id;
-        
-        Swal.fire({
-          title: 'Delete Permission?',
-          text: "This action cannot be undone!",
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#d33',
-          cancelButtonColor: '#3085d6',
-          confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
-          if (result.isConfirmed) {
-            fetch('role_permissions_action.php', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: new URLSearchParams({
-                  action: 'delete',
-                  id
+        tbody.addEventListener('click', e => {
+            if (e.target.closest('.editBtn')) {
+                const id = e.target.closest('.editBtn').dataset.id;
+                fetch('role_permissions_action.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        action: 'get',
+                        id
+                    })
                 })
-              })
-              .then(r => r.json())
-              .then(response => {
-                if (response.success) {
-                  Swal.fire('Deleted!', 'Permission has been deleted.', 'success');
-                  loadPermissions();
-                } else {
-                  Swal.fire('Error', response.message || 'Failed to delete permission', 'error');
-                }
-              })
-              .catch(error => {
-                console.error('Error:', error);
-                Swal.fire('Error', 'Failed to delete permission', 'error');
-              });
-          }
-        });
-      }
-    });
+                    .then(r => r.json())
+                    .then(p => {
+                        document.getElementById('permission_id').value = p.perm_id;
+                        document.getElementById('role_id').value = p.role_id;
+                        document.getElementById('module').value = p.module_name;
+                        document.getElementById('can_view').checked = p.can_view == 1;
+                        document.getElementById('can_add').checked = p.can_add == 1;
+                        document.getElementById('can_edit').checked = p.can_edit == 1;
+                        document.getElementById('can_delete').checked = p.can_delete == 1;
+                        document.getElementById('permModalLabel').innerHTML = '<i class="bi bi-pencil me-2"></i>Edit Permission';
+                        new bootstrap.Modal(document.getElementById('permModal')).show();
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire('Error', 'Failed to load permission details', 'error');
+                    });
+            }
 
-    document.getElementById('permForm').addEventListener('submit', e => {
-      e.preventDefault();
-      const formData = new FormData(e.target);
-      const permId = document.getElementById('permission_id').value;
-      formData.append('action', permId ? 'edit' : 'add');
-      
-      // Convert checkboxes to 1/0
-      formData.set('can_view', document.getElementById('can_view').checked ? 1 : 0);
-      formData.set('can_add', document.getElementById('can_add').checked ? 1 : 0);
-      formData.set('can_edit', document.getElementById('can_edit').checked ? 1 : 0);
-      formData.set('can_delete', document.getElementById('can_delete').checked ? 1 : 0);
+            if (e.target.closest('.delBtn')) {
+                const id = e.target.closest('.delBtn').dataset.id;
 
-      fetch('role_permissions_action.php', {
-          method: 'POST',
-          body: formData
-        })
-        .then(r => r.json())
-        .then(response => {
-          if (response.success) {
-            Swal.fire('Success', response.message || 'Permission saved successfully', 'success');
-            loadPermissions();
-            bootstrap.Modal.getInstance(document.getElementById('permModal')).hide();
-          } else {
-            Swal.fire('Error', response.message || 'Failed to save permission', 'error');
-          }
-        })
-        .catch(error => {
-          console.error('Error:', error);
-          Swal.fire('Error', 'Failed to save permission', 'error');
+                Swal.fire({
+                    title: 'Delete Permission?',
+                    text: "This action cannot be undone!",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, delete it!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const arFd = new FormData();
+                        arFd.append('action', 'submit_request');
+                        arFd.append('user_id', '0'); // Not specific to one user usually
+                        arFd.append('request_type', 'role_permission_delete');
+                        arFd.append('request_data', JSON.stringify({ perm_id: id }));
+
+                        fetch('approval_action.php', {
+                            method: 'POST',
+                            body: arFd
+                        })
+                            .then(r => r.json())
+                            .then(response => {
+                                if (response.status === 'success') {
+                                    Swal.fire('Submitted!', 'Deletion request has been submitted for approval.', 'success');
+                                    loadPermissions();
+                                } else {
+                                    Swal.fire('Error', response.msg || 'Failed to submit deletion request', 'error');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                Swal.fire('Error', 'Failed to submit request', 'error');
+                            });
+                    }
+                });
+            }
+        });
+
+        document.getElementById('permForm').addEventListener('submit', e => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const permId = document.getElementById('permission_id').value;
+            const type = permId ? 'role_permission_edit' : 'role_permission_add';
+
+            const requestData = {
+                perm_id: permId,
+                role_id: formData.get('role_id'),
+                module: formData.get('module'),
+                can_view: document.getElementById('can_view').checked ? 1 : 0,
+                can_add: document.getElementById('can_add').checked ? 1 : 0,
+                can_edit: document.getElementById('can_edit').checked ? 1 : 0,
+                can_delete: document.getElementById('can_delete').checked ? 1 : 0
+            };
+
+            const arFd = new FormData();
+            arFd.append('action', 'submit_request');
+            arFd.append('user_id', '0');
+            arFd.append('request_type', type);
+            arFd.append('request_data', JSON.stringify(requestData));
+
+            fetch('approval_action.php', {
+                method: 'POST',
+                body: arFd
+            })
+                .then(r => r.json())
+                .then(response => {
+                    if (response.status === 'success') {
+                        Swal.fire('Submitted', 'The permission change request has been submitted for approval.', 'success');
+                        loadPermissions();
+                        bootstrap.Modal.getInstance(document.getElementById('permModal')).hide();
+                    } else {
+                        Swal.fire('Error', response.msg || 'Failed to submit request', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire('Error', 'Failed to submit request', 'error');
+                });
         });
     });
-  });
 </script>
