@@ -4,6 +4,7 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 
 // RBAC: only allow users with compliance_view permission
 require_once(__DIR__ . '/../inc/access_control.php');
+
 check_permission('compliance_view');
 
 // Layout
