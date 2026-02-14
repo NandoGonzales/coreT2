@@ -1,5 +1,6 @@
 <?php
-if (session_status() === PHP_SESSION_NONE) session_start();
+if (session_status() === PHP_SESSION_NONE)
+    session_start();
 require_once(__DIR__ . '/../initialize_coreT2.php');
 header('Content-Type: application/json; charset=utf-8');
 
@@ -35,10 +36,10 @@ try {
         case 'savings':
             $sql = "SELECT s.saving_id AS ID, m.full_name AS 'Member Name', 
                            s.amount AS Amount, s.transaction_type AS 'Type', 
-                           s.date AS 'Date Recorded'
+                           s.transaction_date AS 'Date Recorded'
                     FROM savings s
                     LEFT JOIN members m ON m.member_id = s.member_id
-                    ORDER BY s.date DESC";
+                    ORDER BY s.transaction_date DESC";
             break;
 
         // ---- DISBURSEMENTS ----
@@ -61,8 +62,8 @@ try {
                            ls.due_date AS 'Due Date'
                     FROM loan_portfolio l
                     LEFT JOIN members m ON m.member_id = l.member_id
-                    LEFT JOIN loan_schedules ls ON l.loan_id = ls.loan_id
-                    WHERE ls.payment_status = 'Overdue' AND ls.due_date < CURDATE()
+                    LEFT JOIN loan_schedule ls ON l.loan_id = ls.loan_id
+                    WHERE ls.status = 'Overdue' AND ls.due_date < CURDATE()
                     ORDER BY ls.due_date ASC";
             break;
 
@@ -98,7 +99,7 @@ try {
                            r.amount AS 'Amount',
                            r.method AS 'Payment Method',
                            r.repayment_date AS 'Payment Date'
-                    FROM loan_repayments r
+                    FROM repayments r
                     LEFT JOIN loan_portfolio l ON r.loan_id = l.loan_id
                     LEFT JOIN members m ON l.member_id = m.member_id
                     WHERE DATE(r.repayment_date) = '$today'
@@ -127,17 +128,19 @@ try {
             // Get column names
             $response['columns'] = array_keys($res->fetch_assoc());
             $res->data_seek(0); // reset pointer
-            
+
             // Get all rows
             while ($row = $res->fetch_assoc()) {
                 $response['rows'][] = $row;
             }
-        } else {
+        }
+        else {
             $response['rows'] = [];
         }
     }
 
-} catch (Throwable $e) {
+}
+catch (Throwable $e) {
     $response = ['status' => 'error', 'message' => $e->getMessage()];
 }
 
