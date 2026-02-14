@@ -11,7 +11,7 @@ require_once(__DIR__ . '/../../initialize_coreT2.php');
 
 // Header will be set per action
 
-// CHECK AUTHENTICATION - Your system uses $_SESSION['userdata']
+// CHECK AUTHENTICATION
 if (!isset($_SESSION['userdata']) || empty($_SESSION['userdata'])) {
     error_log("disbursement_action.php - Authentication failed - no userdata in session");
     http_response_code(401);
@@ -23,7 +23,7 @@ if (!isset($_SESSION['userdata']) || empty($_SESSION['userdata'])) {
     exit;
 }
 
-// Update last activity time (for your session timeout system)
+// Update last activity time
 if (isset($_SESSION['last_activity'])) {
     $_SESSION['last_activity'] = time();
 }
@@ -40,11 +40,63 @@ if (!isset($conn)) {
     exit;
 }
 
-// ----------------------------------------------------------------------
-// Load TCPDF only when needed to avoid fatal errors if library is missing
-// ----------------------------------------------------------------------
-function loadTCPDF()
-{
+// ══════════════════════════════════════════════════════════════
+// CORE1 SYNC CONFIGURATION
+// ══════════════════════════════════════════════════════════════
+define('CORE1_UPDATE_API', 'https://core1.microfinancial-1.com/api/disbursement/update_status.php');
+define('ENABLE_CORE1_SYNC', true); // Set to false to disable sync
+
+/**
+ * Send disbursement approval to Core1
+ */
+function syncToCore1($loanCode, $amount, $date, $approvedBy) {
+    if (!ENABLE_CORE1_SYNC || empty($loanCode)) {
+        return ['success' => false, 'message' => 'Sync disabled or no loan_code'];
+    }
+    
+    $payload = json_encode([
+        'loan_code' => $loanCode,
+        'disbursement_status' => 'disbursed',
+        'disbursement_date' => $date,
+        'disbursed_amount' => $amount,
+        'approved_by' => $approvedBy,
+        'source' => 'Core2 Financial'
+    ]);
+    
+    $ch = curl_init(CORE1_UPDATE_API);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Accept: application/json'
+        ]
+    ]);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+    
+    if ($curlError) {
+        return ['success' => false, 'message' => "cURL Error: $curlError", 'http_code' => 0];
+    }
+    
+    $responseData = json_decode($response, true);
+    
+    return [
+        'success' => ($httpCode === 200 && isset($responseData['success']) && $responseData['success']),
+        'message' => $responseData['message'] ?? 'Unknown response',
+        'http_code' => $httpCode,
+        'response' => $responseData
+    ];
+}
+
+// Load TCPDF only when needed
+function loadTCPDF() {
     if (class_exists('TCPDF')) return true;
 
     $paths = [
@@ -64,17 +116,11 @@ function loadTCPDF()
     return false;
 }
 
-/**
- * Send PDF as clean binary download to avoid corruption.
- */
-function outputPdfDownload($pdf, string $filename): void
-{
-    // Clear any previous output buffers to avoid corrupting PDF binary
+function outputPdfDownload($pdf, string $filename): void {
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
     
-    // Ensure no output happens before or after this
     ob_start();
     $binary = $pdf->Output($filename, 'S');
     ob_end_clean();
@@ -97,7 +143,9 @@ function outputPdfDownload($pdf, string $filename): void
 }
 
 try {
-    // Check if it's a PDF export request (GET)
+    // ══════════════════════════════════════════════════════════════
+    // PDF EXPORT
+    // ══════════════════════════════════════════════════════════════
     if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
         $search = isset($_GET['search']) ? trim($_GET['search']) : '';
         $statusFilter = isset($_GET['status']) ? trim($_GET['status']) : '';
@@ -115,10 +163,8 @@ try {
         }
 
         if (!class_exists('DisbursementExportPDF')) {
-            class DisbursementExportPDF extends TCPDF
-            {
-                public function Header(): void
-                {
+            class DisbursementExportPDF extends TCPDF {
+                public function Header(): void {
                     $leftMargin = 10;
                     $top = 8;
                     $width = 277;
@@ -138,8 +184,7 @@ try {
                     $this->Cell(0, 5, 'Disbursement Tracker Report', 0, 0, 'L');
                 }
 
-                public function Footer(): void
-                {
+                public function Footer(): void {
                     $this->SetY(-12);
                     $this->SetFont('helvetica', 'I', 8);
                     $this->SetTextColor(20, 83, 45);
@@ -247,9 +292,12 @@ try {
         outputPdfDownload($pdf, 'disbursement_tracker_' . date('Y-m-d_His') . '.pdf');
     }
 
-    // Check if it's a CSV export request (GET)
+    // ══════════════════════════════════════════════════════════════
+    // CSV EXPORT
+    // ══════════════════════════════════════════════════════════════
     if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         while (ob_get_level() > 0) ob_end_clean();
+        
         $search = $_GET['search'] ?? '';
         $status = $_GET['status'] ?? '';
         $fund = $_GET['fund'] ?? '';
@@ -257,7 +305,6 @@ try {
         $cardFilter = $_GET['cardFilter'] ?? 'all';
         $exportPassword = trim($_GET['pdf_password'] ?? '');
 
-        // Use the same filtering logic as PDF
         $where = ["1=1"];
         $params = [];
         $types = "";
@@ -303,9 +350,8 @@ try {
         $filename_base = 'disbursements_export_' . date('Y-m-d_His');
         $csv_filename = $filename_base . '.csv';
 
-        // Create CSV in memory
         $output = fopen('php://temp', 'r+');
-        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF)); // BOM
+        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
         fputcsv($output, ['ID', 'Loan ID', 'Member', 'Date', 'Amount', 'Fund Source', 'Approved By', 'Status', 'Remarks']);
         
         while ($row = $result->fetch_assoc()) {
@@ -347,17 +393,18 @@ try {
             }
         }
 
-        // Standard CSV download
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $csv_filename . '"');
         echo $csv_content;
         exit;
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // APPROVE ACTION
+    // ══════════════════════════════════════════════════════════════
     $action = $_POST['action'] ?? '';
     $disbursementId = $_POST['id'] ?? '';
     
-    // Get user ID from your session structure
     $userId = $_SESSION['userdata']['user_id'] ?? 0;
     $userName = $_SESSION['userdata']['full_name'] ?? 'Unknown User';
     
@@ -368,12 +415,22 @@ try {
     }
     
     if ($action === 'approve') {
-        // Start transaction for data integrity
         $conn->begin_transaction();
         
         try {
-            // Check if disbursement exists and is pending
-            $checkStmt = $conn->prepare("SELECT status, loan_id FROM disbursements WHERE disbursement_id = ?");
+            // Get disbursement details including loan_code
+            $checkStmt = $conn->prepare("
+                SELECT 
+                    d.status, 
+                    d.loan_id, 
+                    d.amount,
+                    d.disbursement_date,
+                    lp.loan_code
+                FROM disbursements d
+                LEFT JOIN loan_portfolio lp ON d.loan_id = lp.loan_id
+                WHERE d.disbursement_id = ?
+            ");
+            
             if (!$checkStmt) {
                 throw new Exception("Prepare failed: " . $conn->error);
             }
@@ -394,24 +451,30 @@ try {
                 throw new Exception('Only pending disbursements can be approved');
             }
             
-            // Check if approved_by column exists
+            $loanCode = $disbursement['loan_code'];
+            $amount = $disbursement['amount'];
+            $disbDate = $disbursement['disbursement_date'];
+            
+            // Update disbursement status
             $columnsResult = $conn->query("SHOW COLUMNS FROM disbursements LIKE 'approved_by'");
             
             if ($columnsResult && $columnsResult->num_rows > 0) {
-                // Column exists, update with approved_by
-                $updateStmt = $conn->prepare("UPDATE disbursements 
-                                             SET status = 'Released', 
-                                                 approved_by = ?
-                                             WHERE disbursement_id = ?");
+                $updateStmt = $conn->prepare("
+                    UPDATE disbursements 
+                    SET status = 'Released', 
+                        approved_by = ?
+                    WHERE disbursement_id = ?
+                ");
                 if (!$updateStmt) {
                     throw new Exception("Prepare update failed: " . $conn->error);
                 }
                 $updateStmt->bind_param('is', $userId, $disbursementId);
             } else {
-                // Column doesn't exist, update without approved_by
-                $updateStmt = $conn->prepare("UPDATE disbursements 
-                                             SET status = 'Released'
-                                             WHERE disbursement_id = ?");
+                $updateStmt = $conn->prepare("
+                    UPDATE disbursements 
+                    SET status = 'Released'
+                    WHERE disbursement_id = ?
+                ");
                 if (!$updateStmt) {
                     throw new Exception("Prepare update failed: " . $conn->error);
                 }
@@ -432,30 +495,80 @@ try {
                 throw new Exception('No rows were updated');
             }
             
-            // Log the action using your audit system
+            // ══════════════════════════════════════════════════════════════
+            // 🆕 SYNC TO CORE1
+            // ══════════════════════════════════════════════════════════════
+            $syncResult = null;
+            $syncMessage = '';
+            
+            if (!empty($loanCode) && ENABLE_CORE1_SYNC) {
+                $syncResult = syncToCore1($loanCode, $amount, $disbDate, $userName);
+                
+                // Create sync log table if not exists
+                $conn->query("
+                    CREATE TABLE IF NOT EXISTS disbursement_core1_sync_log (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        disbursement_id INT,
+                        loan_code VARCHAR(50),
+                        http_code INT DEFAULT 0,
+                        success TINYINT(1) DEFAULT 0,
+                        message TEXT,
+                        response TEXT,
+                        synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_disbursement_id (disbursement_id),
+                        INDEX idx_loan_code (loan_code)
+                    )
+                ");
+                
+                // Log sync attempt
+                $loanCodeEsc = $conn->real_escape_string($loanCode);
+                $msgEsc = $conn->real_escape_string($syncResult['message'] ?? '');
+                $respEsc = $conn->real_escape_string(json_encode($syncResult['response'] ?? []));
+                $httpCode = intval($syncResult['http_code'] ?? 0);
+                $syncSuccess = $syncResult['success'] ? 1 : 0;
+                
+                $conn->query("
+                    INSERT INTO disbursement_core1_sync_log 
+                        (disbursement_id, loan_code, http_code, success, message, response)
+                    VALUES 
+                        ($disbursementId, '$loanCodeEsc', $httpCode, $syncSuccess, '$msgEsc', '$respEsc')
+                ");
+                
+                if ($syncResult['success']) {
+                    $syncMessage = ' (Synced to Core1 ✓)';
+                    error_log("Core1 sync successful for loan_code: $loanCode");
+                } else {
+                    $syncMessage = ' (Core1 sync failed - will retry)';
+                    error_log("Core1 sync failed for loan_code: $loanCode - " . $syncResult['message']);
+                }
+            } elseif (empty($loanCode)) {
+                error_log("No loan_code found for disbursement_id: $disbursementId - cannot sync to Core1");
+                $syncMessage = ' (No loan_code - sync skipped)';
+            }
+            
+            // Log audit
             if (function_exists('log_audit')) {
                 log_audit(
                     $userId,
                     'Approve Disbursement',
                     'Disbursement Tracker',
                     $disbursementId,
-                    "User {$userName} approved disbursement #{$disbursementId} for loan #{$disbursement['loan_id']}"
+                    "User {$userName} approved disbursement #{$disbursementId}" . (!empty($loanCode) ? " for loan {$loanCode}" : "") . $syncMessage
                 );
             }
             
-            // Commit transaction
             $conn->commit();
             
-            error_log("disbursement_action.php - Disbursement {$disbursementId} approved successfully by user {$userId}");
+            error_log("disbursement_action.php - Disbursement {$disbursementId} approved successfully by user {$userId}" . $syncMessage);
             
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode([
                 'status' => 'ok', 
-                'msg' => 'Disbursement approved successfully'
+                'msg' => 'Disbursement approved successfully' . $syncMessage,
+                'core1_sync' => $syncResult
             ]);
             
         } catch (Exception $e) {
-            // Rollback on error
             $conn->rollback();
             throw $e;
         }
