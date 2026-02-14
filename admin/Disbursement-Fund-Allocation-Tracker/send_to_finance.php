@@ -28,10 +28,14 @@ if (!isset($_SESSION['userdata']) || empty($_SESSION['userdata'])) {
 $userId   = $_SESSION['userdata']['user_id']   ?? 0;
 $userName = $_SESSION['userdata']['full_name'] ?? 'Admin';
 
-// Core1 endpoint
-define('FINANCE_API_URL', 'https://core1.microfinancial-1.com/api/financial/disbursements.php');
+/**
+ * IMPORTANT:
+ * Use the REAL Core1 receiver endpoint that exists.
+ * Based on your folder, it is /api/loan/receive_disbursements.php (loan is singular)
+ */
+define('FINANCE_API_URL', 'https://core1.microfinancial-1.com/api/loan/receive_disbursements.php');
 
-// IMPORTANT: API KEY (do not commit this to public repo)
+// Optional: keep API key if you will add key validation later on Core1 receiver
 define('FINANCE_API_KEY', '5d5bc4b41d2c7f342844c9d64a248daff06310cce109b16402a6824d1bb5c5bb');
 
 // Create log table
@@ -50,7 +54,6 @@ try {
     $raw  = file_get_contents('php://input');
     $body = json_decode($raw, true);
 
-    // Fallback if not JSON
     if (!is_array($body)) $body = [];
 
     $action = trim($body['action'] ?? ($_POST['action'] ?? ''));
@@ -118,6 +121,7 @@ try {
         CURLOPT_HTTPHEADER     => [
             'Content-Type: application/json',
             'Accept: application/json',
+            // Optional header: keep for future if you secure Core1 receiver
             'X-API-Key: ' . FINANCE_API_KEY
         ]
     ]);
@@ -131,7 +135,6 @@ try {
         throw new Exception("Connection failed: {$curlError}");
     }
 
-    // If API returns errors, show body
     if ($httpCode !== 200 && $httpCode !== 201) {
         $errBody = json_decode($response, true);
         $msg = $errBody['message'] ?? $errBody['error'] ?? substr((string)$response, 0, 300);
@@ -150,7 +153,7 @@ try {
     while (@ob_end_clean());
     echo json_encode([
         'success'      => true,
-        'message'      => 'Successfully sent ' . count($records) . ' record(s) to Financial Team (Core1)',
+        'message'      => 'Successfully sent ' . count($records) . ' record(s) to Core1 receiver',
         'records_sent' => count($records),
         'api_response' => json_decode($response, true) ?? $response
     ]);
