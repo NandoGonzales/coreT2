@@ -1,25 +1,37 @@
 <?php
 require_once(__DIR__ . '/initialize_coreT2.php');
-$conn = $db->conn;
-
-// Check email_notifications
-$res = $conn->query("SHOW COLUMNS FROM email_notifications LIKE 'message'");
-if ($res->num_rows == 0) {
-    echo "Adding 'message' column to email_notifications...\n";
-    $conn->query("ALTER TABLE email_notifications ADD COLUMN message TEXT AFTER subject");
-} else {
-    echo "'message' column already exists in email_notifications.\n";
+$qry = $conn->query("DESCRIBE approval_requests");
+$fields = [];
+while ($row = $qry->fetch_assoc()) {
+    $fields[] = $row;
 }
+echo json_encode($fields, JSON_PRETTY_PRINT);
 
-// Check audit_trial vs audit_trail
-$res = $conn->query("SHOW TABLES LIKE 'audit_trial'");
-if ($res->num_rows == 0) {
-    echo "audit_trial table missing. Checking audit_trail...\n";
-    $res = $conn->query("SHOW TABLES LIKE 'audit_trail'");
-    if ($res->num_rows > 0) {
-        echo "audit_trail exists. Will use that.\n";
+// Check if removal is in request_type ENUM (if it is ENUM)
+foreach ($fields as $f) {
+    if ($f['Field'] == 'request_type') {
+        if (strpos($f['Type'], 'enum') !== false) {
+            echo "\nFound ENUM type for request_type: " . $f['Type'] . "\n";
+            if (strpos($f['Type'], 'removal') === false) {
+                echo "Attempting to update ENUM to include 'removal'...\n";
+                // Assuming current values are 'profile_update', 'termination' based on previous research
+                $sql = "ALTER TABLE approval_requests MODIFY COLUMN request_type ENUM('profile_update', 'termination', 'removal') NOT NULL";
+                if ($conn->query($sql)) {
+                    echo "Update successful!\n";
+                }
+                else {
+                    echo "Update failed: " . $conn->error . "\n";
+                }
+            }
+            else {
+                echo "'removal' already exists in ENUM.\n";
+            }
+        }
+        else {
+            echo "\nrequest_type is not ENUM: " . $f['Type'] . "\n";
+        // If it's a VARCHAR(20) or something, 'removal' might still fit, but 'termination' is 11 chars, 'profile_update' is 14. 
+        // 'removal' is only 7. Truncation usually means the field isn't long enough or it's an ENUM.
+        }
     }
 }
-
-echo "Schema check complete.\n";
 ?>
