@@ -28,7 +28,7 @@ $userId   = $_SESSION['userdata']['user_id']   ?? 0;
 $userName = $_SESSION['userdata']['full_name'] ?? 'Admin';
 
 // PATCHED: Changed from core2 internal to core1 Laravel API
-define('FINANCE_API_URL', 'https://core1.microfinancial-1.com/api/loans');
+define('FINANCE_API_URL', 'https://core1.microfinancial-1.com/api/financial/disbursements.php');
 
 // PATCHED: CREATE TABLE FIRST — before any INSERT attempt
 $conn->query("
