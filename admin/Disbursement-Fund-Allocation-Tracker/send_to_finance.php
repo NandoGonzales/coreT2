@@ -25,6 +25,8 @@ if (!isset($_SESSION['userdata']) || empty($_SESSION['userdata'])) {
     exit;
 }
 
+define('FINANCE_API_URL', 'https://core1.microfinancial-1.com/api/financial/disbursements.php');
+
 $userId   = $_SESSION['userdata']['user_id']   ?? 0;
 $userName = $_SESSION['userdata']['full_name'] ?? 'Admin';
 
