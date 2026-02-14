@@ -102,6 +102,9 @@ try {
         // SUBMIT APPROVAL REQUEST
         // ============================================
         case 'submit_request':
+            // AUTO-FIX: Ensure request_type is large enough for new types (like 'user_creation')
+            $conn->query("ALTER TABLE approval_requests MODIFY COLUMN request_type VARCHAR(50) NOT NULL");
+
             $target_user_id = $_POST['user_id'] ?? null;
             $request_type = $_POST['request_type'] ?? 'profile_update';
             $request_data = $_POST['request_data'] ?? '{}';
