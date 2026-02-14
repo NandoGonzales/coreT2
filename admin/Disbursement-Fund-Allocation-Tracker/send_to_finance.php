@@ -24,9 +24,8 @@ if (!isset($_SESSION['userdata']) || empty($_SESSION['userdata'])) {
 
 $userId = (int)($_SESSION['userdata']['user_id'] ?? 0);
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
+/* ---------- Helper Functions ---------- */
+
 function tableExists(mysqli $conn, string $table): bool {
   $tbl = $conn->real_escape_string($table);
   $res = $conn->query("SHOW TABLES LIKE '{$tbl}'");
@@ -41,31 +40,31 @@ function indexExists(mysqli $conn, string $table, string $indexName): bool {
 }
 
 function statusAllowsValue(mysqli $conn, string $value): bool {
-  // Check ENUM or SET definition for disbursements.status
   $res = $conn->query("SHOW COLUMNS FROM `disbursements` LIKE 'status'");
   if (!$res || $res->num_rows === 0) return false;
 
   $row = $res->fetch_assoc();
   $type = strtolower($row['Type'] ?? '');
 
-  // If ENUM or SET, check if value exists
   if (strpos($type, 'enum(') === 0 || strpos($type, 'set(') === 0) {
-    return (stripos($type, "'" . str_replace("'", "\\'", $value) . "'") !== false);
+    return (stripos($type, "'" . $value . "'") !== false);
   }
 
-  // If VARCHAR/TEXT/etc, it should accept any string
-  if (strpos($type, 'varchar') === 0 || strpos($type, 'text') !== false || strpos($type, 'char') === 0) {
+  if (
+    strpos($type, 'varchar') === 0 ||
+    strpos($type, 'text') !== false ||
+    strpos($type, 'char') === 0
+  ) {
     return true;
   }
 
-  // Unknown type → don't risk it
   return false;
 }
 
 try {
-  // ─────────────────────────────────────────────
-  // Ensure table exists
-  // ─────────────────────────────────────────────
+
+  /* ---------- Ensure table ---------- */
+
   $conn->query("
     CREATE TABLE IF NOT EXISTS disbursement_approval_requests (
       request_id       INT AUTO_INCREMENT PRIMARY KEY,
@@ -79,14 +78,13 @@ try {
     )
   ");
 
-  // Index (safe even if MySQL doesn't support IF NOT EXISTS)
-  if (tableExists($conn, 'disbursement_approval_requests') && !indexExists($conn, 'disbursement_approval_requests', 'idx_status')) {
+  if (tableExists($conn, 'disbursement_approval_requests') &&
+      !indexExists($conn, 'disbursement_approval_requests', 'idx_status')) {
     @$conn->query("CREATE INDEX idx_status ON disbursement_approval_requests(status)");
   }
 
-  // ─────────────────────────────────────────────
-  // Read request body
-  // ─────────────────────────────────────────────
+  /* ---------- Read body ---------- */
+
   $raw  = file_get_contents('php://input');
   $body = json_decode($raw, true);
   if (!is_array($body)) $body = [];
@@ -106,15 +104,14 @@ try {
     throw new Exception('No valid disbursement IDs');
   }
 
-  // ─────────────────────────────────────────────
-  // Insert requests
-  // ─────────────────────────────────────────────
+  /* ---------- Insert Requests ---------- */
+
   $ins = $conn->prepare("
     INSERT INTO disbursement_approval_requests (disbursement_id, requested_by, status)
     VALUES (?, ?, 'Pending')
-    ON DUPLICATE KEY UPDATE
-      status = status
+    ON DUPLICATE KEY UPDATE status = status
   ");
+
   if (!$ins) throw new Exception("Prepare failed: " . $conn->error);
 
   $created = 0;
@@ -129,12 +126,11 @@ try {
       $skipped++;
     }
   }
+
   $ins->close();
 
-  // ─────────────────────────────────────────────
-  // OPTIONAL: Update disbursements.status SAFELY
-  // (Will only run if DB allows the value)
-  // ─────────────────────────────────────────────
+  /* ---------- Optional Status Update ---------- */
+
   $targetStatus = 'For Approval';
 
   if (statusAllowsValue($conn, $targetStatus)) {
@@ -148,15 +144,13 @@ try {
       $upd->close();
     }
   }
-  // If NOT allowed, it will SKIP updating disbursements.status (no error, no truncation)
 
   while (@ob_end_clean());
   echo json_encode([
     'success' => true,
     'message' => "Sent {$created} request(s) to Finance for approval",
     'created' => $created,
-    'skipped' => $skipped,
-    'note'    => "If disbursements.status doesn't allow 'For Approval', status update was skipped (no errors)."
+    'skipped' => $skipped
   ]);
   exit;
 
