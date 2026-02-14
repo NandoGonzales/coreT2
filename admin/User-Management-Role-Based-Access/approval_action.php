@@ -9,11 +9,13 @@ $current_user_id = $_SESSION['userdata']['user_id'] ?? 0;
 $current_role = $_SESSION['userdata']['role'] ?? '';
 
 // Helper function to send email - made robust to avoid crashing
-function sendApprovalEmail($to, $subject, $message) {
+function sendApprovalEmail($to, $subject, $message)
+{
     global $conn;
-    
-    if (empty($to)) return false;
-    
+
+    if (empty($to))
+        return false;
+
     try {
         // First, check if message column exists (safety fallback)
         $checkCol = $conn->query("SHOW COLUMNS FROM email_notifications LIKE 'message'");
@@ -23,12 +25,14 @@ function sendApprovalEmail($to, $subject, $message) {
                 $stmt->bind_param("sss", $to, $subject, $message);
                 return $stmt->execute();
             }
-        } else {
+        }
+        else {
             // Fallback if column is missing or different
             error_log("Email Notifications Error: Missing 'message' column");
             return false;
         }
-    } catch (Exception $e) {
+    }
+    catch (Exception $e) {
         error_log("sendApprovalEmail Error: " . $e->getMessage());
         return false;
     }
@@ -36,11 +40,13 @@ function sendApprovalEmail($to, $subject, $message) {
 }
 
 // Helper function to log activity - aligned with core audit_trail
-function logApprovalActivity($action, $module, $ref_id, $details) {
+function logApprovalActivity($action, $module, $ref_id, $details)
+{
     global $current_user_id;
     if (function_exists('log_audit')) {
         log_audit($current_user_id, $action, $module, $ref_id, $details);
-    } else {
+    }
+    else {
         global $conn;
         // Try audit_trail first, then fallback
         $table = 'audit_trail';
@@ -49,7 +55,7 @@ function logApprovalActivity($action, $module, $ref_id, $details) {
             $table = 'audit_trial';
             $stmt = $conn->prepare("INSERT INTO $table (user_id, action_type, module, details, timestamp) VALUES (?, ?, ?, ?, NOW())");
         }
-        
+
         if ($stmt) {
             $stmt->bind_param("isss", $current_user_id, $action, $module, $details);
             $stmt->execute();
@@ -59,14 +65,15 @@ function logApprovalActivity($action, $module, $ref_id, $details) {
 }
 
 // Helper function to notify all admins
-function notifyAdmins($request_id, $message) {
+function notifyAdmins($request_id, $message)
+{
     global $conn;
-    
+
     // Get all Super Admin and Admin users
     $stmt = $conn->prepare("SELECT user_id, email FROM users WHERE role IN ('Super Admin', 'Admin') AND status = 'Active'");
     $stmt->execute();
     $result = $stmt->get_result();
-    
+
     $notified = 0;
     while ($admin = $result->fetch_assoc()) {
         // Insert notification
@@ -74,7 +81,7 @@ function notifyAdmins($request_id, $message) {
         $notif_stmt->bind_param("ii", $request_id, $admin['user_id']);
         if ($notif_stmt->execute()) {
             $notified++;
-            
+
             // Send email notification to admin
             if (!empty($admin['email'])) {
                 sendApprovalEmail(
@@ -85,7 +92,7 @@ function notifyAdmins($request_id, $message) {
             }
         }
     }
-    
+
     return $notified;
 }
 
@@ -93,7 +100,7 @@ $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
 try {
     switch ($action) {
-        
+
         // ============================================
         // SUBMIT APPROVAL REQUEST
         // ============================================
@@ -101,23 +108,23 @@ try {
             $target_user_id = $_POST['user_id'] ?? null;
             $request_type = $_POST['request_type'] ?? 'profile_update';
             $request_data = $_POST['request_data'] ?? '{}';
-            
+
             if (!$target_user_id) {
                 echo json_encode(['status' => 'error', 'msg' => 'User ID required']);
                 exit;
             }
-            
+
             // Get current user data
             $stmt = $conn->prepare("SELECT * FROM users WHERE user_id = ?");
             $stmt->bind_param("i", $target_user_id);
             $stmt->execute();
             $current_user = $stmt->get_result()->fetch_assoc();
-            
+
             if (!$current_user) {
                 echo json_encode(['status' => 'error', 'msg' => 'User not found']);
                 exit;
             }
-            
+
             $current_data = json_encode([
                 'username' => $current_user['username'],
                 'full_name' => $current_user['full_name'],
@@ -135,18 +142,18 @@ try {
                 echo json_encode(['status' => 'error', 'msg' => 'You already have a pending request. Please wait for it to be processed.']);
                 exit;
             }
-            
+
             // Insert approval request
             $stmt = $conn->prepare("INSERT INTO approval_requests (user_id, request_type, request_data, current_data, requested_by, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', NOW())");
             $stmt->bind_param("isssi", $target_user_id, $request_type, $request_data, $current_data, $current_user_id);
-            
+
             if ($stmt->execute()) {
                 $request_id = $conn->insert_id;
-                
+
                 // Notify all admins
                 $notif_message = "A new profile update approval request has been submitted for user: {$current_user['full_name']} ({$current_user['username']})";
                 $notified_count = notifyAdmins($request_id, $notif_message);
-                
+
                 // Log activity
                 logApprovalActivity(
                     'submit_request',
@@ -154,7 +161,7 @@ try {
                     $request_id,
                     "Submitted $request_type request for User ID: $target_user_id"
                 );
-                
+
                 // Send email to user
                 if ($current_user['email']) {
                     sendApprovalEmail(
@@ -163,17 +170,18 @@ try {
                         "Dear {$current_user['full_name']},\n\nYour profile update request has been submitted for approval. You will be notified once an administrator reviews your request.\n\nThank you!"
                     );
                 }
-                
+
                 echo json_encode([
                     'status' => 'success',
                     'msg' => "Approval request submitted successfully. $notified_count admin(s) notified.",
                     'request_id' => $request_id
                 ]);
-            } else {
+            }
+            else {
                 throw new Exception("Failed to submit request: " . $conn->error);
             }
             break;
-        
+
         // ============================================
         // GET PENDING APPROVALS (Admin/Super Admin only)
         // ============================================
@@ -183,13 +191,15 @@ try {
                 echo json_encode(['status' => 'error', 'msg' => 'Unauthorized']);
                 exit;
             }
-            
+
             $where = "WHERE ar.status = 'pending'";
             if ($current_role === 'Admin') {
                 $where .= " AND u.role = 'Staff'";
-            } elseif ($current_role === 'Super Admin') {
+            }
+            elseif ($current_role === 'Super Admin') {
                 $where .= " AND u.role IN ('Admin', 'Staff')";
-            } else {
+            }
+            else {
                 // Other roles shouldn't see anything, but just in case
                 $where .= " AND 1=0";
             }
@@ -216,35 +226,36 @@ try {
             ");
             $stmt->execute();
             $result = $stmt->get_result();
-            
+
             $requests = [];
             while ($row = $result->fetch_assoc()) {
                 $row['request_data_parsed'] = json_decode($row['request_data'], true);
                 $row['current_data_parsed'] = json_decode($row['current_data'], true);
                 $requests[] = $row;
             }
-            
+
             echo json_encode(['status' => 'success', 'requests' => $requests]);
             break;
-        
+
         // ============================================
         // APPROVE REQUEST
         // ============================================
         case 'approve':
             $request_id = $_POST['request_id'] ?? null;
             $review_notes = $_POST['review_notes'] ?? '';
-            
+            $api_key = $_POST['api_key'] ?? '';
+
             if (!$request_id) {
                 echo json_encode(['status' => 'error', 'msg' => 'Request ID required']);
                 exit;
             }
-            
+
             // Check if user is admin
             if (!in_array($current_role, ['Super Admin', 'Admin'])) {
                 echo json_encode(['status' => 'error', 'msg' => 'Only admins can approve requests']);
                 exit;
             }
-            
+
             // Get request details
             $stmt = $conn->prepare("
                 SELECT ar.*, u.email, u.full_name, u.role as target_role 
@@ -255,12 +266,12 @@ try {
             $stmt->bind_param("i", $request_id);
             $stmt->execute();
             $request = $stmt->get_result()->fetch_assoc();
-            
+
             if (!$request) {
                 echo json_encode(['status' => 'error', 'msg' => 'Request not found']);
                 exit;
             }
-            
+
             if ($request['status'] !== 'pending') {
                 echo json_encode(['status' => 'error', 'msg' => 'This request has already been processed']);
                 exit;
@@ -281,59 +292,88 @@ try {
                 exit;
             }
             if ($current_role === 'Super Admin' && !in_array($target_role, ['Admin', 'Staff'])) {
-                // Potentially allow other roles too, but for now stick to request
+            // Potentially allow other roles too, but for now stick to request
             }
-            
+
+            // Rule: Removal requests require an administrative API key
+            if ($request['request_type'] === 'removal') {
+                $stmt_key = $conn->prepare("SELECT meta_value FROM system_info WHERE meta_field = 'admin_api_key'");
+                $stmt_key->execute();
+                $sys_api_key = $stmt_key->get_result()->fetch_assoc()['meta_value'] ?? 'admin123';
+                $stmt_key->close();
+
+                if (empty($api_key) || $api_key !== $sys_api_key) {
+                    echo json_encode(['status' => 'error', 'msg' => 'Invalid or missing Administrative API Key. Approval denied.']);
+                    exit;
+                }
+            }
+
             // Parse request data
             $request_data = json_decode($request['request_data'], true);
-            
+
             // Handle different request types
             $user_id = $request['user_id'];
             if ($request['request_type'] === 'termination') {
                 // Termination: Deactivate user
                 $stmt = $conn->prepare("UPDATE users SET status='Inactive' WHERE user_id=?");
                 $stmt->bind_param('i', $user_id);
-            } else {
+            }
+            elseif ($request['request_type'] === 'removal') {
+                // Removal: Delete user
+                $stmt = $conn->prepare("DELETE FROM users WHERE user_id=?");
+                $stmt->bind_param('i', $user_id);
+            }
+            else {
                 // Profile Update: Update user record
                 $full_name = $request_data['full_name'] ?? $request['full_name'];
                 $email = $request_data['email'] ?? $request['email'];
                 $phone = $request_data['phone'] ?? '';
                 $profile_photo = $request_data['profile_photo'] ?? null;
-                
+
                 if ($profile_photo) {
                     $stmt = $conn->prepare("UPDATE users SET full_name=?, email=?, phone=?, profile_photo=? WHERE user_id=?");
                     $stmt->bind_param('ssssi', $full_name, $email, $phone, $profile_photo, $user_id);
-                } else {
+                }
+                else {
                     $stmt = $conn->prepare("UPDATE users SET full_name=?, email=?, phone=? WHERE user_id=?");
                     $stmt->bind_param('sssi', $full_name, $email, $phone, $user_id);
                 }
             }
-            
+
             if ($stmt->execute()) {
                 // Update approval request status
                 $stmt = $conn->prepare("UPDATE approval_requests SET status='approved', reviewed_by=?, review_notes=?, reviewed_at=NOW() WHERE request_id=?");
                 $stmt->bind_param("isi", $current_user_id, $review_notes, $request_id);
                 $stmt->execute();
-                
+
                 // Mark notifications as read
                 $stmt = $conn->prepare("UPDATE approval_notifications SET is_read=1, read_at=NOW() WHERE request_id=?");
                 $stmt->bind_param("i", $request_id);
                 $stmt->execute();
-                
+
                 // Send email confirmation to user
                 if ($request['email']) {
-                    $subject = $request['request_type'] === 'termination' ? 'Account Termination Approved' : 'Profile Update Approved';
-                    $msg_body = $request['request_type'] === 'termination' 
-                        ? "Your account termination request has been approved. Your account has been deactivated."
-                        : "Your profile update request has been approved by an administrator.";
-                    
+                    $subject_map = [
+                        'termination' => 'Account Termination Approved',
+                        'removal' => 'Account Removal Approved',
+                        'profile_update' => 'Profile Update Approved'
+                    ];
+                    $msg_map = [
+                        'termination' => "Your account termination request has been approved. Your account has been deactivated.",
+                        'removal' => "Your account removal request has been approved. Your account has been permanently removed from the system.",
+                        'profile_update' => "Your profile update request has been approved by an administrator."
+                    ];
+
+                    $subject = $subject_map[$request['request_type']] ?? 'Account Request Approved';
+                    $msg_body = $msg_map[$request['request_type']] ?? "Your request has been approved by an administrator.";
+
                     sendApprovalEmail(
                         $request['email'],
                         $subject,
                         "Dear {$request['full_name']},\n\n$msg_body\n\n" . (!empty($review_notes) ? "Review Notes: $review_notes\n\n" : "") . "Thank you!"
                     );
                 }
-                
+
                 // Log activity
                 logApprovalActivity(
                     'approve_request',
@@ -341,20 +381,21 @@ try {
                     $request_id,
                     "Approved {$request['request_type']} request for User ID: $user_id"
                 );
-                
+
                 echo json_encode(['status' => 'success', 'msg' => 'Request approved and user updated successfully']);
-            } else {
+            }
+            else {
                 throw new Exception("Failed to update user: " . $conn->error);
             }
             break;
-        
+
         // ============================================
         // REJECT REQUEST
         // ============================================
         case 'reject':
             $request_id = $_POST['request_id'] ?? null;
             $review_notes = $_POST['review_notes'] ?? '';
-            
+
             // Rule: Rejection requires a reason
             if (empty($review_notes)) {
                 echo json_encode(['status' => 'error', 'msg' => 'A reason for rejection is required.']);
@@ -366,33 +407,33 @@ try {
                 echo json_encode(['status' => 'error', 'msg' => 'Only admins can reject requests']);
                 exit;
             }
-            
+
             // Get request details
             $stmt = $conn->prepare("SELECT ar.*, u.email, u.full_name FROM approval_requests ar LEFT JOIN users u ON ar.user_id = u.user_id WHERE ar.request_id = ?");
             $stmt->bind_param("i", $request_id);
             $stmt->execute();
             $request = $stmt->get_result()->fetch_assoc();
-            
+
             if (!$request) {
                 echo json_encode(['status' => 'error', 'msg' => 'Request not found']);
                 exit;
             }
-            
+
             if ($request['status'] !== 'pending') {
                 echo json_encode(['status' => 'error', 'msg' => 'This request has already been processed']);
                 exit;
             }
-            
+
             // Update approval request status
             $stmt = $conn->prepare("UPDATE approval_requests SET status='rejected', reviewed_by=?, review_notes=?, reviewed_at=NOW() WHERE request_id=?");
             $stmt->bind_param("isi", $current_user_id, $review_notes, $request_id);
-            
+
             if ($stmt->execute()) {
                 // Mark notifications as read
                 $stmt = $conn->prepare("UPDATE approval_notifications SET is_read=1, read_at=NOW() WHERE request_id=?");
                 $stmt->bind_param("i", $request_id);
                 $stmt->execute();
-                
+
                 // Send email notification to user
                 if ($request['email']) {
                     sendApprovalEmail(
@@ -401,7 +442,7 @@ try {
                         "Dear {$request['full_name']},\n\nYour profile update request has been rejected by an administrator.\n\n" . (!empty($review_notes) ? "Reason: $review_notes\n\n" : "") . "Please contact your administrator for more information.\n\nThank you!"
                     );
                 }
-                
+
                 // Log activity
                 logApprovalActivity(
                     'reject_request',
@@ -409,13 +450,14 @@ try {
                     $request_id,
                     "Rejected {$request['request_type']} request for User ID: {$request['user_id']}. Reason: $review_notes"
                 );
-                
+
                 echo json_encode(['status' => 'success', 'msg' => 'Request rejected successfully']);
-            } else {
+            }
+            else {
                 throw new Exception("Failed to reject request: " . $conn->error);
             }
             break;
-        
+
         // ============================================
         // GET NOTIFICATION COUNT (for badge)
         // ============================================
@@ -424,7 +466,7 @@ try {
                 echo json_encode(['status' => 'success', 'count' => 0]);
                 exit;
             }
-            
+
             $stmt = $conn->prepare("
                 SELECT COUNT(*) as count 
                 FROM approval_notifications 
@@ -433,16 +475,18 @@ try {
             $stmt->bind_param("i", $current_user_id);
             $stmt->execute();
             $result = $stmt->get_result()->fetch_assoc();
-            
+
             echo json_encode(['status' => 'success', 'count' => $result['count']]);
             break;
-        
+
         default:
             echo json_encode(['status' => 'error', 'msg' => 'Invalid action']);
             break;
     }
-    
-} catch (Exception $e) {
+
+
+}
+catch (Exception $e) {
     error_log("Approval Action Error: " . $e->getMessage());
     echo json_encode(['status' => 'error', 'msg' => 'An error occurred: ' . $e->getMessage()]);
 }

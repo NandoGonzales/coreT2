@@ -349,7 +349,8 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <button class="btn btn-sm btn-primary" id="addUserBtn">
                             <i class="fas fa-plus"></i> Add User
                         </button>
-                        <?php endif; ?>
+                        <?php
+endif; ?>
                         <button class="btn btn-sm btn-outline-light" id="resetFiltersBtn">
                             <i class="fas fa-redo"></i> Reset Filters
                         </button>
@@ -641,29 +642,12 @@ include(__DIR__ . '/../inc/sidebar.php');
 
       let actions = '';
 
-      // Edit button — Super Admin & Admin only
-      if (isAdmin) {
+      // Request Removal button — Super Admin & Admin only
+      const current_user_id = <?php echo $_SESSION['userdata']['user_id'] ?? 0; ?>;
+      if (isAdmin && u.user_id != current_user_id) {
         actions += `
-          <button class="btn btn-sm btn-warning editBtn" data-id="${u.user_id}" title="Edit User">
-            <i class="fas fa-edit"></i>
-          </button>`;
-      }
-
-      // Delete — Super Admin & Admin only
-      if (isAdmin) {
-        actions += `
-          <button class="btn btn-sm btn-danger deleteBtn" data-id="${u.user_id}" title="Delete">
-            <i class="fas fa-trash"></i>
-          </button>`;
-      }
-
-      // Toggle status — Super Admin & Admin only
-      if (isAdmin) {
-        actions += `
-          <button class="btn btn-sm btn-secondary toggleBtn"
-            data-id="${u.user_id}" data-status="${u.status}"
-            title="${u.status === 'Active' ? 'Deactivate' : 'Activate'}">
-            <i class="fas fa-${u.status === 'Active' ? 'ban' : 'check'}"></i>
+          <button class="btn btn-sm btn-danger requestRemovalBtn" data-id="${u.user_id}" data-username="${escapeHtml(u.username)}" title="Request Removal">
+            <i class="fas fa-trash-alt"></i> Request Removal
           </button>`;
       }
 
@@ -780,6 +764,50 @@ include(__DIR__ . '/../inc/sidebar.php');
     document.getElementById('roleFilter').value='';
     document.getElementById('statusFilter').value='';
     applyFilters();
+  });
+
+  /* ── request removal ── */
+  document.getElementById('userTableBody').addEventListener('click', function(e) {
+    const btn = e.target.closest('.requestRemovalBtn');
+    if (!btn) return;
+
+    const userId = btn.dataset.id;
+    const username = btn.dataset.username;
+
+    Swal.fire({
+      title: 'Request User Removal?',
+      text: `Are you sure you want to request the removal of user "${username}"? This will be sent to admin management for approval.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Request Removal'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        const fd = new FormData();
+        fd.append('action', 'submit_request');
+        fd.append('user_id', userId);
+        fd.append('request_type', 'removal');
+        fd.append('request_data', JSON.stringify({ action: 'delete' }));
+
+        fetch('approval_action.php', {
+          method: 'POST',
+          body: fd
+        })
+        .then(r => r.json())
+        .then(data => {
+          if (data.status === 'success') {
+            Swal.fire('Submitted!', data.msg, 'success');
+            loadUsers();
+          } else {
+            Swal.fire('Error', data.msg, 'error');
+          }
+        })
+        .catch(() => {
+          Swal.fire('Error', 'Failed to submit request. Please try again.', 'error');
+        });
+      }
+    });
   });
 
   /* stat cards clickable */

@@ -202,8 +202,9 @@ include(__DIR__ . '/../inc/sidebar.php');
 
             container.innerHTML = requests.map(req => {
                 const isTermination = req.request_type === 'termination';
-                const typeBadge = isTermination ? 'bg-danger' : 'bg-info';
-                const typeText = isTermination ? 'Account Termination' : 'Profile Update';
+                const isRemoval = req.request_type === 'removal';
+                const typeBadge = isTermination ? 'bg-warning text-dark' : (isRemoval ? 'bg-danger' : 'bg-info');
+                const typeText = isTermination ? 'Account Termination' : (isRemoval ? 'Account Removal' : 'Profile Update');
 
                 let bodyContent = '';
                 if (isTermination) {
@@ -211,6 +212,13 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <div class="alert alert-warning mb-0">
                             <i class="bi bi-exclamation-triangle-fill me-2"></i>
                             User is requesting to <strong>Deactivate</strong> their account.
+                        </div>
+                    `;
+                } else if (isRemoval) {
+                    bodyContent = `
+                        <div class="alert alert-danger mb-0">
+                            <i class="bi bi-trash-fill me-2"></i>
+                            User removal has been requested. <strong>Warning:</strong> Approval will permanently delete this user record from the system.
                         </div>
                     `;
                 } else {
@@ -273,7 +281,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                             <button class="btn btn-outline-danger btn-sm reject-btn" data-id="${req.request_id}">
                                 <i class="bi bi-x-circle me-1"></i>Reject
                             </button>
-                            <button class="btn btn-success btn-sm approve-btn" data-id="${req.request_id}">
+                            <button class="btn btn-success btn-sm approve-btn" data-id="${req.request_id}" data-type="${req.request_type}">
                                 <i class="bi bi-check-circle me-1"></i>Approve Request
                             </button>
                         </div>
@@ -283,7 +291,7 @@ include(__DIR__ . '/../inc/sidebar.php');
 
             // Attach listeners
             document.querySelectorAll('.approve-btn').forEach(btn => {
-                btn.addEventListener('click', () => handleApprove(btn.dataset.id));
+                btn.addEventListener('click', () => handleApprove(btn.dataset.id, btn.dataset.type));
             });
 
             document.querySelectorAll('.reject-btn').forEach(btn => {
@@ -295,20 +303,40 @@ include(__DIR__ . '/../inc/sidebar.php');
             });
         }
 
-        async function handleApprove(requestId) {
+        async function handleApprove(requestId, requestType) {
             const btn = document.querySelector(`.approve-btn[data-id="${requestId}"]`);
             const originalText = btn.innerHTML;
-            
-            const confirmResult = await Swal.fire({
-                title: 'Approve Request?',
-                text: "The changes will be applied immediately.",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonText: 'Yes, Approve',
-                confirmButtonColor: '#059669'
-            });
 
-            if (!confirmResult.isConfirmed) return;
+            let apiKey = '';
+            if (requestType === 'removal') {
+                const { value: key } = await Swal.fire({
+                    title: 'Administrative API Key Required',
+                    input: 'password',
+                    inputLabel: 'Please enter the administrative API key to proceed with user removal.',
+                    inputPlaceholder: 'Enter API Key',
+                    inputAttributes: {
+                        autocapitalize: 'off',
+                        autocorrect: 'off'
+                    },
+                    showCancelButton: true,
+                    confirmButtonText: 'Verify & Approve',
+                    confirmButtonColor: '#ef4444'
+                });
+
+                if (!key) return; // User cancelled or left empty
+                apiKey = key;
+            } else {
+                const confirmResult = await Swal.fire({
+                    title: 'Approve Request?',
+                    text: "The changes will be applied immediately.",
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Approve',
+                    confirmButtonColor: '#059669'
+                });
+
+                if (!confirmResult.isConfirmed) return;
+            }
 
             btn.disabled = true;
             btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
@@ -318,6 +346,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                 fd.append('action', 'approve');
                 fd.append('request_id', requestId);
                 fd.append('review_notes', 'Approved by Admin');
+                if (apiKey) fd.append('api_key', apiKey);
 
                 const response = await fetch('approval_action.php', { method: 'POST', body: fd });
                 const result = await response.json();
