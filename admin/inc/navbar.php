@@ -27,7 +27,7 @@ if ($user_id && isset($conn)) {
         $user_photo = $res['profile_photo'] ?? '';
         $user_phone = $res['phone'] ?? '';
         $user_company = $res['company'] ?? '';
-        
+
         // Update session to keep it in sync (optional but good)
         $_SESSION['userdata']['full_name'] = $user_name;
         $_SESSION['userdata']['role'] = $user_role;
@@ -56,7 +56,9 @@ $isSuperAdmin = ($user_role === 'Super Admin');
         --sidebar-width: 18rem;
     }
 
-    body { padding-top: 0; }
+    body {
+        padding-top: 0;
+    }
 
     /* Header */
     .top-header {
@@ -71,10 +73,14 @@ $isSuperAdmin = ($user_role === 'Super Admin');
         transition: left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .main-wrap.expanded .top-header { left: 0; }
+    .main-wrap.expanded .top-header {
+        left: 0;
+    }
 
     @media (max-width: 767px) {
-        .top-header { left: 0 !important; }
+        .top-header {
+            left: 0 !important;
+        }
     }
 
     /* Clock Pill */
@@ -127,8 +133,17 @@ $isSuperAdmin = ($user_role === 'Super Admin');
     }
 
     @keyframes pulse-dot {
-        0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.2); opacity: 0.8; }
+
+        0%,
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        50% {
+            transform: scale(1.2);
+            opacity: 0.8;
+        }
     }
 
     /* Avatar */
@@ -239,12 +254,14 @@ $isSuperAdmin = ($user_role === 'Super Admin');
         color: #dc2626 !important;
     }
 
-    .vr { opacity: 0.2; }
+    .vr {
+        opacity: 0.2;
+    }
 
     /* ===========================
        PROFILE MODAL - EDIT MODE
        =========================== */
-    
+
     .profile-modal .modal-dialog {
         max-width: 580px;
     }
@@ -547,8 +564,17 @@ $isSuperAdmin = ($user_role === 'Super Admin');
     }
 
     @keyframes pulse-logout {
-        0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.1); opacity: 0.8; }
+
+        0%,
+        100% {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        50% {
+            transform: scale(1.1);
+            opacity: 0.8;
+        }
     }
 
     .pulse-icon {
@@ -581,67 +607,38 @@ $isSuperAdmin = ($user_role === 'Super Admin');
     }
 </style>
 
-<div class="main-wrap">
-    <header class="top-header d-flex align-items-center justify-content-between px-3 px-sm-4">
-        <div class="d-flex align-items-center gap-2"></div>
+<div class="dropdown">
+    <button class="btn btn-icon position-relative" type="button" id="notificationDropdown"
+        data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
+        <i class="bi bi-bell"></i>
+        <span class="notif-dot d-none" id="notifDot"></span>
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+            id="notifBadge" style="font-size:0.6rem;">0</span>
+    </button>
 
-        <div class="d-flex align-items-center gap-2 gap-sm-3">
-            <span id="real-time-clock" class="pill d-none d-sm-inline">--:--:--</span>
-
-            <div class="dropdown">
-                <button class="btn btn-icon position-relative" type="button" id="notificationDropdown" data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
-                    <i class="bi bi-bell"></i>
-                    <span class="notif-dot"></span>
-                </button>
-                
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationDropdown">
-                    <li><h6 class="dropdown-header">Notifications</h6></li>
-                    <li><a class="dropdown-item" href="#"><i class="bi bi-info-circle text-primary"></i> New loan application</a></li>
-                    <li><a class="dropdown-item" href="#"><i class="bi bi-check-circle text-success"></i> Payment received</a></li>
-                    <li><a class="dropdown-item" href="#"><i class="bi bi-exclamation-triangle text-warning"></i> Compliance alert</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-center small" href="#">View all notifications</a></li>
-                </ul>
+    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationDropdown"
+        style="min-width:320px; max-height:420px; overflow-y:auto;">
+        <li>
+            <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                <h6 class="mb-0 fw-bold">Notifications</h6>
+                <span class="badge bg-primary rounded-pill" id="notifCountLabel">0</span>
             </div>
-
-            <div class="vr d-none d-sm-block"></div>
-
-            <div class="dropdown">
-                <button class="user-dropdown-btn" type="button" id="userDropdown" data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
-                    <span class="avatar" id="navbarAvatar">
-                        <?php if ($user_photo): ?>
-                            <img src="<?= htmlspecialchars($user_photo) ?>" alt="Profile">
-                        <?php else: ?>
-                            <?= $initials ?>
-                        <?php endif; ?>
-                    </span>
-                    <span class="user-info d-none d-md-flex">
-                        <span class="user-name" id="navbarUsername"><?= htmlspecialchars($user_name) ?></span>
-                        <span class="user-role-badge"><?= htmlspecialchars($user_role) ?></span>
-                    </span>
-                    <i class="bi bi-chevron-down text-secondary" style="font-size: 0.75rem;"></i>
-                </button>
-
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
-                    <li>
-                        <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#profileModal" id="btnOpenProfile">
-                            <i class="bi bi-person-circle"></i> View Profile
-                        </a>
-                    </li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li>
-                        <a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#logoutModal">
-                            <i class="bi bi-box-arrow-right"></i> Logout
-                        </a>
-                    </li>
-                </ul>
-            </div>
+        </li>
+        <div id="notifList">
+            <li class="text-center py-3 text-muted small" id="notifLoading">
+                <div class="spinner-border spinner-border-sm me-1"></div> Loading...
+            </li>
         </div>
-    </header>
-
-    <main class="p-4 p-sm-4" style="padding-top: calc(4rem + 1.5rem) !important;">
-        <!-- Your page content -->
-    </main>
+        <li>
+            <hr class="dropdown-divider my-1">
+        </li>
+        <li>
+            <a class="dropdown-item text-center small text-primary fw-semibold"
+                href="/admin/User-Management-Role-Based-Access/permission_logs.php">
+                View all activity logs
+            </a>
+        </li>
+    </ul>
 </div>
 
 <!-- PROFILE EDIT MODAL -->
@@ -694,12 +691,12 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                 <!-- EDIT MODE (Initially Hidden) -->
                 <div id="profileEditMode" style="display: none;">
                     <?php if (!$isSuperAdmin): ?>
-                    <div class="info-alert">
-                        <i class="bi bi-info-circle"></i>
-                        <p class="info-alert-text">
-                            <strong>Note:</strong> Changes will be sent to Super Admin for approval before taking effect.
-                        </p>
-                    </div>
+                        <div class="info-alert">
+                            <i class="bi bi-info-circle"></i>
+                            <p class="info-alert-text">
+                                <strong>Note:</strong> Changes will be sent to Super Admin for approval before taking effect.
+                            </p>
+                        </div>
                     <?php endif; ?>
 
                     <!-- Photo Upload -->
@@ -767,11 +764,11 @@ $isSuperAdmin = ($user_role === 'Super Admin');
 
                     <!-- Termination Link -->
                     <?php if (!$isSuperAdmin): ?>
-                    <div class="mt-4 text-center">
-                        <a href="javascript:void(0)" class="text-danger small fw-bold" id="btnRequestTermination">
-                            Request Account Deactivation
-                        </a>
-                    </div>
+                        <div class="mt-4 text-center">
+                            <a href="javascript:void(0)" class="text-danger small fw-bold" id="btnRequestTermination">
+                                Request Account Deactivation
+                            </a>
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -836,7 +833,11 @@ $isSuperAdmin = ($user_role === 'Super Admin');
 
         // Real-time clock
         const clockEl = document.getElementById('real-time-clock');
-        function pad(n) { return String(n).padStart(2, '0'); }
+
+        function pad(n) {
+            return String(n).padStart(2, '0');
+        }
+
         function updateClock() {
             const d = new Date();
             if (clockEl) {
@@ -875,7 +876,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
         // Reset to view mode when modal opens or closes
         document.getElementById('profileModal').addEventListener('show.bs.modal', function() {
             switchToViewMode();
-            
+
             // Re-parse current data in case it changed (for edit inputs)
             const currentNameParts = userData.fullName.split(' ');
             document.getElementById('editFirstName').value = currentNameParts[0] || '';
@@ -888,7 +889,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
         const photoInput = document.getElementById('profilePhotoInput');
         const photoUploadAvatar = document.getElementById('photoUploadAvatar');
         const btnRemovePhoto = document.getElementById('btnRemovePhoto');
-        
+
         if (photoInput) {
             photoInput.addEventListener('change', async function(e) {
                 const file = e.target.files[0];
@@ -922,14 +923,14 @@ $isSuperAdmin = ($user_role === 'Super Admin');
 
                     if (result.success) {
                         const newPhotoUrl = result.photo_url + '?t=' + Date.now();
-                        
+
                         if (!isSuperAdmin) {
                             userData.pendingPhoto = result.photo_url;
                         }
 
                         const editAvatarImg = document.getElementById('photoUploadAvatarImg');
                         const editAvatarInitials = document.getElementById('photoUploadAvatarInitials');
-                        
+
                         if (editAvatarImg) {
                             editAvatarImg.src = newPhotoUrl;
                         } else if (editAvatarInitials) {
@@ -981,7 +982,9 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     // Super Admin: Direct update
                     const response = await fetch('<?= base_url ?>admin/inc/update_profile.php', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
                         body: JSON.stringify({
                             user_id: userData.userId,
                             full_name: fullName,
@@ -1010,7 +1013,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                         email: newEmail,
                         phone: newPhone
                     };
-                    
+
                     if (userData.pendingPhoto) {
                         payload.profile_photo = userData.pendingPhoto;
                     }
@@ -1065,7 +1068,9 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     fd.append('action', 'submit_request');
                     fd.append('user_id', userData.userId);
                     fd.append('request_type', 'termination');
-                    fd.append('request_data', JSON.stringify({ reason: 'User initiated deactivation' }));
+                    fd.append('request_data', JSON.stringify({
+                        reason: 'User initiated deactivation'
+                    }));
 
                     const response = await fetch('<?= base_url ?>admin/User-Management-Role-Based-Access/approval_action.php', {
                         method: 'POST',
@@ -1085,4 +1090,63 @@ $isSuperAdmin = ($user_role === 'Super Admin');
             });
         }
     });
+
+    // ── Dynamic Notifications ─────────────────────────────
+    function loadNotifications() {
+        fetch('/admin/ajax_notifications.php', {
+                cache: 'no-store'
+            })
+            .then(r => r.json())
+            .then(data => {
+                const list = document.getElementById('notifList');
+                const badge = document.getElementById('notifBadge');
+                const dot = document.getElementById('notifDot');
+                const counter = document.getElementById('notifCountLabel');
+
+                if (!list) return;
+
+                if (data.count > 0) {
+                    badge.textContent = data.count > 99 ? '99+' : data.count;
+                    badge.classList.remove('d-none');
+                    dot.classList.remove('d-none');
+                    counter.textContent = data.count;
+                } else {
+                    badge.classList.add('d-none');
+                    dot.classList.add('d-none');
+                    counter.textContent = '0';
+                }
+
+                if (!data.notifications || data.notifications.length === 0) {
+                    list.innerHTML = '<li class="text-center py-4 text-muted small"><i class="bi bi-bell-slash fs-4 d-block mb-1"></i>No new notifications</li>';
+                    return;
+                }
+
+                list.innerHTML = data.notifications.map(n => `
+                <li>
+                    <a class="dropdown-item py-2 px-3" href="${n.link}" style="white-space:normal;">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi ${n.icon} mt-1 flex-shrink-0"></i>
+                            <div>
+                                <div class="small fw-semibold" style="line-height:1.3;">${n.message}</div>
+                                <div class="text-muted" style="font-size:0.7rem;">${n.time_label}</div>
+                            </div>
+                        </div>
+                    </a>
+                </li>
+            `).join('');
+            })
+            .catch(() => {
+                const list = document.getElementById('notifList');
+                if (list) list.innerHTML = '<li class="text-center py-3 text-muted small">Failed to load notifications</li>';
+            });
+    }
+
+    // Load on bell click
+    document.getElementById('notificationDropdown').addEventListener('click', loadNotifications);
+
+    // Auto-refresh every 60 seconds
+    setInterval(loadNotifications, 60000);
+
+    // Initial load
+    loadNotifications();
 </script>
