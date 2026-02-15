@@ -10,11 +10,6 @@ if (!isset($_SESSION['userdata'])) {
     exit();
 }
 
-if (!isset($_SESSION['userdata'])) {
-    echo json_encode(['error' => 'Session expired', 'redirect' => 'login.php']);
-    exit();
-}
-
 $member_id = isset($_GET['member_id']) ? intval($_GET['member_id']) : 0;
 $score_data = null;
 
@@ -222,12 +217,13 @@ include("inc/sidebar.php");
                     ?>">
                         <?php echo round($score_data['credit_score']); ?>
                     </div>
-                    <span class="risk-badge badge-<?php 
-                        echo $score_data['credit_score'] >= 85 ? 'success' :
-                             ($score_data['credit_score'] >= 75 ? 'info' :
-                             ($score_data['credit_score'] >= 65 ? 'primary' :
-                             ($score_data['credit_score'] >= 55 ? 'warning' : 'danger')));
-                    ?>">
+                    <?php
+                        $badgeClass = $score_data['credit_score'] >= 85 ? 'bg-success' :
+                             ($score_data['credit_score'] >= 75 ? 'bg-info' :
+                             ($score_data['credit_score'] >= 65 ? 'bg-primary' :
+                             ($score_data['credit_score'] >= 55 ? 'bg-warning text-dark' : 'bg-danger')));
+                    ?>
+                    <span class="risk-badge badge <?php echo $badgeClass; ?>">
                         <?php echo htmlspecialchars($score_data['risk_category']); ?>
                     </span>
                     <div style="margin-top: 1rem; color: #6b7280; font-size: 0.9rem;">
@@ -357,6 +353,10 @@ include("inc/sidebar.php");
                         <div class="stat-box">
                             <div class="stat-label">On-Time Payments</div>
                             <div class="stat-value text-success"><?php echo $score_data['statistics']['on_time_payments']; ?></div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-label">Late Payments</div>
+                            <div class="stat-value text-danger"><?php echo $score_data['statistics']['late_payments']; ?></div>
                         </div>
                     </div>
                 </div>
