@@ -1,440 +1,266 @@
 <?php
 /**
- * AI Credit Scoring System
- * Customized para sa core2_db database structure
- * 
- * Tables used:
- * - loan_portfolio (loan_id, member_id, principal_amount, interest_rate, status)
- * - repayments (repayment_id, loan_id, amount, repayment_date, overdue_count, risk_level)
- * - members (member_id, full_name, contact_no, status)
- * - savings (para sa additional scoring)
+ * AI Credit Scoring Function - MySQLi Compatible
+ * Calculates credit score for a member based on loan history and payment behavior
  */
 
-// FIXED: Correct path to config.php
-if (!defined('DB_HOST')) {
-    require_once(__DIR__ . '/../../../config.php');
+if (!isset($_SESSION['userdata'])) {
+    echo json_encode(['error' => 'Session expired', 'redirect' => 'login.php']);
+    exit();
 }
 
-class AICreditScoring {
-    private $conn;
+function calculate_ai_credit_score($member_id) {
+    global $conn;
     
-    public function __construct() {
-        global $conn;
-        $this->conn = $conn;
-    }
-    
-    /**
-     * Main function: Calculate AI Credit Score para sa member
-     * 
-     * @param int $member_id - ID ng member from members table
-     * @return array - Complete credit assessment
-     */
-    public function calculateCreditScore($member_id) {
-        // Kunin ang member information
-        $member = $this->getMemberData($member_id);
+    try {
+        // Validate member exists
+        $member_check = $conn->query("SELECT member_id, full_name FROM members WHERE member_id = $member_id");
         
-        if (!$member) {
-            return [
-                'success' => false,
-                'error' => 'Member not found',
-                'member_id' => $member_id
-            ];
+        if ($member_check->num_rows == 0) {
+            return ['success' => false, 'error' => 'Member not found'];
         }
         
-        // Calculate different scoring factors
-        $scores = [
-            'payment_history' => $this->getPaymentHistoryScore($member_id),
-            'loan_performance' => $this->getLoanPerformanceScore($member_id),
-            'repayment_behavior' => $this->getRepaymentBehaviorScore($member_id),
-            'risk_indicators' => $this->getRiskIndicatorScore($member_id),
-            'savings_score' => $this->getSavingsScore($member_id)
-        ];
+        $member = $member_check->fetch_assoc();
         
-        // Weighted calculation
-        $weights = [
-            'payment_history' => 0.35,    // 35% - Pinaka importante
-            'loan_performance' => 0.25,   // 25% - Loan completion rate
-            'repayment_behavior' => 0.20, // 20% - On-time payments
-            'risk_indicators' => 0.15,    // 15% - Red flags
-            'savings_score' => 0.05       // 5% - Savings behavior
-        ];
+        // Initialize scores (0-100 scale)
+        $payment_history_score = 0;
+        $credit_utilization_score = 0;
+        $loan_diversity_score = 0;
+        $account_age_score = 0;
+        $recent_activity_score = 0;
         
-        $final_score = 0;
-        foreach ($scores as $key => $score) {
-            $final_score += ($score * $weights[$key]);
+        // ================================================
+        // 1. PAYMENT HISTORY SCORE (35% weight) - 0-100
+        // ================================================
+        $payment_query = "SELECT 
+            COUNT(*) as total_payments,
+            SUM(CASE WHEN late_days = 0 THEN 1 ELSE 0 END) as on_time,
+            SUM(CASE WHEN late_days > 0 AND late_days <= 30 THEN 1 ELSE 0 END) as late,
+            SUM(CASE WHEN late_days > 30 THEN 1 ELSE 0 END) as very_late,
+            AVG(late_days) as avg_late_days
+            FROM repayments r
+            INNER JOIN loan_portfolio lp ON r.loan_id = lp.loan_id
+            WHERE lp.member_id = $member_id";
+        
+        $payment_result = $conn->query($payment_query);
+        $payments = $payment_result->fetch_assoc();
+        
+        // Count defaults from loan_portfolio
+        $default_query = "SELECT COUNT(*) as defaulted 
+                         FROM loan_portfolio 
+                         WHERE member_id = $member_id AND status = 'Defaulted'";
+        $default_result = $conn->query($default_query);
+        $defaults = $default_result->fetch_assoc();
+        
+        if ($payments['total_payments'] > 0) {
+            $on_time_ratio = $payments['on_time'] / $payments['total_payments'];
+            $late_penalty = ($payments['late'] * 5);
+            $very_late_penalty = ($payments['very_late'] * 10);
+            $default_penalty = ($defaults['defaulted'] * 25);
+            
+            $payment_history_score = ($on_time_ratio * 100) - $late_penalty - $very_late_penalty - $default_penalty;
+            $payment_history_score = max(0, min(100, $payment_history_score));
+        } else {
+            $payment_history_score = 50;
         }
         
-        $final_score = round($final_score);
+        // ================================================
+        // 2. CREDIT UTILIZATION SCORE (30% weight) - 0-100
+        // ================================================
+        $utilization_query = "SELECT 
+            COUNT(*) as total_loans,
+            SUM(CASE WHEN status = 'Active' OR status = 'Approved' THEN 1 ELSE 0 END) as active_loans,
+            SUM(CASE WHEN status = 'Active' OR status = 'Approved' THEN principal_amount ELSE 0 END) as total_active_amount,
+            SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed_loans,
+            SUM(CASE WHEN status = 'Defaulted' THEN 1 ELSE 0 END) as defaulted_loans
+            FROM loan_portfolio 
+            WHERE member_id = $member_id";
         
-        // Determine risk category and recommendations
-        $risk_category = $this->getRiskCategory($final_score);
-        $recommended_rate = $this->getRecommendedRate($final_score);
-        $max_loan = $this->getMaxLoanAmount($final_score, $member_id);
+        $util_result = $conn->query($utilization_query);
+        $loans = $util_result->fetch_assoc();
         
-        // Save AI score sa database
-        $this->saveAIScore($member_id, $final_score, $risk_category);
+        $max_recommended_active = 2;
+        if ($loans['active_loans'] == 0) {
+            $credit_utilization_score = 100;
+        } else if ($loans['active_loans'] <= $max_recommended_active) {
+            $credit_utilization_score = 100 - ($loans['active_loans'] * 10);
+        } else {
+            $credit_utilization_score = max(0, 70 - (($loans['active_loans'] - $max_recommended_active) * 15));
+        }
+        
+        if ($loans['completed_loans'] > 0) {
+            $credit_utilization_score = min(100, $credit_utilization_score + ($loans['completed_loans'] * 2));
+        }
+        
+        // ================================================
+        // 3. LOAN DIVERSITY SCORE (15% weight) - 0-100
+        // ================================================
+        $diversity_query = "SELECT 
+            COUNT(DISTINCT loan_type) as loan_types,
+            COUNT(*) as total_loans
+            FROM loan_portfolio 
+            WHERE member_id = $member_id";
+        
+        $div_result = $conn->query($diversity_query);
+        $diversity = $div_result->fetch_assoc();
+        
+        if ($diversity['total_loans'] > 0) {
+            $loan_diversity_score = min(100, 40 + ($diversity['loan_types'] * 20));
+        } else {
+            $loan_diversity_score = 50;
+        }
+        
+        // ================================================
+        // 4. ACCOUNT AGE SCORE (10% weight) - 0-100
+        // ================================================
+        $age_query = "SELECT 
+            DATEDIFF(NOW(), membership_date) as days_active,
+            membership_date
+            FROM members 
+            WHERE member_id = $member_id";
+        
+        $age_result = $conn->query($age_query);
+        $account = $age_result->fetch_assoc();
+        
+        $days_active = $account['days_active'] ?? 0;
+        if ($days_active >= 365 * 2) {
+            $account_age_score = 100;
+        } else if ($days_active >= 365) {
+            $account_age_score = 80;
+        } else if ($days_active >= 180) {
+            $account_age_score = 60;
+        } else if ($days_active >= 90) {
+            $account_age_score = 40;
+        } else {
+            $account_age_score = 20;
+        }
+        
+        // ================================================
+        // 5. RECENT ACTIVITY SCORE (10% weight) - 0-100
+        // ================================================
+        $recent_query = "SELECT 
+            COUNT(*) as recent_payments
+            FROM repayments r
+            INNER JOIN loan_portfolio lp ON r.loan_id = lp.loan_id
+            WHERE lp.member_id = $member_id 
+            AND r.repayment_date >= DATE_SUB(NOW(), INTERVAL 90 DAY)";
+        
+        $recent_result = $conn->query($recent_query);
+        $recent = $recent_result->fetch_assoc();
+        
+        $recent_activity_score = min(100, ($recent['recent_payments'] * 20));
+        
+        // ================================================
+        // CALCULATE FINAL WEIGHTED SCORE
+        // ================================================
+        $final_score = (
+            ($payment_history_score * 0.35) +
+            ($credit_utilization_score * 0.30) +
+            ($loan_diversity_score * 0.15) +
+            ($account_age_score * 0.10) +
+            ($recent_activity_score * 0.10)
+        );
+        
+        // ================================================
+        // DETERMINE RISK CATEGORY & TIER
+        // ================================================
+        if ($final_score >= 85) {
+            $risk_category = 'Excellent';
+            $risk_tier = 'A';
+            $interest_rate = 5.0;
+            $max_loan = 100000;
+            $recommendation = 'Highly Recommended for Approval';
+        } else if ($final_score >= 75) {
+            $risk_category = 'Very Good';
+            $risk_tier = 'A';
+            $interest_rate = 6.5;
+            $max_loan = 75000;
+            $recommendation = 'Recommended for Approval';
+        } else if ($final_score >= 65) {
+            $risk_category = 'Good';
+            $risk_tier = 'B';
+            $interest_rate = 8.0;
+            $max_loan = 50000;
+            $recommendation = 'Approved with Standard Terms';
+        } else if ($final_score >= 55) {
+            $risk_category = 'Fair';
+            $risk_tier = 'C';
+            $interest_rate = 10.0;
+            $max_loan = 30000;
+            $recommendation = 'Approved with Caution';
+        } else if ($final_score >= 45) {
+            $risk_category = 'Poor';
+            $risk_tier = 'D';
+            $interest_rate = 12.0;
+            $max_loan = 20000;
+            $recommendation = 'High Risk - Requires Collateral';
+        } else {
+            $risk_category = 'Very Poor';
+            $risk_tier = 'D';
+            $interest_rate = 15.0;
+            $max_loan = 10000;
+            $recommendation = 'Recommend Rejection or Co-Signer';
+        }
+        
+        // ================================================
+        // UPDATE MEMBER TABLE with credit score
+        // ================================================
+        $update_member = "UPDATE members SET 
+            member_credit_score = $final_score,
+            risk_tier = '$risk_tier',
+            last_score_update = NOW()
+            WHERE member_id = $member_id";
+        
+        $conn->query($update_member);
+        
+        // ================================================
+        // UPDATE ALL LOANS for this member (all statuses)
+        // ================================================
+        $update_loans = "UPDATE loan_portfolio SET 
+            ai_credit_score = $final_score,
+            ai_risk_category = '$risk_category',
+            ai_assessment_date = NOW(),
+            recommended_interest_rate = $interest_rate
+            WHERE member_id = $member_id";
+        
+        $conn->query($update_loans);
         
         return [
             'success' => true,
             'member_id' => $member_id,
             'member_name' => $member['full_name'],
-            'credit_score' => $final_score,
+            'credit_score' => round($final_score, 2),
             'risk_category' => $risk_category,
-            'score_breakdown' => $scores,
-            'recommendations' => [
-                'interest_rate' => $recommended_rate,
-                'max_loan_amount' => $max_loan,
-                'approval_recommendation' => $this->getApprovalRecommendation($final_score)
+            'risk_tier' => $risk_tier,
+            'breakdown' => [
+                'payment_history' => round($payment_history_score, 2),
+                'credit_utilization' => round($credit_utilization_score, 2),
+                'loan_diversity' => round($loan_diversity_score, 2),
+                'account_age' => round($account_age_score, 2),
+                'recent_activity' => round($recent_activity_score, 2)
             ],
-            'assessment_date' => date('Y-m-d H:i:s')
+            'recommendations' => [
+                'interest_rate' => $interest_rate,
+                'max_loan_amount' => $max_loan,
+                'approval_recommendation' => $recommendation
+            ],
+            'statistics' => [
+                'total_loans' => $loans['total_loans'],
+                'active_loans' => $loans['active_loans'],
+                'completed_loans' => $loans['completed_loans'],
+                'defaulted_loans' => $loans['defaulted_loans'],
+                'total_payments' => $payments['total_payments'],
+                'on_time_payments' => $payments['on_time'],
+                'late_payments' => $payments['late']
+            ]
         ];
-    }
-    
-    /**
-     * Get member basic data
-     */
-    private function getMemberData($member_id) {
-        $query = "SELECT * FROM members WHERE member_id = ?";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param('i', $member_id);
-        $stmt->execute();
-        return $stmt->get_result()->fetch_assoc();
-    }
-    
-    /**
-     * Score 1: Payment History (0-100)
-     * Based on repayment records
-     */
-    private function getPaymentHistoryScore($member_id) {
-        $query = "SELECT 
-            COUNT(DISTINCT r.repayment_id) as total_payments,
-            AVG(r.overdue_count) as avg_overdue,
-            SUM(CASE WHEN r.repayment_date <= r.next_due THEN 1 ELSE 0 END) as on_time_count,
-            MAX(r.overdue_count) as max_overdue
-        FROM repayments r
-        JOIN loan_portfolio lp ON r.loan_id = lp.loan_id
-        WHERE lp.member_id = ?";
         
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param('i', $member_id);
-        $stmt->execute();
-        $result = $stmt->get_result()->fetch_assoc();
-        
-        // Walang payment history = neutral score
-        if ($result['total_payments'] == 0) {
-            return 60; // Default score para sa new members
-        }
-        
-        $score = 100;
-        
-        // Deduct points based on overdue count
-        if ($result['avg_overdue'] > 0) {
-            $score -= ($result['avg_overdue'] * 10); // -10 points per average overdue
-        }
-        
-        if ($result['max_overdue'] > 5) {
-            $score -= 20; // Additional penalty for very late payments
-        }
-        
-        // On-time payment bonus
-        $on_time_rate = ($result['on_time_count'] / $result['total_payments']) * 100;
-        if ($on_time_rate > 90) {
-            $score += 10;
-        }
-        
-        return max(0, min(100, $score));
-    }
-    
-    /**
-     * Score 2: Loan Performance (0-100)
-     * Based on loan completion and status
-     */
-    private function getLoanPerformanceScore($member_id) {
-        $query = "SELECT 
-            COUNT(*) as total_loans,
-            SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed_loans,
-            SUM(CASE WHEN status = 'Defaulted' THEN 1 ELSE 0 END) as defaulted_loans,
-            SUM(CASE WHEN status = 'Approved' OR status = 'Active' THEN 1 ELSE 0 END) as active_loans,
-            SUM(principal_amount) as total_borrowed,
-            AVG(interest_rate) as avg_interest_rate
-        FROM loan_portfolio
-        WHERE member_id = ?";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param('i', $member_id);
-        $stmt->execute();
-        $result = $stmt->get_result()->fetch_assoc();
-        
-        // Walang loan history = neutral
-        if ($result['total_loans'] == 0) {
-            return 65;
-        }
-        
-        $score = 70; // Base score
-        
-        // Completed loans bonus
-        $completion_rate = ($result['completed_loans'] / $result['total_loans']) * 100;
-        $score += ($completion_rate * 0.3); // Up to +30 points
-        
-        // Defaulted loans penalty
-        if ($result['defaulted_loans'] > 0) {
-            $score -= ($result['defaulted_loans'] * 25); // -25 per default
-        }
-        
-        // Active loans (good sign of engagement)
-        if ($result['active_loans'] > 0 && $result['active_loans'] <= 3) {
-            $score += 10;
-        } elseif ($result['active_loans'] > 3) {
-            $score -= 15; // Too many active loans = risky
-        }
-        
-        return max(0, min(100, $score));
-    }
-    
-    /**
-     * Score 3: Repayment Behavior (0-100)
-     * Detailed repayment patterns
-     */
-    private function getRepaymentBehaviorScore($member_id) {
-        $query = "SELECT 
-            COUNT(r.repayment_id) as payment_count,
-            SUM(r.amount) as total_paid,
-            AVG(r.amount) as avg_payment,
-            MIN(r.repayment_date) as first_payment,
-            MAX(r.repayment_date) as last_payment,
-            SUM(CASE WHEN r.overdue_count = 0 THEN 1 ELSE 0 END) as no_overdue_count
-        FROM repayments r
-        JOIN loan_portfolio lp ON r.loan_id = lp.loan_id
-        WHERE lp.member_id = ?";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param('i', $member_id);
-        $stmt->execute();
-        $result = $stmt->get_result()->fetch_assoc();
-        
-        if ($result['payment_count'] == 0) {
-            return 60;
-        }
-        
-        $score = 60;
-        
-        // Consistent payments bonus
-        if ($result['payment_count'] > 10) {
-            $score += 20;
-        } elseif ($result['payment_count'] > 5) {
-            $score += 10;
-        }
-        
-        // No overdue bonus
-        $no_overdue_rate = ($result['no_overdue_count'] / $result['payment_count']) * 100;
-        $score += ($no_overdue_rate * 0.2); // Up to +20 points
-        
-        return max(0, min(100, $score));
-    }
-    
-    /**
-     * Score 4: Risk Indicators (0-100)
-     * Red flags and warning signs
-     */
-    private function getRiskIndicatorScore($member_id) {
-        $score = 100; // Start with perfect score
-        
-        // Check 1: Multiple defaulted loans
-        $query1 = "SELECT COUNT(*) as count FROM loan_portfolio 
-                   WHERE member_id = ? AND status = 'Defaulted'";
-        $stmt1 = $this->conn->prepare($query1);
-        $stmt1->bind_param('i', $member_id);
-        $stmt1->execute();
-        $defaults = $stmt1->get_result()->fetch_assoc()['count'];
-        
-        if ($defaults > 0) {
-            $score -= ($defaults * 30); // -30 per default
-        }
-        
-        // Check 2: High overdue count on recent payments
-        $query2 = "SELECT AVG(overdue_count) as avg_overdue 
-                   FROM repayments r
-                   JOIN loan_portfolio lp ON r.loan_id = lp.loan_id
-                   WHERE lp.member_id = ? 
-                   AND r.repayment_date >= DATE_SUB(NOW(), INTERVAL 6 MONTH)";
-        $stmt2 = $this->conn->prepare($query2);
-        $stmt2->bind_param('i', $member_id);
-        $stmt2->execute();
-        $recent_overdue = $stmt2->get_result()->fetch_assoc()['avg_overdue'];
-        
-        if ($recent_overdue > 3) {
-            $score -= 25; // Recent pattern of late payments
-        }
-        
-        // Check 3: Too many active loans
-        $query3 = "SELECT COUNT(*) as count FROM loan_portfolio 
-                   WHERE member_id = ? AND status IN ('Approved', 'Active')";
-        $stmt3 = $this->conn->prepare($query3);
-        $stmt3->bind_param('i', $member_id);
-        $stmt3->execute();
-        $active_count = $stmt3->get_result()->fetch_assoc()['count'];
-        
-        if ($active_count > 5) {
-            $score -= 20; // Overextended
-        }
-        
-        return max(0, min(100, $score));
-    }
-    
-    /**
-     * Score 5: Savings Score (0-100)
-     * Based on savings account if available
-     */
-    private function getSavingsScore($member_id) {
-        // Note: Adjust based on your savings table structure
-        $query = "SELECT 
-            COUNT(*) as transaction_count,
-            SUM(amount) as total_savings
-        FROM savings
-        WHERE member_id = ?";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param('i', $member_id);
-        $stmt->execute();
-        $result = $stmt->get_result()->fetch_assoc();
-        
-        if (!$result || $result['transaction_count'] == 0) {
-            return 50; // Neutral kung walang savings
-        }
-        
-        $score = 50;
-        
-        // Bonus for having savings
-        if ($result['total_savings'] > 10000) {
-            $score += 30;
-        } elseif ($result['total_savings'] > 5000) {
-            $score += 20;
-        } elseif ($result['total_savings'] > 1000) {
-            $score += 10;
-        }
-        
-        // Bonus for regular savings
-        if ($result['transaction_count'] > 20) {
-            $score += 20;
-        } elseif ($result['transaction_count'] > 10) {
-            $score += 10;
-        }
-        
-        return max(0, min(100, $score));
-    }
-    
-    /**
-     * Determine risk category based on score
-     */
-    private function getRiskCategory($score) {
-        if ($score >= 85) return 'Excellent';
-        if ($score >= 75) return 'Very Good';
-        if ($score >= 65) return 'Good';
-        if ($score >= 55) return 'Fair';
-        if ($score >= 45) return 'Poor';
-        return 'Very Poor';
-    }
-    
-    /**
-     * Recommend interest rate based on score
-     */
-    private function getRecommendedRate($score) {
-        if ($score >= 85) return 1.00;  // 1% para sa excellent
-        if ($score >= 75) return 1.25;
-        if ($score >= 65) return 1.50;
-        if ($score >= 55) return 2.00;
-        if ($score >= 45) return 2.50;
-        return 3.00; // Maximum rate para sa very poor
-    }
-    
-    /**
-     * Get maximum recommended loan amount
-     */
-    private function getMaxLoanAmount($score, $member_id) {
-        // Base sa average ng previous successful loans
-        $query = "SELECT AVG(principal_amount) as avg_loan
-                  FROM loan_portfolio
-                  WHERE member_id = ? AND status = 'Completed'";
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param('i', $member_id);
-        $stmt->execute();
-        $result = $stmt->get_result()->fetch_assoc();
-        
-        $base_amount = $result['avg_loan'] ?? 10000;
-        
-        // Multiply based on credit score
-        if ($score >= 85) {
-            $multiplier = 3.0;  // 3x ng average
-        } elseif ($score >= 75) {
-            $multiplier = 2.5;
-        } elseif ($score >= 65) {
-            $multiplier = 2.0;
-        } elseif ($score >= 55) {
-            $multiplier = 1.5;
-        } elseif ($score >= 45) {
-            $multiplier = 1.0;
-        } else {
-            $multiplier = 0.5;  // Limited amount para sa poor rating
-        }
-        
-        return round($base_amount * $multiplier, -3); // Round to nearest thousand
-    }
-    
-    /**
-     * Get approval recommendation
-     */
-    private function getApprovalRecommendation($score) {
-        if ($score >= 75) {
-            return 'APPROVE - Excellent credit profile';
-        } elseif ($score >= 65) {
-            return 'APPROVE - Good credit standing';
-        } elseif ($score >= 55) {
-            return 'CONDITIONAL - Require additional collateral';
-        } elseif ($score >= 45) {
-            return 'REVIEW - High risk, needs manual review';
-        } else {
-            return 'REJECT - Credit score too low';
-        }
-    }
-    
-    /**
-     * Save AI score to loan_portfolio table
-     * (Add new columns: ai_credit_score, ai_risk_category, ai_assessment_date)
-     */
-    private function saveAIScore($member_id, $score, $category) {
-        // Update active loans with AI score
-        $query = "UPDATE loan_portfolio 
-                  SET ai_credit_score = ?,
-                      ai_risk_category = ?,
-                      ai_assessment_date = NOW()
-                  WHERE member_id = ? 
-                  AND status IN ('Pending', 'Approved', 'Active')";
-        
-        $stmt = $this->conn->prepare($query);
-        $stmt->bind_param('isi', $score, $category, $member_id);
-        
-        try {
-            $stmt->execute();
-        } catch (Exception $e) {
-            // Table might not have these columns yet
-            // Run the migration SQL first
-        }
-    }
-    
-    /**
-     * Bulk calculate scores for all active members
-     * Useful for monthly recalculation
-     */
-    public function calculateAllScores() {
-        $query = "SELECT DISTINCT member_id FROM members WHERE status = 'Active'";
-        $result = $this->conn->query($query);
-        
-        $results = [];
-        while ($row = $result->fetch_assoc()) {
-            $results[] = $this->calculateCreditScore($row['member_id']);
-        }
-        
-        return $results;
+    } catch (Exception $e) {
+        error_log("AI Scoring Error for Member $member_id: " . $e->getMessage());
+        return [
+            'success' => false,
+            'error' => 'Failed to calculate credit score: ' . $e->getMessage()
+        ];
     }
 }
 ?>
