@@ -147,6 +147,7 @@ include("inc/sidebar.php");
         font-weight: 600;
         text-decoration: none;
         transition: all 0.3s;
+        margin-top: -15px;
     }
     
     .back-button:hover {
