@@ -1605,7 +1605,7 @@ include("inc/sidebar.php");
 
         setHtml('bulk-action-status', '<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Calculating scores... Please wait.</div>');
 
-        fetch('calculate_all_ai_scores_ajax.php', { method: 'POST', cache: 'no-store' })
+        fetch('ajax_calculate_all_scores.php', { method: 'POST', cache: 'no-store' })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.success) {
@@ -1622,7 +1622,7 @@ include("inc/sidebar.php");
 
         setHtml('bulk-action-status', '<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Recalculating old scores...</div>');
 
-        fetch('recalculate_old_scores_ajax.php', { method: 'POST', cache: 'no-store' })
+        fetch('ajax_recalculate_old_scores.php', { method: 'POST', cache: 'no-store' })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.success) {
@@ -1681,7 +1681,7 @@ include("inc/sidebar.php");
         var formData = new FormData();
         formData.append('member_id', memberId);
 
-        fetch('calculate_single_score_ajax.php', { method: 'POST', body: formData, cache: 'no-store' })
+        fetch('ajax_calculate_single_score.php', { method: 'POST', body: formData, cache: 'no-store' })
             .then(function(r) { return r.json(); })
             .then(function(data) {
                 if (data.success) {
