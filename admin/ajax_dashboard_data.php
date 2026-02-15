@@ -3,174 +3,140 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 require_once(__DIR__ . '/../initialize_coreT2.php');
 header('Content-Type: application/json; charset=utf-8');
 
-$response = ['status' => 'success', 'columns' => [], 'rows' => []];
+$response = [
+    'status' => 'success',
+    'total_members' => 0,
+    'active_loans' => 0,
+    'total_savings' => 0,
+    'total_disbursed' => 0,
+    'loan_chart' => ['labels' => [], 'values' => []],
+    'collection_chart' => ['labels' => [], 'values' => []],
+    'loan_disbursement_chart' => ['labels' => [], 'values' => []],
+    'compliance_chart' => ['labels' => [], 'values' => []],
+    'compliance_table_html' => '',
+    'recent_audit_html' => ''
+];
 
-$type   = $_GET['type']   ?? '';
-$filter = $_GET['filter'] ?? '';
-$filter = $conn->real_escape_string($filter);
+function scalar($conn, $sql) {
+    $res = $conn->query($sql);
+    return ($res && $r = $res->fetch_assoc()) ? (float)$r['val'] : 0;
+}
+function rows($conn, $sql) {
+    $out = [];
+    $res = $conn->query($sql);
+    if ($res) while ($r = $res->fetch_assoc()) $out[] = $r;
+    return $out;
+}
 
 try {
-    switch ($type) {
+    // ── KPIs ────────────────────────────────────────────────────────────
+    $response['total_members'] = (int) scalar($conn, "SELECT COUNT(*) AS val FROM members WHERE status='Active'");
+    $response['active_loans']  = (int) scalar($conn, "SELECT COUNT(*) AS val FROM loan_portfolio WHERE status IN ('Active','Approved')");
 
-        case 'members':
-            $sql = "SELECT 
-                        member_id       AS ID,
-                        member_code     AS Code,
-                        full_name       AS Name,
-                        contact_no      AS Contact,
-                        address         AS Address,
-                        membership_date AS Joined,
-                        status          AS Status
-                    FROM members
-                    WHERE status = 'Active'
-                    ORDER BY full_name";
-            break;
-
-        case 'loans':
-            $where = $filter ? "WHERE l.status = '$filter'" : '';
-            $sql = "SELECT 
-                        l.loan_id          AS ID,
-                        l.loan_code        AS Code,
-                        m.full_name        AS Member,
-                        l.loan_type        AS Type,
-                        l.principal_amount AS Principal,
-                        l.interest_rate    AS Rate,
-                        l.status           AS Status,
-                        l.start_date       AS Started,
-                        l.end_date         AS EndDate
-                    FROM loan_portfolio l
-                    LEFT JOIN members m ON m.member_id = l.member_id
-                    $where
-                    ORDER BY l.loan_id DESC";
-            break;
-
-        case 'savings':
-            $sql = "SELECT 
-                        s.saving_id        AS ID,
-                        m.full_name        AS Member,
-                        s.transaction_type AS Type,
-                        s.amount           AS Amount,
-                        s.balance          AS Balance,
-                        s.transaction_date AS Date
-                    FROM savings s
-                    LEFT JOIN members m ON m.member_id = s.member_id
-                    ORDER BY s.transaction_date DESC";
-            break;
-
-        case 'disbursements':
-            $where = $filter ? "WHERE d.status = '$filter'" : '';
-            $sql = "SELECT 
-                        d.disbursement_id   AS ID,
-                        m.full_name         AS Member,
-                        d.amount            AS Amount,
-                        d.fund_source       AS Source,
-                        d.status            AS Status,
-                        d.disbursement_date AS Released
-                    FROM disbursements d
-                    LEFT JOIN members m ON m.member_id = d.member_id
-                    $where
-                    ORDER BY d.disbursement_date DESC";
-            break;
-
-        case 'overdue':
-            $sql = "SELECT 
-                        r.repayment_id   AS ID,
-                        m.full_name      AS Member,
-                        l.loan_code      AS LoanCode,
-                        l.principal_amount AS Principal,
-                        r.amount         AS Repayment,
-                        r.repayment_date AS Date,
-                        r.overdue_count  AS OverdueCount,
-                        r.risk_level     AS RiskLevel
-                    FROM repayments r
-                    LEFT JOIN loan_portfolio l ON r.loan_id = l.loan_id
-                    LEFT JOIN members m ON l.member_id = m.member_id
-                    WHERE r.overdue_count > 0
-                    ORDER BY r.overdue_count DESC";
-            break;
-
-        case 'defaulted':
-            $sql = "SELECT 
-                        l.loan_id          AS ID,
-                        l.loan_code        AS Code,
-                        m.full_name        AS Member,
-                        l.principal_amount AS Principal,
-                        l.status           AS Status,
-                        l.end_date         AS EndDate
-                    FROM loan_portfolio l
-                    LEFT JOIN members m ON m.member_id = l.member_id
-                    WHERE l.status = 'Defaulted'
-                    ORDER BY l.loan_id DESC";
-            break;
-
-        case 'pending':
-            $sql = "SELECT 
-                        l.loan_id          AS ID,
-                        l.loan_code        AS Code,
-                        m.full_name        AS Member,
-                        l.principal_amount AS Principal,
-                        l.loan_type        AS Type,
-                        l.start_date       AS Applied
-                    FROM loan_portfolio l
-                    LEFT JOIN members m ON m.member_id = l.member_id
-                    WHERE l.status = 'Pending'
-                    ORDER BY l.start_date DESC";
-            break;
-
-        case 'repayments':
-            $today = date('Y-m-d');
-            $sql = "SELECT 
-                        r.repayment_id   AS ID,
-                        m.full_name      AS Member,
-                        l.loan_code      AS LoanCode,
-                        r.amount         AS Amount,
-                        r.method         AS Method,
-                        r.repayment_date AS Date,
-                        r.remarks        AS Remarks
-                    FROM repayments r
-                    LEFT JOIN loan_portfolio l ON r.loan_id = l.loan_id
-                    LEFT JOIN members m ON l.member_id = m.member_id
-                    WHERE DATE(r.repayment_date) = '$today'
-                    ORDER BY r.repayment_date DESC";
-            break;
-
-        case 'compliance':
-            $sql = "SELECT 
-                        a.audit_id          AS ID,
-                        u.full_name         AS User,
-                        a.action_type       AS Action,
-                        a.module_name       AS Module,
-                        a.compliance_status AS Status,
-                        a.action_time       AS DateTime,
-                        a.remarks           AS Remarks
-                    FROM audit_trail a
-                    LEFT JOIN users u ON u.user_id = a.user_id
-                    WHERE a.compliance_status IS NOT NULL
-                    ORDER BY a.action_time DESC
-                    LIMIT 100";
-            break;
-
-        default:
-            echo json_encode(['status' => 'error', 'message' => 'Invalid type: ' . $type]);
-            exit();
-    }
-
-    $res = $conn->query($sql);
-
-    if (!$res) {
-        throw new Exception('Query failed: ' . $conn->error . ' | SQL: ' . $sql);
-    }
-
-    if ($res->num_rows > 0) {
-        $firstRow = $res->fetch_assoc();
-        $response['columns'] = array_keys($firstRow);
-        $response['rows'][]  = $firstRow;
-        while ($row = $res->fetch_assoc()) {
-            $response['rows'][] = $row;
-        }
+    // Savings (view fallback)
+    $v = $conn->query("SELECT 1 FROM information_schema.VIEWS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='v_member_savings'");
+    if ($v && $v->num_rows > 0) {
+        $response['total_savings'] = scalar($conn, "SELECT IFNULL(SUM(total_savings),0) AS val FROM v_member_savings");
     } else {
-        $response['rows'] = [];
+        $response['total_savings'] = scalar($conn, "SELECT IFNULL(SUM(amount),0) AS val FROM savings");
     }
+
+    $response['total_disbursed'] = scalar($conn, "SELECT IFNULL(SUM(amount),0) AS val FROM disbursements WHERE status='Released'");
+
+    // ── Loan Portfolio Chart ─────────────────────────────────────────────
+    $loan_rows = rows($conn, "SELECT status AS label, COUNT(*) AS value FROM loan_portfolio GROUP BY status");
+    $response['loan_chart']['labels'] = array_column($loan_rows, 'label');
+    $response['loan_chart']['values'] = array_column($loan_rows, 'value');
+
+    // ── Monthly Collections & Disbursements ──────────────────────────────
+    $year   = date('Y');
+    $months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    $coll = rows($conn, "SELECT MONTH(collection_date) AS m, SUM(amount_collected) AS total
+                          FROM collections WHERE YEAR(collection_date)={$year}
+                          GROUP BY MONTH(collection_date)");
+    $collData = array_fill(1, 12, 0.0);
+    foreach ($coll as $r) $collData[(int)$r['m']] = (float)$r['total'];
+    $response['collection_chart'] = ['labels' => $months, 'values' => array_values($collData)];
+
+    $disb = rows($conn, "SELECT MONTH(disbursement_date) AS m, SUM(amount) AS total
+                          FROM disbursements WHERE YEAR(disbursement_date)={$year}
+                          GROUP BY MONTH(disbursement_date)");
+    $disbData = array_fill(1, 12, 0.0);
+    foreach ($disb as $r) $disbData[(int)$r['m']] = (float)$r['total'];
+    $response['loan_disbursement_chart'] = ['labels' => $months, 'values' => array_values($disbData)];
+
+    // ── Compliance Chart — FIX: query audit_trail (actual data source) ───
+    $compRows = rows($conn, "SELECT compliance_status AS label, COUNT(*) AS value
+                              FROM audit_trail
+                              WHERE compliance_status IS NOT NULL
+                              GROUP BY compliance_status");
+    $response['compliance_chart'] = [
+        'labels' => array_column($compRows, 'label'),
+        'values' => array_column($compRows, 'value')
+    ];
+
+    // ── Compliance Records Table — FIX: query audit_trail directly ───────
+    $compTable = rows($conn, "
+        SELECT
+            a.audit_id,
+            a.compliance_status,
+            a.action_type,
+            a.remarks,
+            a.action_time AS review_date,
+            a.module_name,
+            u.full_name
+        FROM audit_trail a
+        LEFT JOIN users u ON a.user_id = u.user_id
+        WHERE a.compliance_status IS NOT NULL
+          AND a.compliance_status != 'Compliant'
+        ORDER BY a.action_time DESC
+        LIMIT 20
+    ");
+
+    if ($compTable) {
+        $html  = '<table class="table table-sm table-striped mb-0">';
+        $html .= '<thead><tr><th>ID</th><th>User</th><th>Action</th><th>Status</th><th>Date</th><th>Remarks</th></tr></thead><tbody>';
+        foreach ($compTable as $r) {
+            $statusColor = match($r['compliance_status']) {
+                'Non-Compliant' => 'danger',
+                'Under Review'  => 'warning',
+                'Pending'       => 'secondary',
+                default         => 'success'
+            };
+            $html .= '<tr>
+                <td>' . htmlspecialchars($r['audit_id'])          . '</td>
+                <td>' . htmlspecialchars($r['full_name'] ?? 'System') . '</td>
+                <td><small>' . htmlspecialchars($r['action_type'] ?? '-') . '</small></td>
+                <td><span class="badge bg-' . $statusColor . '">'
+                    . htmlspecialchars($r['compliance_status']) . '</span></td>
+                <td><small>' . htmlspecialchars($r['review_date'])  . '</small></td>
+                <td><small>' . htmlspecialchars($r['remarks'] ?? '-') . '</small></td>
+            </tr>';
+        }
+        $html .= '</tbody></table>';
+        $response['compliance_table_html'] = $html;
+    } else {
+        $response['compliance_table_html'] = '<div class="p-2 text-muted">No compliance records found.</div>';
+    }
+
+    // ── Recent Audit Trail ───────────────────────────────────────────────
+    $audits = rows($conn, "SELECT a.module_name, a.action_type, a.remarks, a.action_time, u.full_name
+                            FROM audit_trail a
+                            LEFT JOIN users u ON a.user_id = u.user_id
+                            ORDER BY a.action_time DESC LIMIT 8");
+    $html = "<ul class='list-group'>";
+    foreach ($audits as $a) {
+        $time = date('M d, Y H:i', strtotime($a['action_time']));
+        $user = htmlspecialchars($a['full_name'] ?? 'Unknown');
+        $act  = htmlspecialchars($a['action_type'] ?? '-');
+        $mod  = htmlspecialchars($a['module_name']  ?? '-');
+        $rem  = htmlspecialchars($a['remarks']       ?? '');
+        $html .= "<li class='list-group-item'><strong>{$user}</strong> - {$act} on {$mod}<br>
+                  <small class='text-muted'>{$rem} | {$time}</small></li>";
+    }
+    $html .= "</ul>";
+    $response['recent_audit_html'] = $html;
 
 } catch (Throwable $e) {
     $response = ['status' => 'error', 'message' => $e->getMessage()];

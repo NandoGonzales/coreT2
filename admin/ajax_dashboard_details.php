@@ -5,136 +5,171 @@ header('Content-Type: application/json; charset=utf-8');
 
 $response = ['status' => 'success', 'columns' => [], 'rows' => []];
 
-$type = $_GET['type'] ?? '';
+$type   = $_GET['type']   ?? '';
 $filter = $_GET['filter'] ?? '';
+$filter = $conn->real_escape_string($filter);
 
 try {
     switch ($type) {
 
-        // ---- MEMBERS ----
         case 'members':
-            $sql = "SELECT member_id AS ID, full_name AS 'Full Name', contact_no AS 'Contact No', 
-                           address AS Address, date_registered AS 'Date Joined', status AS Status
+            $sql = "SELECT 
+                        member_id       AS ID,
+                        member_code     AS Code,
+                        full_name       AS Name,
+                        contact_no      AS Contact,
+                        address         AS Address,
+                        membership_date AS Joined,
+                        status          AS Status
                     FROM members
                     WHERE status = 'Active'
                     ORDER BY full_name";
             break;
 
-        // ---- LOANS ----
         case 'loans':
-            $sql = "SELECT loan_id AS ID, l.member_id AS 'Member ID', m.full_name AS 'Member Name',
-                           loan_type AS 'Loan Type', principal_amount AS 'Principal', 
-                           status AS Status, date_applied AS 'Date Applied'
+            $where = $filter ? "WHERE l.status = '$filter'" : '';
+            $sql = "SELECT 
+                        l.loan_id          AS ID,
+                        l.loan_code        AS Code,
+                        m.full_name        AS Member,
+                        l.loan_type        AS Type,
+                        l.principal_amount AS Principal,
+                        l.interest_rate    AS Rate,
+                        l.status           AS Status,
+                        l.start_date       AS Started,
+                        l.end_date         AS EndDate
                     FROM loan_portfolio l
                     LEFT JOIN members m ON m.member_id = l.member_id
-                    " . ($filter ? "WHERE l.status = '$filter'" : "") . "
+                    $where
                     ORDER BY l.loan_id DESC";
             break;
 
-        // ---- SAVINGS ----
         case 'savings':
-            $sql = "SELECT s.saving_id AS ID, m.full_name AS 'Member Name', 
-                           s.amount AS Amount, s.transaction_type AS 'Type', 
-                           s.date AS 'Date Recorded'
+            $sql = "SELECT 
+                        s.saving_id        AS ID,
+                        m.full_name        AS Member,
+                        s.transaction_type AS Type,
+                        s.amount           AS Amount,
+                        s.balance          AS Balance,
+                        s.transaction_date AS Date
                     FROM savings s
                     LEFT JOIN members m ON m.member_id = s.member_id
-                    ORDER BY s.date DESC";
+                    ORDER BY s.transaction_date DESC";
             break;
 
-        // ---- DISBURSEMENTS ----
         case 'disbursements':
-            $sql = "SELECT d.disbursement_id AS ID, m.full_name AS 'Member Name', 
-                           d.amount AS 'Amount', d.status AS 'Status', 
-                           d.disbursement_date AS 'Date Released'
+            $where = $filter ? "WHERE d.status = '$filter'" : '';
+            $sql = "SELECT 
+                        d.disbursement_id   AS ID,
+                        m.full_name         AS Member,
+                        d.amount            AS Amount,
+                        d.fund_source       AS Source,
+                        d.status            AS Status,
+                        d.disbursement_date AS Released
                     FROM disbursements d
                     LEFT JOIN members m ON m.member_id = d.member_id
-                    " . ($filter ? "WHERE d.status = '$filter'" : "") . "
+                    $where
                     ORDER BY d.disbursement_date DESC";
             break;
 
-        // ---- OVERDUE LOANS ----
         case 'overdue':
-            $sql = "SELECT l.loan_id AS ID, m.full_name AS 'Member Name',
-                           l.principal_amount AS 'Principal', 
-                           l.date_applied AS 'Date Applied',
-                           DATEDIFF(CURDATE(), ls.due_date) AS 'Days Overdue',
-                           ls.due_date AS 'Due Date'
-                    FROM loan_portfolio l
-                    LEFT JOIN members m ON m.member_id = l.member_id
-                    LEFT JOIN loan_schedules ls ON l.loan_id = ls.loan_id
-                    WHERE ls.payment_status = 'Overdue' AND ls.due_date < CURDATE()
-                    ORDER BY ls.due_date ASC";
+            $sql = "SELECT 
+                        r.repayment_id   AS ID,
+                        m.full_name      AS Member,
+                        l.loan_code      AS LoanCode,
+                        l.principal_amount AS Principal,
+                        r.amount         AS Repayment,
+                        r.repayment_date AS Date,
+                        r.overdue_count  AS OverdueCount,
+                        r.risk_level     AS RiskLevel
+                    FROM repayments r
+                    LEFT JOIN loan_portfolio l ON r.loan_id = l.loan_id
+                    LEFT JOIN members m ON l.member_id = m.member_id
+                    WHERE r.overdue_count > 0
+                    ORDER BY r.overdue_count DESC";
             break;
 
-        // ---- DEFAULTED LOANS ----
         case 'defaulted':
-            $sql = "SELECT l.loan_id AS ID, m.full_name AS 'Member Name',
-                           l.principal_amount AS 'Principal', 
-                           l.date_applied AS 'Date Applied',
-                           l.date_defaulted AS 'Date Defaulted'
+            $sql = "SELECT 
+                        l.loan_id          AS ID,
+                        l.loan_code        AS Code,
+                        m.full_name        AS Member,
+                        l.principal_amount AS Principal,
+                        l.status           AS Status,
+                        l.end_date         AS EndDate
                     FROM loan_portfolio l
                     LEFT JOIN members m ON m.member_id = l.member_id
                     WHERE l.status = 'Defaulted'
-                    ORDER BY l.date_defaulted DESC";
+                    ORDER BY l.loan_id DESC";
             break;
 
-        // ---- PENDING LOANS ----
         case 'pending':
-            $sql = "SELECT l.loan_id AS ID, m.full_name AS 'Member Name',
-                           l.principal_amount AS 'Principal', 
-                           l.loan_type AS 'Loan Type',
-                           l.date_applied AS 'Date Applied'
+            $sql = "SELECT 
+                        l.loan_id          AS ID,
+                        l.loan_code        AS Code,
+                        m.full_name        AS Member,
+                        l.principal_amount AS Principal,
+                        l.loan_type        AS Type,
+                        l.start_date       AS Applied
                     FROM loan_portfolio l
                     LEFT JOIN members m ON m.member_id = l.member_id
                     WHERE l.status = 'Pending'
-                    ORDER BY l.date_applied DESC";
+                    ORDER BY l.start_date DESC";
             break;
 
-        // ---- TODAY'S REPAYMENTS ----
         case 'repayments':
             $today = date('Y-m-d');
-            $sql = "SELECT r.repayment_id AS ID, m.full_name AS 'Member Name',
-                           l.loan_id AS 'Loan ID',
-                           r.amount AS 'Amount',
-                           r.method AS 'Payment Method',
-                           r.repayment_date AS 'Payment Date'
-                    FROM loan_repayments r
+            $sql = "SELECT 
+                        r.repayment_id   AS ID,
+                        m.full_name      AS Member,
+                        l.loan_code      AS LoanCode,
+                        r.amount         AS Amount,
+                        r.method         AS Method,
+                        r.repayment_date AS Date,
+                        r.remarks        AS Remarks
+                    FROM repayments r
                     LEFT JOIN loan_portfolio l ON r.loan_id = l.loan_id
                     LEFT JOIN members m ON l.member_id = m.member_id
                     WHERE DATE(r.repayment_date) = '$today'
                     ORDER BY r.repayment_date DESC";
             break;
 
-        // ---- COMPLIANCE ----
         case 'compliance':
-            $sql = "SELECT c.compliance_id AS ID, a.module_name AS 'Module', 
-                           c.description AS 'Description', 
-                           c.compliance_status AS 'Status', 
-                           c.review_date AS 'Reviewed On'
-                    FROM compliance_logs c
-                    LEFT JOIN audit_trail a ON a.audit_id = c.audit_id
-                    ORDER BY c.review_date DESC";
+            $sql = "SELECT 
+                        a.audit_id          AS ID,
+                        u.full_name         AS User,
+                        a.action_type       AS Action,
+                        a.module_name       AS Module,
+                        a.compliance_status AS Status,
+                        a.action_time       AS DateTime,
+                        a.remarks           AS Remarks
+                    FROM audit_trail a
+                    LEFT JOIN users u ON u.user_id = a.user_id
+                    WHERE a.compliance_status IS NOT NULL
+                    ORDER BY a.action_time DESC
+                    LIMIT 100";
             break;
 
         default:
-            $sql = '';
-            $response = ['status' => 'error', 'message' => 'Invalid type'];
+            echo json_encode(['status' => 'error', 'message' => 'Invalid type: ' . $type]);
+            exit();
     }
 
-    if ($sql) {
-        $res = $conn->query($sql);
-        if ($res && $res->num_rows > 0) {
-            // Get column names
-            $response['columns'] = array_keys($res->fetch_assoc());
-            $res->data_seek(0); // reset pointer
-            
-            // Get all rows
-            while ($row = $res->fetch_assoc()) {
-                $response['rows'][] = $row;
-            }
-        } else {
-            $response['rows'] = [];
+    $res = $conn->query($sql);
+
+    if (!$res) {
+        throw new Exception('Query failed: ' . $conn->error . ' | SQL: ' . $sql);
+    }
+
+    if ($res->num_rows > 0) {
+        $firstRow = $res->fetch_assoc();
+        $response['columns'] = array_keys($firstRow);
+        $response['rows'][]  = $firstRow;
+        while ($row = $res->fetch_assoc()) {
+            $response['rows'][] = $row;
         }
+    } else {
+        $response['rows'] = [];
     }
 
 } catch (Throwable $e) {
