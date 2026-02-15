@@ -1574,144 +1574,133 @@ include("inc/sidebar.php");
 
     })();
 
+    // ── Vanilla JS replacements (no jQuery needed) ──────────────────────
+
+    function setHtml(id, html) {
+        var el = document.getElementById(id);
+        if (el) el.innerHTML = html;
+    }
+    function setText(id, text) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = text;
+    }
+
     function refreshEnhancedAIStats() {
-        $.ajax({
-            url: 'ajax_ai_statistics.php',
-            method: 'GET',
-            dataType: 'json',
-            success: function(data) {
+        fetch('ajax_ai_statistics.php', { cache: 'no-store' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
                 if (data.success) {
-                    $('#stat-total-members').text(data.total_members);
-                    $('#stat-scored-members').text(data.scored_members);
-                    $('#stat-unscored-members').text(data.unscored_members);
-                    $('#stat-old-scores').text(data.old_scores);
-                    $('#stat-last-calc').text(data.last_calculation || 'Never');
+                    setText('stat-total-members',  data.total_members);
+                    setText('stat-scored-members', data.scored_members);
+                    setText('stat-unscored-members', data.unscored_members);
+                    setText('stat-old-scores',     data.old_scores);
+                    setText('stat-last-calc',      data.last_calculation || 'Never');
                 }
-            },
-            error: function() {
-                console.error('Failed to load AI statistics');
-            }
-        });
+            })
+            .catch(function() { console.error('Failed to load AI statistics'); });
     }
 
     function calculateAllScores() {
-        if (!confirm('This will calculate AI scores for ALL active members. This may take a few moments. Continue?')) {
-            return;
-        }
+        if (!confirm('This will calculate AI scores for ALL active members. This may take a few moments. Continue?')) return;
 
-        $('#bulk-action-status').html('<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Calculating scores... Please wait.</div>');
+        setHtml('bulk-action-status', '<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Calculating scores... Please wait.</div>');
 
-        $.ajax({
-            url: 'calculate_all_ai_scores_ajax.php',
-            method: 'POST',
-            dataType: 'json',
-            success: function(data) {
+        fetch('calculate_all_ai_scores_ajax.php', { method: 'POST', cache: 'no-store' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
                 if (data.success) {
-                    $('#bulk-action-status').html('<div class="alert alert-success"><strong>✅ Success!</strong><br>Calculated scores for ' + data.successful + ' out of ' + data.total + ' members.</div>');
-                    setTimeout(function() {
-                        location.reload();
-                    }, 2000);
+                    setHtml('bulk-action-status', '<div class="alert alert-success"><strong>✅ Success!</strong><br>Calculated scores for ' + data.successful + ' out of ' + data.total + ' members.</div>');
+                    setTimeout(function() { location.reload(); }, 2000);
                 } else {
-                    $('#bulk-action-status').html('<div class="alert alert-danger"><strong>❌ Error:</strong> ' + data.error + '</div>');
+                    setHtml('bulk-action-status', '<div class="alert alert-danger"><strong>❌ Error:</strong> ' + data.error + '</div>');
                 }
-            }
-        });
+            });
     }
 
     function recalculateOldScores() {
-        if (!confirm('This will recalculate scores that are older than 30 days. Continue?')) {
-            return;
-        }
+        if (!confirm('This will recalculate scores that are older than 30 days. Continue?')) return;
 
-        $('#bulk-action-status').html('<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Recalculating old scores...</div>');
+        setHtml('bulk-action-status', '<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Recalculating old scores...</div>');
 
-        $.ajax({
-            url: 'recalculate_old_scores_ajax.php',
-            method: 'POST',
-            dataType: 'json',
-            success: function(data) {
+        fetch('recalculate_old_scores_ajax.php', { method: 'POST', cache: 'no-store' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
                 if (data.success) {
-                    $('#bulk-action-status').html('<div class="alert alert-success"><strong>✅ Success!</strong><br>Recalculated ' + data.updated + ' scores.</div>');
-                    setTimeout(function() {
-                        location.reload();
-                    }, 2000);
+                    setHtml('bulk-action-status', '<div class="alert alert-success"><strong>✅ Success!</strong><br>Recalculated ' + data.updated + ' scores.</div>');
+                    setTimeout(function() { location.reload(); }, 2000);
                 } else {
-                    $('#bulk-action-status').html('<div class="alert alert-danger"><strong>❌ Error:</strong> ' + data.error + '</div>');
+                    setHtml('bulk-action-status', '<div class="alert alert-danger"><strong>❌ Error:</strong> ' + data.error + '</div>');
                 }
-            }
-        });
+            });
     }
 
     function showScoringModal() {
-        $('#singleScoringModal').modal('show');
-        $('#single-member-result').hide();
+        var modal = new bootstrap.Modal(document.getElementById('singleScoringModal'));
+        modal.show();
+        var result = document.getElementById('single-member-result');
+        if (result) result.style.display = 'none';
         loadMembersList();
     }
 
     function loadMembersList() {
-        $.ajax({
-            url: 'ajax_get_members_list.php',
-            method: 'GET',
-            dataType: 'json',
-            success: function(data) {
+        fetch('ajax_get_members_list.php', { cache: 'no-store' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var select = document.getElementById('single-member-select');
+                if (!select) return;
                 if (data.success && data.members) {
                     var options = '<option value="">-- Choose a member --</option>';
                     data.members.forEach(function(member) {
                         var displayName = member.full_name;
-                        if (member.member_code) {
-                            displayName += ' (' + member.member_code + ')';
-                        }
+                        if (member.member_code) displayName += ' (' + member.member_code + ')';
                         options += '<option value="' + member.member_id + '">' + displayName + '</option>';
                     });
-                    $('#single-member-select').html(options);
+                    select.innerHTML = options;
                 } else {
-                    console.error('Failed to load members:', data);
-                    $('#single-member-select').html('<option value="">Error loading members</option>');
+                    select.innerHTML = '<option value="">Error loading members</option>';
                 }
-            },
-            error: function(xhr, status, error) {
-                console.error('AJAX Error:', status, error);
-                $('#single-member-select').html('<option value="">Connection error</option>');
-            }
-        });
+            })
+            .catch(function() {
+                var select = document.getElementById('single-member-select');
+                if (select) select.innerHTML = '<option value="">Connection error</option>';
+            });
     }
 
     function calculateSingleScore() {
-        var memberId = $('#single-member-select').val();
+        var select = document.getElementById('single-member-select');
+        var memberId = select ? select.value : '';
 
-        if (!memberId) {
-            alert('Please select a member first');
-            return;
+        if (!memberId) { alert('Please select a member first'); return; }
+
+        var result = document.getElementById('single-member-result');
+        if (result) {
+            result.innerHTML = '<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Calculating credit score...</div>';
+            result.style.display = 'block';
         }
 
-        $('#single-member-result').html('<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Calculating credit score...</div>').show();
+        var formData = new FormData();
+        formData.append('member_id', memberId);
 
-        $.ajax({
-            url: 'calculate_single_score_ajax.php',
-            method: 'POST',
-            data: {
-                member_id: memberId
-            },
-            dataType: 'json',
-            success: function(data) {
+        fetch('calculate_single_score_ajax.php', { method: 'POST', body: formData, cache: 'no-store' })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
                 if (data.success) {
-                    $('#singleScoringModal').modal('hide');
+                    var modal = bootstrap.Modal.getInstance(document.getElementById('singleScoringModal'));
+                    if (modal) modal.hide();
                     window.location.href = 'member_assessment.php?member_id=' + memberId;
                 } else {
-                    $('#single-member-result').html('<div class="alert alert-danger"><strong>❌ Error:</strong> ' + (data.error || 'Calculation failed') + '</div>');
+                    if (result) result.innerHTML = '<div class="alert alert-danger"><strong>❌ Error:</strong> ' + (data.error || 'Calculation failed') + '</div>';
                 }
-            },
-            error: function(xhr, status, error) {
-                $('#single-member-result').html('<div class="alert alert-danger"><strong>Connection Error:</strong> ' + error + '</div>');
-            }
-        });
+            })
+            .catch(function(err) {
+                if (result) result.innerHTML = '<div class="alert alert-danger"><strong>Connection Error:</strong> ' + err + '</div>';
+            });
     }
 
-    $(document).ready(function() {
+    // Run on page load — no jQuery needed
+    document.addEventListener('DOMContentLoaded', function() {
         refreshEnhancedAIStats();
-        setInterval(function() {
-            refreshEnhancedAIStats();
-        }, 60000);
+        setInterval(refreshEnhancedAIStats, 60000);
     });
 </script>
 
