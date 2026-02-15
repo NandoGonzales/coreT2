@@ -3,7 +3,7 @@ $dev_data = array('id'=>'-1','firstname'=>'Developer','lastname'=>'','username'=
 if(!defined('base_url')) define('base_url','https://core2.microfinancial-1.com/');
 if(!defined('base_app')) define('base_app', str_replace('\\','/',__DIR__).'/' );
 if(!defined('DB_SERVER')) define('DB_SERVER',"localhost");
-if(!defined('DB_USERNAME')) define('DB_USERNAME',"core2_core2TREWQmic2");
+if(!defined('DB_USERNAME')) define('DB_USERNAME',"core2_coreTREWQmic2");
 if(!defined('DB_PASSWORD')) define('DB_PASSWORD',"OuP@Gshtg#9floiP");
-if(!defined('DB_NAME')) define('DB_NAME',"core2_1db");
+if(!defined('DB_NAME')) define('DB_NAME',"core2_db");
 ?>
