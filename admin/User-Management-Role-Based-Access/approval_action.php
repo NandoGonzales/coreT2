@@ -203,11 +203,11 @@ try {
 
             $where = "WHERE ar.status = 'pending'";
             if ($current_role === 'Admin') {
-                $where .= " AND u.role = 'Staff'";
+                // Admins see Staff and system/new user requests (u.role IS NULL)
+                $where .= " AND (u.role IS NULL OR u.role = 'Staff')";
             } elseif ($current_role === 'Super Admin') {
-                $where .= " AND u.role IN ('Admin', 'Staff')";
+                // Super Admin sees everything
             } else {
-                // Other roles shouldn't see anything, but just in case
                 $where .= " AND 1=0";
             }
 
