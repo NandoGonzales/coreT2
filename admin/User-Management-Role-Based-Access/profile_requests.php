@@ -203,6 +203,7 @@ include(__DIR__ . '/../inc/sidebar.php');
 
             container.innerHTML = requests.map(req => {
                 const isTermination = req.request_type === 'termination';
+                const isRemoval = req.request_type === 'removal';
                 const isCreation = req.request_type === 'user_creation';
                 const isRoleAdd = req.request_type === 'role_permission_add';
                 const isRoleEdit = req.request_type === 'role_permission_edit';
