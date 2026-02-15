@@ -29,9 +29,9 @@ function rows($conn, $sql) {
 }
 
 try {
-    // KPIs
+    // ── KPIs ────────────────────────────────────────────────────────────
     $response['total_members'] = (int) scalar($conn, "SELECT COUNT(*) AS val FROM members WHERE status='Active'");
-    $response['active_loans'] = (int) scalar($conn, "SELECT COUNT(*) AS val FROM loan_portfolio WHERE status IN ('Active','Approved')");
+    $response['active_loans']  = (int) scalar($conn, "SELECT COUNT(*) AS val FROM loan_portfolio WHERE status IN ('Active','Approved')");
 
     // Savings (view fallback)
     $v = $conn->query("SELECT 1 FROM information_schema.VIEWS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='v_member_savings'");
@@ -43,53 +43,76 @@ try {
 
     $response['total_disbursed'] = scalar($conn, "SELECT IFNULL(SUM(amount),0) AS val FROM disbursements WHERE status='Released'");
 
-    // Loan Portfolio
+    // ── Loan Portfolio Chart ─────────────────────────────────────────────
     $loan_rows = rows($conn, "SELECT status AS label, COUNT(*) AS value FROM loan_portfolio GROUP BY status");
     $response['loan_chart']['labels'] = array_column($loan_rows, 'label');
     $response['loan_chart']['values'] = array_column($loan_rows, 'value');
 
-    // Monthly collections and disbursements
-    $year = date('Y');
+    // ── Monthly Collections & Disbursements ──────────────────────────────
+    $year   = date('Y');
     $months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    $coll = rows($conn, "SELECT MONTH(collection_date) AS m, SUM(amount_collected) AS total FROM collections WHERE YEAR(collection_date)={$year} GROUP BY MONTH(collection_date)");
+
+    $coll = rows($conn, "SELECT MONTH(collection_date) AS m, SUM(amount_collected) AS total
+                          FROM collections WHERE YEAR(collection_date)={$year}
+                          GROUP BY MONTH(collection_date)");
     $collData = array_fill(1, 12, 0.0);
     foreach ($coll as $r) $collData[(int)$r['m']] = (float)$r['total'];
     $response['collection_chart'] = ['labels' => $months, 'values' => array_values($collData)];
 
-    $disb = rows($conn, "SELECT MONTH(disbursement_date) AS m, SUM(amount) AS total FROM disbursements WHERE YEAR(disbursement_date)={$year} GROUP BY MONTH(disbursement_date)");
+    $disb = rows($conn, "SELECT MONTH(disbursement_date) AS m, SUM(amount) AS total
+                          FROM disbursements WHERE YEAR(disbursement_date)={$year}
+                          GROUP BY MONTH(disbursement_date)");
     $disbData = array_fill(1, 12, 0.0);
     foreach ($disb as $r) $disbData[(int)$r['m']] = (float)$r['total'];
     $response['loan_disbursement_chart'] = ['labels' => $months, 'values' => array_values($disbData)];
 
-    // Compliance Chart
-    $compRows = rows($conn, "SELECT compliance_status AS label, COUNT(*) AS value FROM compliance_logs GROUP BY compliance_status");
+    // ── Compliance Chart — FIX: query audit_trail (actual data source) ───
+    $compRows = rows($conn, "SELECT compliance_status AS label, COUNT(*) AS value
+                              FROM audit_trail
+                              WHERE compliance_status IS NOT NULL
+                              GROUP BY compliance_status");
     $response['compliance_chart'] = [
         'labels' => array_column($compRows, 'label'),
         'values' => array_column($compRows, 'value')
     ];
 
-    // Compliance Records Table (latest 20)
+    // ── Compliance Records Table — FIX: query audit_trail directly ───────
     $compTable = rows($conn, "
-        SELECT cl.compliance_id, cl.compliance_status, cl.description, cl.review_date,
-               a.module_name, a.remarks AS audit_remarks,
-               m.full_name AS member_name
-        FROM compliance_logs cl
-        LEFT JOIN audit_trail a ON cl.audit_id = a.audit_id
-        LEFT JOIN members m ON a.record_id = m.member_id
-        ORDER BY cl.review_date DESC
+        SELECT
+            a.audit_id,
+            a.compliance_status,
+            a.action_type,
+            a.remarks,
+            a.action_time AS review_date,
+            a.module_name,
+            u.full_name
+        FROM audit_trail a
+        LEFT JOIN users u ON a.user_id = u.user_id
+        WHERE a.compliance_status IS NOT NULL
+          AND a.compliance_status != 'Compliant'
+        ORDER BY a.action_time DESC
         LIMIT 20
     ");
+
     if ($compTable) {
-        $html = '<table class="table table-sm table-striped mb-0"><thead><tr>
-                 <th>ID</th><th>Member / Module</th><th>Status</th><th>Review Date</th><th>Remarks</th></tr></thead><tbody>';
+        $html  = '<table class="table table-sm table-striped mb-0">';
+        $html .= '<thead><tr><th>ID</th><th>User</th><th>Action</th><th>Status</th><th>Date</th><th>Remarks</th></tr></thead><tbody>';
         foreach ($compTable as $r) {
-            $who = $r['member_name'] ?: '[' . ($r['module_name'] ?? '-') . ']';
-            $remarks = trim(($r['audit_remarks'] ?? '') . ' ' . ($r['description'] ?? ''));
-            $html .= '<tr><td>' . htmlspecialchars($r['compliance_id']) . '</td>
-                      <td>' . htmlspecialchars($who) . '</td>
-                      <td>' . htmlspecialchars($r['compliance_status']) . '</td>
-                      <td>' . htmlspecialchars($r['review_date']) . '</td>
-                      <td>' . htmlspecialchars($remarks) . '</td></tr>';
+            $statusColor = match($r['compliance_status']) {
+                'Non-Compliant' => 'danger',
+                'Under Review'  => 'warning',
+                'Pending'       => 'secondary',
+                default         => 'success'
+            };
+            $html .= '<tr>
+                <td>' . htmlspecialchars($r['audit_id'])          . '</td>
+                <td>' . htmlspecialchars($r['full_name'] ?? 'System') . '</td>
+                <td><small>' . htmlspecialchars($r['action_type'] ?? '-') . '</small></td>
+                <td><span class="badge bg-' . $statusColor . '">'
+                    . htmlspecialchars($r['compliance_status']) . '</span></td>
+                <td><small>' . htmlspecialchars($r['review_date'])  . '</small></td>
+                <td><small>' . htmlspecialchars($r['remarks'] ?? '-') . '</small></td>
+            </tr>';
         }
         $html .= '</tbody></table>';
         $response['compliance_table_html'] = $html;
@@ -97,19 +120,20 @@ try {
         $response['compliance_table_html'] = '<div class="p-2 text-muted">No compliance records found.</div>';
     }
 
-    // Recent Audit Trail
-    $audits = rows($conn, "SELECT a.module_name,a.action_type,a.remarks,a.action_time,u.full_name
-                           FROM audit_trail a
-                           LEFT JOIN users u ON a.user_id=u.user_id
-                           ORDER BY a.action_time DESC LIMIT 8");
+    // ── Recent Audit Trail ───────────────────────────────────────────────
+    $audits = rows($conn, "SELECT a.module_name, a.action_type, a.remarks, a.action_time, u.full_name
+                            FROM audit_trail a
+                            LEFT JOIN users u ON a.user_id = u.user_id
+                            ORDER BY a.action_time DESC LIMIT 8");
     $html = "<ul class='list-group'>";
     foreach ($audits as $a) {
         $time = date('M d, Y H:i', strtotime($a['action_time']));
         $user = htmlspecialchars($a['full_name'] ?? 'Unknown');
-        $act = htmlspecialchars($a['action_type'] ?? '-');
-        $mod = htmlspecialchars($a['module_name'] ?? '-');
-        $rem = htmlspecialchars($a['remarks'] ?? '');
-        $html .= "<li class='list-group-item'><strong>{$user}</strong> - {$act} on {$mod}<br><small class='text-muted'>{$rem} | {$time}</small></li>";
+        $act  = htmlspecialchars($a['action_type'] ?? '-');
+        $mod  = htmlspecialchars($a['module_name']  ?? '-');
+        $rem  = htmlspecialchars($a['remarks']       ?? '');
+        $html .= "<li class='list-group-item'><strong>{$user}</strong> - {$act} on {$mod}<br>
+                  <small class='text-muted'>{$rem} | {$time}</small></li>";
     }
     $html .= "</ul>";
     $response['recent_audit_html'] = $html;
