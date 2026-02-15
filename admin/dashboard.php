@@ -1602,7 +1602,7 @@ include("inc/sidebar.php");
         $('#bulk-action-status').html('<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Calculating scores... Please wait.</div>');
 
         $.ajax({
-            url: 'ajax_calculate_all_scores.php',  // ✅ FIXED: Correct filename
+            url: 'calculate_all_ai_scores_ajax.php',
             method: 'POST',
             dataType: 'json',
             success: function(data) {
@@ -1614,10 +1614,6 @@ include("inc/sidebar.php");
                 } else {
                     $('#bulk-action-status').html('<div class="alert alert-danger"><strong>❌ Error:</strong> ' + data.error + '</div>');
                 }
-            },
-            error: function(xhr, status, error) {  // ✅ ADDED: Error handling
-                console.error('AJAX Error:', error);
-                $('#bulk-action-status').html('<div class="alert alert-danger"><strong>❌ Connection Error:</strong> ' + error + '</div>');
             }
         });
     }
@@ -1630,7 +1626,7 @@ include("inc/sidebar.php");
         $('#bulk-action-status').html('<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Recalculating old scores...</div>');
 
         $.ajax({
-            url: 'ajax_recalculate_old_scores.php',  // ✅ FIXED: Correct filename
+            url: 'recalculate_old_scores_ajax.php',
             method: 'POST',
             dataType: 'json',
             success: function(data) {
@@ -1642,10 +1638,6 @@ include("inc/sidebar.php");
                 } else {
                     $('#bulk-action-status').html('<div class="alert alert-danger"><strong>❌ Error:</strong> ' + data.error + '</div>');
                 }
-            },
-            error: function(xhr, status, error) {  // ✅ ADDED: Error handling
-                console.error('AJAX Error:', error);
-                $('#bulk-action-status').html('<div class="alert alert-danger"><strong>❌ Connection Error:</strong> ' + error + '</div>');
             }
         });
     }
@@ -1695,7 +1687,7 @@ include("inc/sidebar.php");
         $('#single-member-result').html('<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Calculating credit score...</div>').show();
 
         $.ajax({
-            url: 'ajax_calculate_single_score.php',  // ✅ FIXED: Correct filename
+            url: 'calculate_single_score_ajax.php',
             method: 'POST',
             data: {
                 member_id: memberId
