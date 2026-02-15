@@ -1,6 +1,6 @@
 <?php
 // ===========================
-// navbar.php - Profile with Edit & Approval System
+// navbar.php - Profile with Edit & Approval System + Dynamic Notifications
 // ===========================
 if (session_status() == PHP_SESSION_NONE) session_start();
 
@@ -217,6 +217,8 @@ $isSuperAdmin = ($user_role === 'Super Admin');
         align-items: center;
         gap: 0.75rem;
         cursor: pointer;
+        white-space: normal;
+        line-height: 1.4;
     }
 
     .dropdown-item:hover {
@@ -227,6 +229,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
     .dropdown-item i {
         font-size: 1.1rem;
         width: 1.25rem;
+        flex-shrink: 0;
     }
 
     .dropdown-divider {
@@ -588,19 +591,35 @@ $isSuperAdmin = ($user_role === 'Super Admin');
         <div class="d-flex align-items-center gap-2 gap-sm-3">
             <span id="real-time-clock" class="pill d-none d-sm-inline">--:--:--</span>
 
+            <!-- DYNAMIC NOTIFICATION DROPDOWN -->
             <div class="dropdown">
-                <button class="btn btn-icon position-relative" type="button" id="notificationDropdown" data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
+                <button class="btn btn-icon position-relative" type="button" id="notificationDropdown"
+                    data-bs-toggle="dropdown" data-bs-auto-close="true" aria-expanded="false">
                     <i class="bi bi-bell"></i>
-                    <span class="notif-dot"></span>
+                    <span class="notif-dot d-none" id="notifDot"></span>
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"
+                          id="notifBadge" style="font-size:0.6rem;">0</span>
                 </button>
-                
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationDropdown">
-                    <li><h6 class="dropdown-header">Notifications</h6></li>
-                    <li><a class="dropdown-item" href="#"><i class="bi bi-info-circle text-primary"></i> New loan application</a></li>
-                    <li><a class="dropdown-item" href="#"><i class="bi bi-check-circle text-success"></i> Payment received</a></li>
-                    <li><a class="dropdown-item" href="#"><i class="bi bi-exclamation-triangle text-warning"></i> Compliance alert</a></li>
-                    <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-center small" href="#">View all notifications</a></li>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationDropdown"
+                    style="min-width:320px; max-height:420px; overflow-y:auto;">
+                    <li>
+                        <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                            <h6 class="mb-0 fw-bold">Notifications</h6>
+                            <span class="badge bg-primary rounded-pill" id="notifCountLabel">0</span>
+                        </div>
+                    </li>
+                    <div id="notifList">
+                        <li class="text-center py-3 text-muted small">
+                            <div class="spinner-border spinner-border-sm me-1"></div> Loading...
+                        </li>
+                    </div>
+                    <li><hr class="dropdown-divider my-1"></li>
+                    <li>
+                        <a class="dropdown-item text-center small text-primary fw-semibold"
+                           href="<?= $base_url ?>/User-Management-Role-Based-Access/permission_logs.php">
+                            View all activity logs
+                        </a>
+                    </li>
                 </ul>
             </div>
 
@@ -846,6 +865,63 @@ $isSuperAdmin = ($user_role === 'Super Admin');
         updateClock();
         setInterval(updateClock, 1000);
 
+        // ── Dynamic Notifications ─────────────────────────────
+        function loadNotifications() {
+            fetch('<?= $base_url ?>/ajax_notifications.php', { cache: 'no-store' })
+                .then(r => r.json())
+                .then(data => {
+                    const list    = document.getElementById('notifList');
+                    const badge   = document.getElementById('notifBadge');
+                    const dot     = document.getElementById('notifDot');
+                    const counter = document.getElementById('notifCountLabel');
+                    
+                    if (!list) return;
+                    
+                    if (data.count > 0) {
+                        badge.textContent = data.count > 99 ? '99+' : data.count;
+                        badge.classList.remove('d-none');
+                        dot.classList.remove('d-none');
+                        counter.textContent = data.count;
+                    } else {
+                        badge.classList.add('d-none');
+                        dot.classList.add('d-none');
+                        counter.textContent = '0';
+                    }
+                    
+                    if (!data.notifications || data.notifications.length === 0) {
+                        list.innerHTML = '<li class="text-center py-4 text-muted small"><i class="bi bi-bell-slash fs-4 d-block mb-1"></i>No new notifications</li>';
+                        return;
+                    }
+                    
+                    list.innerHTML = data.notifications.map(n => `
+                        <li>
+                            <a class="dropdown-item py-2 px-3" href="${n.link}" style="white-space:normal;">
+                                <div class="d-flex align-items-start gap-2">
+                                    <i class="bi ${n.icon} mt-1 flex-shrink-0"></i>
+                                    <div>
+                                        <div class="small fw-semibold" style="line-height:1.3;">${n.message}</div>
+                                        <div class="text-muted" style="font-size:0.7rem;">${n.time_label}</div>
+                                    </div>
+                                </div>
+                            </a>
+                        </li>
+                    `).join('');
+                })
+                .catch(() => {
+                    const list = document.getElementById('notifList');
+                    if (list) list.innerHTML = '<li class="text-center py-3 text-muted small">Failed to load notifications</li>';
+                });
+        }
+
+        // Load on bell click
+        document.getElementById('notificationDropdown').addEventListener('click', loadNotifications);
+
+        // Auto-refresh every 60 seconds
+        setInterval(loadNotifications, 60000);
+
+        // Initial load
+        loadNotifications();
+
         // Mode Toggling Logic
         const profileViewMode = document.getElementById('profileViewMode');
         const profileEditMode = document.getElementById('profileEditMode');
@@ -913,7 +989,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                         formData.append('skip_db', '1');
                     }
 
-                    const response = await fetch('<?= base_url ?>admin/inc/upload_profile_photo.php', {
+                    const response = await fetch('<?= $base_url ?>/inc/upload_profile_photo.php', {
                         method: 'POST',
                         body: formData
                     });
@@ -979,7 +1055,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
             try {
                 if (isSuperAdmin) {
                     // Super Admin: Direct update
-                    const response = await fetch('<?= base_url ?>admin/inc/update_profile.php', {
+                    const response = await fetch('<?= $base_url ?>/inc/update_profile.php', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1023,7 +1099,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     fd.append('request_type', 'profile_update');
                     fd.append('request_data', requestData);
 
-                    const response = await fetch('<?= base_url ?>admin/User-Management-Role-Based-Access/approval_action.php', {
+                    const response = await fetch('<?= $base_url ?>/User-Management-Role-Based-Access/approval_action.php', {
                         method: 'POST',
                         body: fd
                     });
@@ -1067,7 +1143,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     fd.append('request_type', 'termination');
                     fd.append('request_data', JSON.stringify({ reason: 'User initiated deactivation' }));
 
-                    const response = await fetch('<?= base_url ?>admin/User-Management-Role-Based-Access/approval_action.php', {
+                    const response = await fetch('<?= $base_url ?>/User-Management-Role-Based-Access/approval_action.php', {
                         method: 'POST',
                         body: fd
                     });
