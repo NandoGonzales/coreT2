@@ -19,13 +19,13 @@ try {
     // ══════════════════════════════════════════════════════════════
     if ($user_role === 'Super Admin') {
 
-        // 1. New pending loans (last 7 days)
+        // 1. Pending loans (last 7 days)
         $res = $conn->query("
             SELECT l.loan_id, m.full_name, l.principal_amount, l.start_date
             FROM loan_portfolio l
             LEFT JOIN members m ON m.member_id = l.member_id
             WHERE l.status = 'Pending'
-              AND l.start_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+              AND l.start_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
             ORDER BY l.start_date DESC LIMIT 5");
         if ($res) while ($row = $res->fetch_assoc()) {
             $notifications[] = [
@@ -90,31 +90,13 @@ try {
             ];
         }
 
-        // 5. Defaulted loans (last 7 days)
+        // 5. Overdue loans — Approved/Active na lagpas na ang end_date
         $res = $conn->query("
             SELECT l.loan_id, m.full_name, l.principal_amount, l.end_date
             FROM loan_portfolio l
             LEFT JOIN members m ON m.member_id = l.member_id
-            WHERE l.status = 'Defaulted'
-              AND l.end_date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            ORDER BY l.end_date DESC LIMIT 3");
-        if ($res) while ($row = $res->fetch_assoc()) {
-            $notifications[] = [
-                'type'    => 'default',
-                'icon'    => 'bi-x-circle text-danger',
-                'message' => 'Loan defaulted: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['principal_amount']),
-                'time'    => $row['end_date'],
-                'link'    => '/admin/Loan-Portfolio/loan_details.php?id=' . $row['loan_id'],
-            ];
-        }
-
-        // 6. NEW — Overdue loans (last 30 days)
-        $res = $conn->query("
-            SELECT l.loan_id, m.full_name, l.principal_amount, l.end_date
-            FROM loan_portfolio l
-            LEFT JOIN members m ON m.member_id = l.member_id
-            WHERE l.status = 'Overdue'
-              AND l.end_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            WHERE l.status IN ('Approved', 'Active')
+              AND l.end_date < CURDATE()
             ORDER BY l.end_date ASC LIMIT 5");
         if ($res) while ($row = $res->fetch_assoc()) {
             $notifications[] = [
@@ -126,73 +108,73 @@ try {
             ];
         }
 
-        // 7. NEW — New member registered (last 7 days)
+        // 6. New member (last 7 days) — gumagamit ng membership_date
         $res = $conn->query("
-            SELECT member_id, full_name, created_at
+            SELECT member_id, full_name, membership_date
             FROM members
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            ORDER BY created_at DESC LIMIT 5");
+            WHERE membership_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            ORDER BY membership_date DESC LIMIT 5");
         if ($res) while ($row = $res->fetch_assoc()) {
             $notifications[] = [
                 'type'    => 'member',
                 'icon'    => 'bi-person-plus text-info',
                 'message' => 'New member registered: ' . htmlspecialchars($row['full_name']),
-                'time'    => $row['created_at'],
+                'time'    => $row['membership_date'],
                 'link'    => '/admin/User-Management-Role-Based-Access/user_management.php',
             ];
         }
 
-        // 8. NEW — Savings withdrawal requests (last 7 days)
+        // 7. Disbursement released (last 7 days) — gumagamit ng disbursement_date
         $res = $conn->query("
-            SELECT sw.id, m.full_name, sw.amount, sw.requested_at
-            FROM savings_withdrawals sw
-            LEFT JOIN members m ON m.member_id = sw.member_id
-            WHERE sw.status = 'Pending'
-              AND sw.requested_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            ORDER BY sw.requested_at DESC LIMIT 5");
-        if ($res) while ($row = $res->fetch_assoc()) {
-            $notifications[] = [
-                'type'    => 'savings',
-                'icon'    => 'bi-piggy-bank text-warning',
-                'message' => 'Savings withdrawal request: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
-                'time'    => $row['requested_at'],
-                'link'    => '/admin/Savings-Monitoring/savings_monitoring.php',
-            ];
-        }
-
-        // 9. NEW — Disbursement approved/released (last 7 days)
-        $res = $conn->query("
-            SELECT d.id, m.full_name, d.amount, d.released_at
+            SELECT d.disbursement_id, m.full_name, d.amount, d.disbursement_date
             FROM disbursements d
             LEFT JOIN members m ON m.member_id = d.member_id
             WHERE d.status = 'Released'
-              AND d.released_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            ORDER BY d.released_at DESC LIMIT 5");
+              AND d.disbursement_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            ORDER BY d.disbursement_date DESC LIMIT 5");
         if ($res) while ($row = $res->fetch_assoc()) {
             $notifications[] = [
                 'type'    => 'disbursement',
                 'icon'    => 'bi-cash-stack text-success',
                 'message' => 'Disbursement released: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
-                'time'    => $row['released_at'],
+                'time'    => $row['disbursement_date'],
                 'link'    => '/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php',
             ];
         }
 
-        // 10. NEW — Profile update approval requests (Super Admin only)
+        // 8. Approval requests pending — gumagamit ng lowercase 'pending'
         $res = $conn->query("
-            SELECT ar.id, u.full_name, ar.created_at
+            SELECT ar.request_id, u.full_name, ar.created_at, ar.request_type
             FROM approval_requests ar
             LEFT JOIN users u ON u.user_id = ar.user_id
-            WHERE ar.request_type = 'profile_update'
-              AND ar.status = 'Pending'
+            WHERE ar.status = 'pending'
             ORDER BY ar.created_at DESC LIMIT 5");
         if ($res) while ($row = $res->fetch_assoc()) {
+            $label = $row['request_type'] === 'termination'
+                ? 'Deactivation request' : 'Profile update request';
             $notifications[] = [
                 'type'    => 'approval',
                 'icon'    => 'bi-person-check text-primary',
-                'message' => 'Profile update request: ' . htmlspecialchars($row['full_name'] ?? 'Unknown'),
+                'message' => $label . ': ' . htmlspecialchars($row['full_name'] ?? 'Unknown'),
                 'time'    => $row['created_at'],
                 'link'    => '/admin/User-Management-Role-Based-Access/approval_requests.php',
+            ];
+        }
+
+        // 9. Delinquent loans
+        $res = $conn->query("
+            SELECT l.loan_id, m.full_name, l.principal_amount, l.end_date
+            FROM loan_portfolio l
+            LEFT JOIN members m ON m.member_id = l.member_id
+            WHERE l.status = 'Delinquent'
+            ORDER BY l.end_date DESC LIMIT 3");
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $notifications[] = [
+                'type'    => 'default',
+                'icon'    => 'bi-x-circle text-danger',
+                'message' => 'Delinquent loan: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['principal_amount']),
+                'time'    => $row['end_date'],
+                'link'    => '/admin/Loan-Portfolio/loan_details.php?id=' . $row['loan_id'],
             ];
         }
 
@@ -254,7 +236,7 @@ try {
             ];
         }
 
-        // 4. Overdue repayments
+        // 4. Overdue repayments (overdue_count > 0)
         $res = $conn->query("
             SELECT r.repayment_id, m.full_name, r.overdue_count, r.repayment_date
             FROM repayments r
@@ -272,54 +254,54 @@ try {
             ];
         }
 
-        // 5. NEW — New member registered (last 7 days)
+        // 5. Overdue loans (end_date < today)
         $res = $conn->query("
-            SELECT member_id, full_name, created_at
+            SELECT l.loan_id, m.full_name, l.principal_amount, l.end_date
+            FROM loan_portfolio l
+            LEFT JOIN members m ON m.member_id = l.member_id
+            WHERE l.status IN ('Approved', 'Active')
+              AND l.end_date < CURDATE()
+            ORDER BY l.end_date ASC LIMIT 3");
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $notifications[] = [
+                'type'    => 'overdue',
+                'icon'    => 'bi-clock-history text-danger',
+                'message' => 'Overdue loan: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['principal_amount']),
+                'time'    => $row['end_date'],
+                'link'    => '/admin/Loan-Portfolio/loan_details.php?id=' . $row['loan_id'],
+            ];
+        }
+
+        // 6. New member (last 7 days)
+        $res = $conn->query("
+            SELECT member_id, full_name, membership_date
             FROM members
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            ORDER BY created_at DESC LIMIT 3");
+            WHERE membership_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            ORDER BY membership_date DESC LIMIT 3");
         if ($res) while ($row = $res->fetch_assoc()) {
             $notifications[] = [
                 'type'    => 'member',
                 'icon'    => 'bi-person-plus text-info',
                 'message' => 'New member: ' . htmlspecialchars($row['full_name']),
-                'time'    => $row['created_at'],
+                'time'    => $row['membership_date'],
                 'link'    => '/admin/User-Management-Role-Based-Access/user_management.php',
             ];
         }
 
-        // 6. NEW — Savings withdrawal requests (last 7 days)
+        // 7. Disbursement released (last 7 days)
         $res = $conn->query("
-            SELECT sw.id, m.full_name, sw.amount, sw.requested_at
-            FROM savings_withdrawals sw
-            LEFT JOIN members m ON m.member_id = sw.member_id
-            WHERE sw.status = 'Pending'
-              AND sw.requested_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            ORDER BY sw.requested_at DESC LIMIT 3");
-        if ($res) while ($row = $res->fetch_assoc()) {
-            $notifications[] = [
-                'type'    => 'savings',
-                'icon'    => 'bi-piggy-bank text-warning',
-                'message' => 'Savings withdrawal: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
-                'time'    => $row['requested_at'],
-                'link'    => '/admin/Savings-Monitoring/savings_monitoring.php',
-            ];
-        }
-
-        // 7. NEW — Disbursement approved/released (last 7 days)
-        $res = $conn->query("
-            SELECT d.id, m.full_name, d.amount, d.released_at
+            SELECT d.disbursement_id, m.full_name, d.amount, d.disbursement_date
             FROM disbursements d
             LEFT JOIN members m ON m.member_id = d.member_id
             WHERE d.status = 'Released'
-              AND d.released_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            ORDER BY d.released_at DESC LIMIT 3");
+              AND d.disbursement_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            ORDER BY d.disbursement_date DESC LIMIT 3");
         if ($res) while ($row = $res->fetch_assoc()) {
             $notifications[] = [
                 'type'    => 'disbursement',
                 'icon'    => 'bi-cash-stack text-success',
                 'message' => 'Disbursement released: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
-                'time'    => $row['released_at'],
+                'time'    => $row['disbursement_date'],
                 'link'    => '/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php',
             ];
         }
@@ -369,13 +351,13 @@ try {
             ];
         }
 
-        // 3. NEW — Overdue loans (para malaman ng staff kung sino ang overdue)
+        // 3. Overdue loans — para malaman ng staff kung sino kailangang kolektahan
         $res = $conn->query("
             SELECT l.loan_id, m.full_name, l.principal_amount, l.end_date
             FROM loan_portfolio l
             LEFT JOIN members m ON m.member_id = l.member_id
-            WHERE l.status = 'Overdue'
-              AND l.end_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            WHERE l.status IN ('Approved', 'Active')
+              AND l.end_date < CURDATE()
             ORDER BY l.end_date ASC LIMIT 5");
         if ($res) while ($row = $res->fetch_assoc()) {
             $notifications[] = [
@@ -387,46 +369,46 @@ try {
             ];
         }
 
-        // 4. NEW — New member registered (last 7 days)
+        // 4. New member (last 7 days)
         $res = $conn->query("
-            SELECT member_id, full_name, created_at
+            SELECT member_id, full_name, membership_date
             FROM members
-            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            ORDER BY created_at DESC LIMIT 3");
+            WHERE membership_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            ORDER BY membership_date DESC LIMIT 3");
         if ($res) while ($row = $res->fetch_assoc()) {
             $notifications[] = [
                 'type'    => 'member',
                 'icon'    => 'bi-person-plus text-info',
                 'message' => 'New member: ' . htmlspecialchars($row['full_name']),
-                'time'    => $row['created_at'],
+                'time'    => $row['membership_date'],
                 'link'    => '/admin/User-Management-Role-Based-Access/user_management.php',
             ];
         }
 
-        // 5. NEW — Disbursement released (para malaman ng staff)
+        // 5. Disbursement released (last 7 days)
         $res = $conn->query("
-            SELECT d.id, m.full_name, d.amount, d.released_at
+            SELECT d.disbursement_id, m.full_name, d.amount, d.disbursement_date
             FROM disbursements d
             LEFT JOIN members m ON m.member_id = d.member_id
             WHERE d.status = 'Released'
-              AND d.released_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            ORDER BY d.released_at DESC LIMIT 3");
+              AND d.disbursement_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            ORDER BY d.disbursement_date DESC LIMIT 3");
         if ($res) while ($row = $res->fetch_assoc()) {
             $notifications[] = [
                 'type'    => 'disbursement',
                 'icon'    => 'bi-cash-stack text-success',
                 'message' => 'Disbursement released: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
-                'time'    => $row['released_at'],
+                'time'    => $row['disbursement_date'],
                 'link'    => '/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php',
             ];
         }
     }
 
-    // ── Sort by newest first, limit to 10 ─────────────────────────
+    // ── Sort newest first, limit 10 ───────────────────────────────
     usort($notifications, fn($a, $b) => strtotime($b['time']) - strtotime($a['time']));
     $notifications = array_slice($notifications, 0, 10);
 
-    // ── Human-readable time labels ─────────────────────────────────
+    // ── Human-readable time labels ────────────────────────────────
     foreach ($notifications as &$n) {
         $diff = time() - strtotime($n['time']);
         if ($diff < 60)        $n['time_label'] = 'Just now';
