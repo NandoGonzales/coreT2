@@ -3,6 +3,7 @@ require_once(__DIR__ . '/../../initialize_coreT2.php');
 require_once(__DIR__ . '/../inc/sess_auth.php');
 require_once(__DIR__ . '/../inc/access_control.php');
 require_once __DIR__ . '/../inc/check_auth.php';
+require_once __DIR__ . '/compliance_logger.php'; // for get_full_compliance_info()
 
 // Enforce RBAC
 checkPermission('compliance_logs');
@@ -25,10 +26,10 @@ function buildWhereClause($search, $start, $end, $status)
     $types  = '';
 
     if ($search !== '') {
-        $where[]      = "(a.action_type LIKE ? OR a.module_name LIKE ? OR u.full_name LIKE ? OR a.remarks LIKE ?)";
-        $searchParam  = "%$search%";
-        $params       = array_merge($params, [$searchParam, $searchParam, $searchParam, $searchParam]);
-        $types       .= 'ssss';
+        $where[]     = "(a.action_type LIKE ? OR a.module_name LIKE ? OR u.full_name LIKE ? OR a.remarks LIKE ?)";
+        $sp          = "%$search%";
+        $params      = array_merge($params, [$sp, $sp, $sp, $sp]);
+        $types      .= 'ssss';
     }
 
     if ($start !== '' && $end !== '') {
@@ -41,56 +42,45 @@ function buildWhereClause($search, $start, $end, $status)
     }
 
     if ($status !== '') {
-        $validStatuses = ['Compliant', 'Non-Compliant', 'Under Review', 'Pending'];
-        if (in_array($status, $validStatuses)) {
+        $valid = ['Compliant', 'Non-Compliant', 'Under Review', 'Pending'];
+        if (in_array($status, $valid)) {
             $where[]  = "a.compliance_status = ?";
             $params[] = $status;
             $types   .= 's';
         }
     }
 
-    $whereSQL = count($where) ? "WHERE " . implode(' AND ', $where) : '';
-
-    return ['sql' => $whereSQL, 'params' => $params, 'types' => $types];
+    return [
+        'sql'    => count($where) ? 'WHERE ' . implode(' AND ', $where) : '',
+        'params' => $params,
+        'types'  => $types,
+    ];
 }
 
-// ----------------------------------------------------------------------
-// Load TCPDF only when needed
-// ----------------------------------------------------------------------
+// ── TCPDF loader ──────────────────────────────────────────────────────
 function loadTCPDF()
 {
     if (class_exists('TCPDF')) return true;
-
     $paths = [
         __DIR__ . '/../../vendor/autoload.php',
         __DIR__ . '/../../vendor/tecnickcom/tcpdf/tcpdf.php',
         __DIR__ . '/../../libs/tcpdf/tcpdf.php',
         __DIR__ . '/../libs/tcpdf/tcpdf.php',
-        __DIR__ . '/libs/tcpdf/tcpdf.php'
+        __DIR__ . '/libs/tcpdf/tcpdf.php',
     ];
-
-    foreach ($paths as $path) {
-        if (file_exists($path)) {
-            require_once($path);
-            if (class_exists('TCPDF')) return true;
-        }
+    foreach ($paths as $p) {
+        if (file_exists($p)) { require_once($p); if (class_exists('TCPDF')) return true; }
     }
     return false;
 }
 
-/**
- * Send PDF as clean binary download.
- */
 function outputPdfDownload($pdf, string $filename): void
 {
     while (ob_get_level() > 0) ob_end_clean();
-
     ob_start();
     $binary = $pdf->Output($filename, 'S');
     ob_end_clean();
-
     if ($binary === '') throw new Exception('Generated PDF content is empty.');
-
     if (!headers_sent()) {
         header('Content-Type: application/pdf');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -99,13 +89,67 @@ function outputPdfDownload($pdf, string $filename): void
         header('Cache-Control: private, max-age=0, must-revalidate');
         header('Pragma: public');
     }
-
     echo $binary;
     exit;
 }
 
 // ======================================================================
-// Handle CSV Export
+// GET: ?detail=1&id=XX  — Row-click compliance detail modal
+// ======================================================================
+if (isset($_GET['detail']) && $_GET['detail'] === '1') {
+    header('Content-Type: application/json');
+
+    $id = intval($_GET['id'] ?? 0);
+    if ($id <= 0) { echo json_encode(['status' => 'error', 'msg' => 'Invalid ID']); exit; }
+
+    $stmt = $conn->prepare("
+        SELECT a.*, u.full_name, u.username
+        FROM audit_trail a
+        LEFT JOIN users u ON a.user_id = u.user_id
+        WHERE a.audit_id = ?
+        LIMIT 1
+    ");
+
+    $row = null;
+    if ($stmt) {
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+    }
+
+    if (!$row) { echo json_encode(['status' => 'error', 'msg' => 'Record not found']); exit; }
+
+    $action_type = $row['action_type'] ?? '';
+    $description = $row['remarks']     ?? '';
+    $status_val  = $row['compliance_status'] ?? '';
+    $created_at  = $row['action_time'] ?? '-';
+
+    if ($created_at && $created_at !== '-') {
+        $ts = strtotime($created_at);
+        if ($ts) $created_at = date('Y-m-d h:i A', $ts);
+    }
+
+    $info = get_full_compliance_info($action_type, $description);
+
+    echo json_encode([
+        'status'     => 'success',
+        'record'     => [
+            'user'        => $row['full_name'] ?? $row['username'] ?? 'System',
+            'action_type' => $action_type,
+            'module'      => $row['module_name'] ?? '',
+            'description' => $description,
+            'status'      => $status_val ?: $info['status'],
+            'ip_address'  => $row['ip_address'] ?? '-',
+            'created_at'  => $created_at,
+        ],
+        'compliance' => $info,
+    ]);
+    exit;
+}
+
+// ======================================================================
+// GET: CSV Export
 // ======================================================================
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     try {
@@ -114,13 +158,13 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         $end     = trim($_GET['end']    ?? '');
         $status  = trim($_GET['status'] ?? '');
 
-        $filterData = buildWhereClause($search, $start, $end, $status);
-        $whereSQL   = $filterData['sql'];
-        $params     = $filterData['params'];
-        $types      = $filterData['types'];
+        $f        = buildWhereClause($search, $start, $end, $status);
+        $whereSQL = $f['sql'];
+        $params   = $f['params'];
+        $types    = $f['types'];
 
         $sql = "
-            SELECT 
+            SELECT
                 a.audit_id, u.full_name, u.username,
                 a.action_type, a.module_name, a.remarks,
                 a.compliance_status,
@@ -137,17 +181,17 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         if ($types !== '' && count($params) > 0) $stmt->bind_param($types, ...$params);
         if (!$stmt->execute()) throw new Exception("Failed to execute query: " . $stmt->error);
 
-        $result          = $stmt->get_result();
-        $filename_base   = 'compliance_logs_' . date('Y-m-d_His');
-        $csv_filename    = $filename_base . '.csv';
-        $export_password = trim($_GET['pdf_password'] ?? '');
+        $result        = $stmt->get_result();
+        $fn_base       = 'compliance_logs_' . date('Y-m-d_His');
+        $csv_fn        = $fn_base . '.csv';
+        $export_pass   = trim($_GET['pdf_password'] ?? '');
 
-        $csv_output = fopen('php://temp', 'r+');
-        fprintf($csv_output, chr(0xEF) . chr(0xBB) . chr(0xBF));
-        fputcsv($csv_output, ['ID', 'User', 'Username', 'Action Type', 'Module', 'Description', 'Compliance Status', 'Date/Time', 'IP Address']);
+        $csv = fopen('php://temp', 'r+');
+        fprintf($csv, chr(0xEF) . chr(0xBB) . chr(0xBF));
+        fputcsv($csv, ['ID','User','Username','Action Type','Module','Description','Compliance Status','Date/Time','IP Address']);
 
         while ($row = $result->fetch_assoc()) {
-            fputcsv($csv_output, [
+            fputcsv($csv, [
                 $row['audit_id']          ?? '',
                 $row['full_name']         ?? 'System',
                 $row['username']          ?? '',
@@ -156,35 +200,33 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                 $row['remarks']           ?? '',
                 $row['compliance_status'] ?? '',
                 $row['action_time']       ?? '',
-                $row['ip_address']        ?? ''
+                $row['ip_address']        ?? '',
             ]);
         }
-        rewind($csv_output);
-        $csv_content = stream_get_contents($csv_output);
-        fclose($csv_output);
+        rewind($csv);
+        $csv_content = stream_get_contents($csv);
+        fclose($csv);
         $stmt->close();
 
-        if ($export_password !== '' && class_exists('ZipArchive')) {
-            $zip          = new ZipArchive();
-            $zip_filename = $filename_base . '.zip';
-            $temp_file    = tempnam(sys_get_temp_dir(), 'zip');
-            if ($zip->open($temp_file, ZipArchive::CREATE) === TRUE) {
-                $zip->addFromString($csv_filename, $csv_content);
-                if (method_exists($zip, 'setEncryptionName')) {
-                    $zip->setEncryptionName($csv_filename, ZipArchive::EM_AES_256, $export_password);
-                }
+        if ($export_pass !== '' && class_exists('ZipArchive')) {
+            $zip  = new ZipArchive();
+            $tmp  = tempnam(sys_get_temp_dir(), 'zip');
+            if ($zip->open($tmp, ZipArchive::CREATE) === TRUE) {
+                $zip->addFromString($csv_fn, $csv_content);
+                if (method_exists($zip, 'setEncryptionName'))
+                    $zip->setEncryptionName($csv_fn, ZipArchive::EM_AES_256, $export_pass);
                 $zip->close();
                 header('Content-Type: application/zip');
-                header('Content-Disposition: attachment; filename="' . $zip_filename . '"');
-                header('Content-Length: ' . filesize($temp_file));
-                readfile($temp_file);
-                unlink($temp_file);
+                header('Content-Disposition: attachment; filename="' . $fn_base . '.zip"');
+                header('Content-Length: ' . filesize($tmp));
+                readfile($tmp);
+                unlink($tmp);
                 exit;
             }
         }
 
         header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="' . $csv_filename . '"');
+        header('Content-Disposition: attachment; filename="' . $csv_fn . '"');
         echo $csv_content;
         exit;
 
@@ -197,7 +239,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 }
 
 // ======================================================================
-// Handle JSON Export
+// GET: JSON Export
 // ======================================================================
 if (isset($_GET['export']) && $_GET['export'] === 'json') {
     header('Content-Type: application/json');
@@ -207,18 +249,17 @@ if (isset($_GET['export']) && $_GET['export'] === 'json') {
         $end    = trim($_GET['end']    ?? '');
         $status = trim($_GET['status'] ?? '');
 
-        $filterData = buildWhereClause($search, $start, $end, $status);
-        $whereSQL   = $filterData['sql'];
-        $params     = $filterData['params'];
-        $types      = $filterData['types'];
+        $f = buildWhereClause($search, $start, $end, $status);
 
-        $sql = "SELECT a.audit_id, a.user_id, a.action_type, a.module_name, a.record_id, a.remarks, a.compliance_status,
-                       DATE_FORMAT(a.action_time, '%Y-%m-%d %h:%i %p') as action_time, a.ip_address, u.full_name, u.username
-                FROM audit_trail a LEFT JOIN users u ON a.user_id = u.user_id 
-                $whereSQL ORDER BY a.action_time DESC";
+        $sql = "SELECT a.audit_id, a.user_id, a.action_type, a.module_name, a.record_id,
+                       a.remarks, a.compliance_status,
+                       DATE_FORMAT(a.action_time, '%Y-%m-%d %h:%i %p') as action_time,
+                       a.ip_address, u.full_name, u.username
+                FROM audit_trail a LEFT JOIN users u ON a.user_id = u.user_id
+                {$f['sql']} ORDER BY a.action_time DESC";
 
         $stmt = $conn->prepare($sql);
-        if ($types !== '') $stmt->bind_param($types, ...$params);
+        if ($f['types'] !== '') $stmt->bind_param($f['types'], ...$f['params']);
         $stmt->execute();
         $result = $stmt->get_result();
 
@@ -235,7 +276,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'json') {
 }
 
 // ======================================================================
-// Handle PDF Export
+// GET: PDF Export
 // ======================================================================
 if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
     ini_set('display_errors', '0');
@@ -251,28 +292,20 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
         {
             public function Header(): void
             {
-                $leftMargin = 10;
-                $top        = 8;
-                $width      = 277;
-                $this->SetFillColor(20, 83, 45);
-                $this->SetDrawColor(20, 83, 45);
-                $this->RoundedRect($leftMargin, $top, $width, 20, 2, '1111', 'FD');
-                $logoPath = __DIR__ . '/../../dist/img/logo.jpg';
-                if (is_file($logoPath)) $this->Image($logoPath, $leftMargin + 3, $top + 2, 16, 16, 'JPG');
+                $lm = 10; $top = 8; $w = 277;
+                $this->SetFillColor(20, 83, 45); $this->SetDrawColor(20, 83, 45);
+                $this->RoundedRect($lm, $top, $w, 20, 2, '1111', 'FD');
+                $logo = __DIR__ . '/../../dist/img/logo.jpg';
+                if (is_file($logo)) $this->Image($logo, $lm + 3, $top + 2, 16, 16, 'JPG');
                 $this->SetTextColor(255, 255, 255);
-                $this->SetXY($leftMargin + 22, $top + 4);
-                $this->SetFont('helvetica', 'B', 13);
+                $this->SetXY($lm + 22, $top + 4); $this->SetFont('helvetica', 'B', 13);
                 $this->Cell(0, 6, 'Golden Horizons Cooperative', 0, 1, 'L');
-                $this->SetX($leftMargin + 22);
-                $this->SetFont('helvetica', '', 9);
+                $this->SetX($lm + 22); $this->SetFont('helvetica', '', 9);
                 $this->Cell(0, 5, 'Compliance & Audit Trail Report', 0, 0, 'L');
             }
-
             public function Footer(): void
             {
-                $this->SetY(-12);
-                $this->SetFont('helvetica', 'I', 8);
-                $this->SetTextColor(20, 83, 45);
+                $this->SetY(-12); $this->SetFont('helvetica', 'I', 8); $this->SetTextColor(20, 83, 45);
                 $this->Cell(0, 8, 'Confidential • Page ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, 0, 'C');
             }
         }
@@ -291,26 +324,23 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
             exit;
         }
 
-        $filterData = buildWhereClause($search, $start, $end, $status);
-        $whereSQL   = $filterData['sql'];
-        $params     = $filterData['params'];
-        $types      = $filterData['types'];
+        $f = buildWhereClause($search, $start, $end, $status);
 
         $sql = "
-            SELECT 
+            SELECT
                 a.audit_id, a.user_id, a.action_type, a.module_name, a.remarks,
                 a.compliance_status,
                 DATE_FORMAT(a.action_time, '%Y-%m-%d %h:%i %p') as action_time,
                 a.ip_address, u.full_name, u.username
             FROM audit_trail a
             LEFT JOIN users u ON a.user_id = u.user_id
-            $whereSQL
+            {$f['sql']}
             ORDER BY a.action_time DESC
         ";
 
         $stmt = $conn->prepare($sql);
         if (!$stmt) throw new Exception("Failed to prepare statement: " . $conn->error);
-        if ($types !== '' && count($params) > 0) $stmt->bind_param($types, ...$params);
+        if ($f['types'] !== '' && count($f['params']) > 0) $stmt->bind_param($f['types'], ...$f['params']);
         if (!$stmt->execute()) throw new Exception("Failed to execute query: " . $stmt->error);
 
         $result = $stmt->get_result();
@@ -319,9 +349,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
         $pdf->SetCreator('Compliance System');
         $pdf->SetAuthor('Admin');
         $pdf->SetTitle('Compliance & Audit Trail Logs');
-
-        $ownerPassword = md5(uniqid(mt_rand(), true));
-        $pdf->SetProtection(['print', 'copy'], $pdfPassword, $ownerPassword, 0, null);
+        $pdf->SetProtection(['print', 'copy'], $pdfPassword, md5(uniqid(mt_rand(), true)), 0, null);
         $pdf->SetMargins(10, 32, 10);
         $pdf->SetAutoPageBreak(TRUE, 15);
         $pdf->AddPage();
@@ -329,8 +357,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
         $pdf->SetTextColor(34, 34, 34);
         $pdf->SetFillColor(220, 252, 231);
 
-        $periodText = ($start && $end) ? ('Period: ' . $start . ' to ' . $end) : 'Period: All Dates';
-        $statusText = $status ? ('Status: ' . $status) : 'Status: All';
+        $periodText = ($start && $end) ? 'Period: ' . $start . ' to ' . $end : 'Period: All Dates';
+        $statusText = $status ? 'Status: ' . $status : 'Status: All';
 
         $pdf->SetFont('helvetica', 'B', 9);
         $pdf->Cell(138.5, 7, $periodText, 0, 0, 'L', true);
@@ -363,43 +391,32 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
                 </thead>
                 <tbody>';
 
-        $n       = 1;
-        $hasRows = false;
+        $n = 1; $hasRows = false;
         while ($row = $result->fetch_assoc()) {
-            $hasRows   = true;
-            $rowClass  = ($n % 2 === 0) ? 'row-alt' : 'row-light';
-            $user      = $row['full_name']         ?? $row['username'] ?? 'System';
-            $action    = $row['action_type']       ?? '';
-            $module    = $row['module_name']       ?? '';
-            $remarks   = $row['remarks']           ?? '';
-            $statusVal = $row['compliance_status'] ?? '';
-            $datetime  = $row['action_time']       ?? '';
-            $ip        = $row['ip_address']        ?? '-';
-
-            $html .= '<tr class="' . $rowClass . '">'
+            $hasRows  = true;
+            $rc       = ($n % 2 === 0) ? 'row-alt' : 'row-light';
+            $html .= '<tr class="' . $rc . '">'
                 . '<td class="center">' . $n . '</td>'
-                . '<td>' . htmlspecialchars((string)$user,      ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td>' . htmlspecialchars((string)$action,    ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td>' . htmlspecialchars((string)$module,    ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td>' . htmlspecialchars((string)$remarks,   ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td class="center">' . htmlspecialchars((string)$statusVal, ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td class="center">' . htmlspecialchars((string)$datetime,  ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td class="center">' . htmlspecialchars((string)$ip,        ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td>' . htmlspecialchars($row['full_name'] ?? $row['username'] ?? 'System', ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td>' . htmlspecialchars($row['action_type'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td>' . htmlspecialchars($row['module_name'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td>' . htmlspecialchars($row['remarks'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td class="center">' . htmlspecialchars($row['compliance_status'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td class="center">' . htmlspecialchars($row['action_time'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>'
+                . '<td class="center">' . htmlspecialchars($row['ip_address'] ?? '-', ENT_QUOTES, 'UTF-8') . '</td>'
                 . '</tr>';
             $n++;
         }
 
-        if (!$hasRows) {
+        if (!$hasRows)
             $html .= '<tr class="row-light"><td colspan="8" class="center">No compliance logs found for the selected filters.</td></tr>';
-        }
 
         $html .= '</tbody></table>';
 
         $pdf->writeHTML($html, true, false, true, false, '');
         $stmt->close();
 
-        $filename = 'compliance_logs_' . date('Y-m-d_His') . '.pdf';
-        outputPdfDownload($pdf, $filename);
+        outputPdfDownload($pdf, 'compliance_logs_' . date('Y-m-d_His') . '.pdf');
 
     } catch (Exception $e) {
         error_log("PDF Export Error: " . $e->getMessage());
@@ -410,7 +427,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
 }
 
 // ======================================================================
-// Handle AJAX POST Requests
+// POST: AJAX Handlers
 // ======================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json');
@@ -424,36 +441,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $start  = trim($_POST['start']  ?? '');
             $end    = trim($_POST['end']    ?? '');
 
-            // No status filter so we get all statuses
-            $filterData = buildWhereClause($search, $start, $end, '');
-            $whereSQL   = $filterData['sql'];
-            $params     = $filterData['params'];
-            $types      = $filterData['types'];
+            $f = buildWhereClause($search, $start, $end, '');
 
             $sql = "
                 SELECT a.compliance_status, COUNT(*) as cnt
                 FROM audit_trail a
                 LEFT JOIN users u ON a.user_id = u.user_id
-                $whereSQL
+                {$f['sql']}
                 GROUP BY a.compliance_status
             ";
 
             $stmt = $conn->prepare($sql);
             if (!$stmt) throw new Exception("Failed to prepare summary statement: " . $conn->error);
-
-            if ($types !== '' && count($params) > 0) {
-                $stmt->bind_param($types, ...$params);
-            }
-
+            if ($f['types'] !== '' && count($f['params']) > 0) $stmt->bind_param($f['types'], ...$f['params']);
             if (!$stmt->execute()) throw new Exception("Failed to execute summary query: " . $stmt->error);
 
             $result  = $stmt->get_result();
             $summary = ['Compliant' => 0, 'Non-Compliant' => 0, 'Pending' => 0, 'Under Review' => 0];
 
             while ($row = $result->fetch_assoc()) {
-                if (isset($summary[$row['compliance_status']])) {
+                if (isset($summary[$row['compliance_status']]))
                     $summary[$row['compliance_status']] = (int)$row['cnt'];
-                }
             }
             $stmt->close();
 
@@ -472,10 +480,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $end    = trim($_POST['end']    ?? '');
             $status = trim($_POST['status'] ?? '');
 
-            $filterData = buildWhereClause($search, $start, $end, $status);
-            $whereSQL   = $filterData['sql'];
-            $params     = $filterData['params'];
-            $types      = $filterData['types'];
+            $f        = buildWhereClause($search, $start, $end, $status);
+            $whereSQL = $f['sql'];
+            $params   = $f['params'];
+            $types    = $f['types'];
 
             // Count total
             $countSQL = "SELECT COUNT(*) AS total FROM audit_trail a LEFT JOIN users u ON a.user_id = u.user_id $whereSQL";
@@ -488,7 +496,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Fetch records
             $sql = "
-                SELECT 
+                SELECT
                     a.audit_id, a.user_id, a.action_type, a.module_name, a.record_id,
                     DATE_FORMAT(a.action_time, '%Y-%m-%d %h:%i %p') as action_time,
                     a.ip_address, a.remarks, a.compliance_status,
@@ -504,8 +512,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$stmt) throw new Exception("Failed to prepare select statement: " . $conn->error);
 
             if ($types !== '' && count($params) > 0) {
-                $allParams = array_merge($params, [$limit, $offset]);
-                $stmt->bind_param($types . 'ii', ...$allParams);
+                $stmt->bind_param($types . 'ii', ...array_merge($params, [$limit, $offset]));
             } else {
                 $stmt->bind_param('ii', $limit, $offset);
             }
@@ -526,7 +533,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'remarks'           => $row['remarks']           ?? '',
                     'compliance_status' => $row['compliance_status'] ?? '',
                     'action_time'       => $row['action_time']       ?? '',
-                    'ip_address'        => $row['ip_address']        ?? ''
+                    'ip_address'        => $row['ip_address']        ?? '',
                 ];
             }
             $stmt->close();
@@ -537,7 +544,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'total'       => intval($total),
                 'page'        => $page,
                 'limit'       => $limit,
-                'total_pages' => ceil($total / $limit)
+                'total_pages' => ceil($total / $limit),
             ]);
             exit;
         }
