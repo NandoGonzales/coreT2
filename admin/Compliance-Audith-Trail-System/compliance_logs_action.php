@@ -3,8 +3,8 @@ require_once(__DIR__ . '/../../initialize_coreT2.php');
 require_once(__DIR__ . '/../inc/sess_auth.php');
 require_once(__DIR__ . '/../inc/access_control.php');
 require_once __DIR__ . '/../inc/check_auth.php';
-require_once __DIR__ . '/../inc/log_audit_trial.php';  // ← determine_compliance_status() is here
-require_once __DIR__ . '/compliance_logger.php';         // ← get_full_compliance_info() and other helpers
+require_once __DIR__ . '/../inc/log_audit_trial.php';   // ← determine_compliance_status() is here
+require_once __DIR__ . '/../inc/compliance_logger.php'; // ← get_full_compliance_info() and other helpers
 
 // Enforce RBAC
 checkPermission('compliance_logs');
