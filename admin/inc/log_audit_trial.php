@@ -1,16 +1,5 @@
 <?php
-/**
- * Log Audit Trail Function
- * Logs user actions to the audit_trail table
- * 
- * ✅ UPDATED: Auto-determines compliance_status based on action_type
- * 
- * COMPLIANCE STATUS RULES:
- * ✅ Compliant     - Successful, normal, authorized actions
- * ❌ Non-Compliant - Failed logins, wrong OTP, unauthorized attempts, security violations
- * 🟡 Under Review  - Large transactions, AI results, actions needing manual verification
- * 🟠 Pending       - Actions initiated but not yet completed/approved
- */
+
 
 if (!function_exists('determine_compliance_status')) {
     /**

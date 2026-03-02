@@ -87,6 +87,42 @@ include(__DIR__ . '/../inc/sidebar.php');
         box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
     }
 
+    /* Summary Cards */
+    .summary-card {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.25rem 1.5rem;
+        border-radius: 1rem;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        box-shadow: var(--shadow-md);
+        color: white;
+        user-select: none;
+    }
+    .summary-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-xl);
+    }
+    .summary-icon { font-size: 2.25rem; opacity: 0.9; }
+    .summary-count { font-size: 2rem; font-weight: 800; line-height: 1; }
+    .summary-label { font-size: 0.85rem; font-weight: 600; opacity: 0.9; margin-top: 0.25rem; }
+
+    .compliant-card    { background: linear-gradient(135deg, #059669, #047857); }
+    .noncompliant-card { background: linear-gradient(135deg, #ef4444, #dc2626); }
+    .pending-card      { background: linear-gradient(135deg, #f59e0b, #d97706); }
+    .review-card       { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+
+    /* Modal header colors */
+    .modal-header.compliant-header    { background: linear-gradient(135deg,#059669,#047857); color:white; }
+    .modal-header.noncompliant-header { background: linear-gradient(135deg,#ef4444,#dc2626); color:white; }
+    .modal-header.pending-header      { background: linear-gradient(135deg,#f59e0b,#d97706); color:white; }
+    .modal-header.review-header       { background: linear-gradient(135deg,#3b82f6,#2563eb); color:white; }
+
+    #modalLogsTable thead { background: #1f2937; }
+    #modalLogsTable thead th { color: white; font-size: 0.8rem; padding: 0.75rem; border: none; }
+    #modalLogsTable tbody td { font-size: 0.82rem; }
+
     /* Enhanced Table */
     .table-card {
         background: white;
@@ -136,7 +172,7 @@ include(__DIR__ . '/../inc/sidebar.php');
     }
 
     .table thead th {
-        color: #1f2937 !important;
+        color: white !important;
         font-weight: 700;
         font-size: 0.875rem;
         padding: 1rem 0.75rem;
@@ -344,6 +380,84 @@ include(__DIR__ . '/../inc/sidebar.php');
                 </form>
             </div>
 
+            <!-- Status Summary Cards -->
+            <div class="row g-3 mb-4" id="statusSummaryCards">
+                <div class="col-md-3">
+                    <div class="summary-card compliant-card" onclick="openStatusModal('Compliant')">
+                        <div class="summary-icon"><i class="bi bi-check-circle-fill"></i></div>
+                        <div class="summary-body">
+                            <div class="summary-count" id="count-Compliant">—</div>
+                            <div class="summary-label">Compliant</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="summary-card noncompliant-card" onclick="openStatusModal('Non-Compliant')">
+                        <div class="summary-icon"><i class="bi bi-x-circle-fill"></i></div>
+                        <div class="summary-body">
+                            <div class="summary-count" id="count-Non-Compliant">—</div>
+                            <div class="summary-label">Non-Compliant</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="summary-card pending-card" onclick="openStatusModal('Pending')">
+                        <div class="summary-icon"><i class="bi bi-hourglass-split"></i></div>
+                        <div class="summary-body">
+                            <div class="summary-count" id="count-Pending">—</div>
+                            <div class="summary-label">Pending</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="summary-card review-card" onclick="openStatusModal('Under Review')">
+                        <div class="summary-icon"><i class="bi bi-eye-fill"></i></div>
+                        <div class="summary-body">
+                            <div class="summary-count" id="count-Under-Review">—</div>
+                            <div class="summary-label">Under Review</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Detail Modal -->
+            <div class="modal fade" id="statusModal" tabindex="-1">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header" id="statusModalHeader">
+                            <h5 class="modal-title" id="statusModalTitle">
+                                <i class="bi bi-list-ul me-2"></i>Logs
+                            </h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0" id="modalLogsTable">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>User</th>
+                                            <th>Action</th>
+                                            <th>Module</th>
+                                            <th>Description</th>
+                                            <th>Date/Time</th>
+                                            <th>IP Address</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="modalLogsBody">
+                                        <tr><td colspan="7" class="text-center">Loading...</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="modal-footer justify-content-between">
+                            <span id="modalRecordInfo" class="text-muted small"></span>
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Enhanced Logs Table -->
             <div class="table-card">
                 <div class="table-header">
@@ -385,6 +499,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                     </nav>
                 </div>
             </div>
+
         </div>
     </main>
 </div>
@@ -392,7 +507,8 @@ include(__DIR__ . '/../inc/sidebar.php');
 <?php include(__DIR__ . '/../inc/footer.php'); ?>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
+
         const Toast = Swal.mixin({
             toast: true,
             position: 'top-end',
@@ -401,47 +517,37 @@ include(__DIR__ . '/../inc/sidebar.php');
             timerProgressBar: true
         });
 
-        const tbody = document.querySelector('#logsTable tbody');
-        const pagination = document.getElementById('logsPagination');
-        const recordInfo = document.getElementById('recordInfo');
+        const tbody          = document.querySelector('#logsTable tbody');
+        const pagination     = document.getElementById('logsPagination');
+        const recordInfo     = document.getElementById('recordInfo');
         const recordInfoBottom = document.getElementById('recordInfoBottom');
-        const searchInput = document.getElementById('search');
-        const startInput = document.getElementById('start');
-        const endInput = document.getElementById('end');
-        const statusInput = document.getElementById('status');
-        const rowsInput = document.getElementById('rowsPerPage');
-        const exportPdfBtn = document.getElementById('exportPdfBtn');
-        const exportCsvBtn = document.getElementById('exportCsvBtn');
-        const reloadBtn = document.getElementById('reloadBtn');
+        const searchInput    = document.getElementById('search');
+        const startInput     = document.getElementById('start');
+        const endInput       = document.getElementById('end');
+        const statusInput    = document.getElementById('status');
+        const rowsInput      = document.getElementById('rowsPerPage');
+        const exportPdfBtn   = document.getElementById('exportPdfBtn');
+        const exportCsvBtn   = document.getElementById('exportCsvBtn');
+        const reloadBtn      = document.getElementById('reloadBtn');
 
-        let currentPage = 1;
-        let currentLimit = 10;
+        let currentPage    = 1;
+        let currentLimit   = 10;
         let currentFilters = {};
 
-        function toastError(msg) {
-            Toast.fire({
-                icon: 'error',
-                title: msg
-            });
-        }
+        // ── Helpers ──────────────────────────────────────────────────
+        function toastError(msg) { Toast.fire({ icon: 'error', title: msg }); }
+        function toastSuccess(msg) { Toast.fire({ icon: 'success', title: msg }); }
 
-        function toastSuccess(msg) {
-            Toast.fire({
-                icon: 'success',
-                title: msg
-            });
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text ? String(text).replace(/[&<>"']/g, m => map[m]) : '-';
         }
 
         async function downloadFile(url, fallbackFilename) {
-            const response = await fetch(url, {
-                method: 'GET',
-                credentials: 'same-origin'
-            });
+            const response = await fetch(url, { method: 'GET', credentials: 'same-origin' });
             const contentType = response.headers.get('content-type') || '';
 
-            if (!response.ok) {
-                throw new Error('Download request failed.');
-            }
+            if (!response.ok) throw new Error('Download request failed.');
 
             if (contentType.includes('application/json')) {
                 const payload = await response.json();
@@ -459,28 +565,125 @@ include(__DIR__ . '/../inc/sidebar.php');
             URL.revokeObjectURL(objectUrl);
         }
 
-        function escapeHtml(text) {
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text ? String(text).replace(/[&<>"']/g, m => map[m]) : '-';
+        // ── Load Summary Cards ────────────────────────────────────────
+        function loadSummary() {
+            const params = new URLSearchParams({
+                action: 'status_summary',
+                search: searchInput.value || '',
+                start:  startInput.value  || '',
+                end:    endInput.value    || ''
+            });
+
+            fetch('compliance_logs_action.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const s = data.summary;
+                    document.getElementById('count-Compliant').textContent     = s['Compliant']     ?? 0;
+                    document.getElementById('count-Non-Compliant').textContent  = s['Non-Compliant']  ?? 0;
+                    document.getElementById('count-Pending').textContent       = s['Pending']       ?? 0;
+                    document.getElementById('count-Under-Review').textContent  = s['Under Review']  ?? 0;
+                }
+            })
+            .catch(() => {});
         }
 
+        // ── Open Status Modal ─────────────────────────────────────────
+        window.openStatusModal = function (status) {
+            const headerEl = document.getElementById('statusModalHeader');
+            const titleEl  = document.getElementById('statusModalTitle');
+
+            const colorMap = {
+                'Compliant':    ['compliant-header',    'bi-check-circle-fill', 'Compliant Logs'],
+                'Non-Compliant':['noncompliant-header',  'bi-x-circle-fill',     'Non-Compliant Logs'],
+                'Pending':      ['pending-header',       'bi-hourglass-split',   'Pending Logs'],
+                'Under Review': ['review-header',        'bi-eye-fill',          'Under Review Logs']
+            };
+
+            const [cls, icon, label] = colorMap[status] || ['', 'bi-list-ul', status + ' Logs'];
+            headerEl.className = 'modal-header ' + cls;
+            titleEl.innerHTML  = `<i class="bi ${icon} me-2"></i>${label}`;
+
+            const modal      = new bootstrap.Modal(document.getElementById('statusModal'));
+            const modalBody  = document.getElementById('modalLogsBody');
+            const modalInfo  = document.getElementById('modalRecordInfo');
+
+            modalBody.innerHTML = '<tr><td colspan="7" class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
+            modalInfo.textContent = '';
+            modal.show();
+
+            const params = new URLSearchParams({
+                action: 'list',
+                page:   1,
+                limit:  100,
+                search: searchInput.value || '',
+                start:  startInput.value  || '',
+                end:    endInput.value    || '',
+                status: status
+            });
+
+            fetch('compliance_logs_action.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status !== 'success' || !data.rows.length) {
+                    modalBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4"><i class="bi bi-inbox"></i> No ${escapeHtml(status)} logs found</td></tr>`;
+                    modalInfo.textContent = 'No records found';
+                    return;
+                }
+
+                modalBody.innerHTML = '';
+                data.rows.forEach((r, i) => {
+                    const actionRaw = r.action_type || '';
+                    const cleanAction = actionRaw
+                        .replace(' (High Risk)', '')
+                        .replace(' (Medium Risk)', '')
+                        .replace(' (Low Risk)', '');
+
+                    let riskBadge = '';
+                    if (actionRaw.includes('High Risk'))   riskBadge = '<span class="badge ms-1" style="background:#dc2626;font-size:0.65rem;">🔴 High</span>';
+                    else if (actionRaw.includes('Medium Risk')) riskBadge = '<span class="badge ms-1" style="background:#ea580c;font-size:0.65rem;">🟠 Med</span>';
+                    else if (actionRaw.includes('Low Risk'))    riskBadge = '<span class="badge ms-1" style="background:#ca8a04;font-size:0.65rem;">🟡 Low</span>';
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${i + 1}</td>
+                        <td>${escapeHtml(r.full_name || r.username || 'System')}</td>
+                        <td><small>${escapeHtml(cleanAction)}${riskBadge}</small></td>
+                        <td><small>${escapeHtml(r.module_name)}</small></td>
+                        <td><small>${escapeHtml(r.remarks || '-')}</small></td>
+                        <td><small>${escapeHtml(r.action_time)}</small></td>
+                        <td><small>${escapeHtml(r.ip_address || '-')}</small></td>
+                    `;
+                    modalBody.appendChild(tr);
+                });
+
+                modalInfo.textContent = `Showing ${data.rows.length} of ${data.total} ${status} records`;
+            })
+            .catch(() => {
+                modalBody.innerHTML = '<tr><td colspan="7" class="text-danger text-center"><i class="bi bi-exclamation-triangle"></i> Failed to load data</td></tr>';
+            });
+        };
+
+        // ── Load Logs Table ───────────────────────────────────────────
         function loadLogs(page = 1) {
-            currentPage = page;
+            currentPage  = page;
             currentLimit = parseInt(rowsInput.value);
 
             currentFilters = {
                 action: 'list',
-                page: page,
-                limit: currentLimit,
+                page:   page,
+                limit:  currentLimit,
                 search: searchInput.value || '',
-                start: startInput.value || '',
-                end: endInput.value || '',
+                start:  startInput.value  || '',
+                end:    endInput.value    || '',
                 status: statusInput.value || ''
             };
 
@@ -489,149 +692,131 @@ include(__DIR__ . '/../inc/sidebar.php');
             tbody.innerHTML = '<tr><td colspan="8" class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
 
             fetch('compliance_logs_action.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: params.toString()
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'error') {
+                    toastError(data.msg || 'Failed to load logs');
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center">Error loading data</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = '';
+                const rows = data.rows || [];
+
+                if (!rows.length) {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-4"><i class="bi bi-inbox"></i> No logs found</td></tr>';
+                    recordInfo.textContent      = 'No records found';
+                    recordInfoBottom.textContent = '';
+                } else {
+                    const startRecord = ((currentPage - 1) * currentLimit) + 1;
+                    const endRecord   = Math.min(startRecord + rows.length - 1, data.total);
+
+                    rows.forEach((r, index) => {
+                        const badgeClass =
+                            r.compliance_status === 'Compliant'     ? 'bg-success' :
+                            r.compliance_status === 'Non-Compliant' ? 'bg-danger' :
+                            r.compliance_status === 'Pending'       ? 'bg-warning text-dark' :
+                            'bg-info text-dark';
+
+                        const actionText = r.action_type || '';
+                        let riskBadge = '';
+                        if (actionText.includes('(High Risk)'))   riskBadge = '<span class="badge ms-1" style="background:#dc2626;">🔴 High Risk</span>';
+                        else if (actionText.includes('(Medium Risk)')) riskBadge = '<span class="badge ms-1" style="background:#ea580c;">🟠 Medium Risk</span>';
+                        else if (actionText.includes('(Low Risk)'))    riskBadge = '<span class="badge ms-1" style="background:#ca8a04;">🟡 Low Risk</span>';
+
+                        const cleanAction = actionText
+                            .replace(' (High Risk)', '')
+                            .replace(' (Medium Risk)', '')
+                            .replace(' (Low Risk)', '');
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${startRecord + index}</td>
+                            <td>${escapeHtml(r.full_name || r.username || 'System')}</td>
+                            <td><small>${escapeHtml(cleanAction)}${riskBadge}</small></td>
+                            <td><small>${escapeHtml(r.module_name)}</small></td>
+                            <td class="text-start"><small>${escapeHtml(r.remarks || '-')}</small></td>
+                            <td><span class="badge ${badgeClass}">${escapeHtml(r.compliance_status)}</span></td>
+                            <td><small>${escapeHtml(r.action_time)}</small></td>
+                            <td><small>${escapeHtml(r.ip_address || '-')}</small></td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    const infoText = `Showing ${startRecord} to ${endRecord} of ${data.total} entries`;
+                    recordInfo.textContent      = infoText;
+                    recordInfoBottom.textContent = infoText;
+                }
+
+                // Build pagination
+                pagination.innerHTML = '';
+                const totalPages = Math.max(1, Math.ceil((data.total || 0) / currentLimit));
+
+                const prevLi = document.createElement('li');
+                prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+                prevLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>`;
+                pagination.appendChild(prevLi);
+
+                const maxPages = 5;
+                let startPage = Math.max(1, currentPage - Math.floor(maxPages / 2));
+                let endPage   = Math.min(totalPages, startPage + maxPages - 1);
+                if (endPage - startPage < maxPages - 1) startPage = Math.max(1, endPage - maxPages + 1);
+
+                if (startPage > 1) {
+                    const li = document.createElement('li');
+                    li.className = 'page-item';
+                    li.innerHTML = `<a class="page-link" href="#" data-page="1">1</a>`;
+                    pagination.appendChild(li);
+                    if (startPage > 2) {
+                        const dots = document.createElement('li');
+                        dots.className = 'page-item disabled';
+                        dots.innerHTML = `<span class="page-link">...</span>`;
+                        pagination.appendChild(dots);
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.status === 'error') {
-                        toastError(data.msg || 'Failed to load logs');
-                        tbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center">Error loading data</td></tr>';
-                        return;
+                }
+
+                for (let i = startPage; i <= endPage; i++) {
+                    const li = document.createElement('li');
+                    li.className = `page-item ${i === currentPage ? 'active' : ''}`;
+                    li.innerHTML = `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
+                    pagination.appendChild(li);
+                }
+
+                if (endPage < totalPages) {
+                    if (endPage < totalPages - 1) {
+                        const dots = document.createElement('li');
+                        dots.className = 'page-item disabled';
+                        dots.innerHTML = `<span class="page-link">...</span>`;
+                        pagination.appendChild(dots);
                     }
+                    const li = document.createElement('li');
+                    li.className = 'page-item';
+                    li.innerHTML = `<a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a>`;
+                    pagination.appendChild(li);
+                }
 
-                    tbody.innerHTML = '';
-                    const rows = data.rows || [];
-
-                    if (!rows.length) {
-                        tbody.innerHTML = '<tr><td colspan="8" class="text-muted text-center py-4"><i class="bi bi-inbox"></i> No logs found</td></tr>';
-                        recordInfo.textContent = 'No records found';
-                        recordInfoBottom.textContent = '';
-                    } else {
-                        const startRecord = ((currentPage - 1) * currentLimit) + 1;
-                        const endRecord = Math.min(startRecord + rows.length - 1, data.total);
-
-                        rows.forEach((r, index) => {
-                            const badgeClass =
-                                r.compliance_status === 'Compliant' ? 'bg-success' :
-                                r.compliance_status === 'Non-Compliant' ? 'bg-danger' :
-                                r.compliance_status === 'Pending' ? 'bg-warning text-dark' :
-                                'bg-info text-dark';
-
-                            // ── Risk level badge ──
-                            const actionText = r.action_type || '';
-                            let riskBadge = '';
-                            if (actionText.includes('(High Risk)')) {
-                                riskBadge = '<span class="badge ms-1" style="background:#dc2626;">🔴 High Risk</span>';
-                            } else if (actionText.includes('(Medium Risk)')) {
-                                riskBadge = '<span class="badge ms-1" style="background:#ea580c;">🟠 Medium Risk</span>';
-                            } else if (actionText.includes('(Low Risk)')) {
-                                riskBadge = '<span class="badge ms-1" style="background:#ca8a04;">🟡 Low Risk</span>';
-                            }
-
-                            // ── Clean action text (remove risk label) ──
-                            const cleanAction = actionText
-                                .replace(' (High Risk)', '')
-                                .replace(' (Medium Risk)', '')
-                                .replace(' (Low Risk)', '');
-
-                            const tr = document.createElement('tr');
-                            tr.innerHTML = `
-                        <td>${startRecord + index}</td>
-                        <td>${escapeHtml(r.full_name || r.username || 'System')}</td>
-                        <td><small>${escapeHtml(cleanAction)}${riskBadge}</small></td>
-                        <td><small>${escapeHtml(r.module_name)}</small></td>
-                        <td class="text-start"><small>${escapeHtml(r.remarks || '-')}</small></td>
-                        <td><span class="badge ${badgeClass}">${escapeHtml(r.compliance_status)}</span></td>
-                        <td><small>${escapeHtml(r.action_time)}</small></td>
-                        <td><small>${escapeHtml(r.ip_address || '-')}</small></td>
-                    `;
-                            tbody.appendChild(tr);
-                        });
-
-                        const infoText = `Showing ${startRecord} to ${endRecord} of ${data.total} entries`;
-                        recordInfo.textContent = infoText;
-                        recordInfoBottom.textContent = infoText;
-                    }
-
-                    // Build pagination
-                    pagination.innerHTML = '';
-                    const totalPages = Math.max(1, Math.ceil((data.total || 0) / currentLimit));
-
-                    // Previous button
-                    const prevLi = document.createElement('li');
-                    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-                    prevLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage - 1}">Previous</a>`;
-                    pagination.appendChild(prevLi);
-
-                    // Page numbers (show max 5 pages)
-                    const maxPages = 5;
-                    let startPage = Math.max(1, currentPage - Math.floor(maxPages / 2));
-                    let endPage = Math.min(totalPages, startPage + maxPages - 1);
-
-                    if (endPage - startPage < maxPages - 1) {
-                        startPage = Math.max(1, endPage - maxPages + 1);
-                    }
-
-                    if (startPage > 1) {
-                        const li = document.createElement('li');
-                        li.className = 'page-item';
-                        li.innerHTML = `<a class="page-link" href="#" data-page="1">1</a>`;
-                        pagination.appendChild(li);
-
-                        if (startPage > 2) {
-                            const dots = document.createElement('li');
-                            dots.className = 'page-item disabled';
-                            dots.innerHTML = `<span class="page-link">...</span>`;
-                            pagination.appendChild(dots);
-                        }
-                    }
-
-                    for (let i = startPage; i <= endPage; i++) {
-                        const li = document.createElement('li');
-                        li.className = `page-item ${i === currentPage ? 'active' : ''}`;
-                        li.innerHTML = `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
-                        pagination.appendChild(li);
-                    }
-
-                    if (endPage < totalPages) {
-                        if (endPage < totalPages - 1) {
-                            const dots = document.createElement('li');
-                            dots.className = 'page-item disabled';
-                            dots.innerHTML = `<span class="page-link">...</span>`;
-                            pagination.appendChild(dots);
-                        }
-
-                        const li = document.createElement('li');
-                        li.className = 'page-item';
-                        li.innerHTML = `<a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a>`;
-                        pagination.appendChild(li);
-                    }
-
-                    // Next button
-                    const nextLi = document.createElement('li');
-                    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-                    nextLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>`;
-                    pagination.appendChild(nextLi);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    toastError('Failed to load data. Please try again.');
-                    tbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center"><i class="bi bi-exclamation-triangle"></i> Failed to load data</td></tr>';
-                });
+                const nextLi = document.createElement('li');
+                nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+                nextLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage + 1}">Next</a>`;
+                pagination.appendChild(nextLi);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                toastError('Failed to load data. Please try again.');
+                tbody.innerHTML = '<tr><td colspan="8" class="text-danger text-center"><i class="bi bi-exclamation-triangle"></i> Failed to load data</td></tr>';
+            });
         }
 
-        // Export PDF function (Server-side Generation)
+        // ── Export PDF ────────────────────────────────────────────────
         if (exportPdfBtn) {
-            exportPdfBtn.addEventListener('click', async function(e) {
+            exportPdfBtn.addEventListener('click', async function (e) {
                 e.preventDefault();
 
                 const passwordPrompt = await Swal.fire({
@@ -640,20 +825,11 @@ include(__DIR__ . '/../inc/sidebar.php');
                     input: 'password',
                     inputLabel: 'PDF Password',
                     inputPlaceholder: 'Enter at least 6 characters',
-                    inputAttributes: {
-                        maxlength: 64,
-                        autocapitalize: 'off',
-                        autocorrect: 'off'
-                    },
+                    inputAttributes: { maxlength: 64, autocapitalize: 'off', autocorrect: 'off' },
                     showCancelButton: true,
                     confirmButtonText: 'Export PDF',
                     cancelButtonText: 'Cancel',
-                    inputValidator: (value) => {
-                        if (!value || value.trim().length < 6) {
-                            return 'Please enter a password with at least 6 characters.';
-                        }
-                        return null;
-                    }
+                    inputValidator: (value) => (!value || value.trim().length < 6) ? 'Please enter a password with at least 6 characters.' : null
                 });
 
                 if (!passwordPrompt.isConfirmed) return;
@@ -662,8 +838,8 @@ include(__DIR__ . '/../inc/sidebar.php');
                 const params = new URLSearchParams({
                     export: 'pdf',
                     search: searchInput.value || '',
-                    start: startInput.value || '',
-                    end: endInput.value || '',
+                    start:  startInput.value  || '',
+                    end:    endInput.value    || '',
                     status: statusInput.value || '',
                     pdf_password: pdfPassword
                 });
@@ -673,16 +849,8 @@ include(__DIR__ . '/../inc/sidebar.php');
                 exportPdfBtn.disabled = true;
 
                 try {
-                    const url = 'compliance_logs_action.php?' + params.toString();
-                    await downloadFile(url, `compliance_logs_${new Date().toISOString().split('T')[0]}.pdf`);
-
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'PDF Exported',
-                        text: 'Use your password to open the file.',
-                        timer: 3000,
-                        showConfirmButton: false
-                    });
+                    await downloadFile('compliance_logs_action.php?' + params.toString(), `compliance_logs_${new Date().toISOString().split('T')[0]}.pdf`);
+                    Swal.fire({ icon: 'success', title: 'PDF Exported', text: 'Use your password to open the file.', timer: 3000, showConfirmButton: false });
                 } catch (error) {
                     toastError(error.message || 'Failed to export PDF.');
                 }
@@ -692,10 +860,9 @@ include(__DIR__ . '/../inc/sidebar.php');
             });
         }
 
-
-        // Export CSV function
+        // ── Export CSV ────────────────────────────────────────────────
         if (exportCsvBtn) {
-            exportCsvBtn.addEventListener('click', async function(e) {
+            exportCsvBtn.addEventListener('click', async function (e) {
                 e.preventDefault();
 
                 const passwordPrompt = await Swal.fire({
@@ -716,8 +883,8 @@ include(__DIR__ . '/../inc/sidebar.php');
                 const params = new URLSearchParams({
                     export: 'csv',
                     search: searchInput.value || '',
-                    start: startInput.value || '',
-                    end: endInput.value || '',
+                    start:  startInput.value  || '',
+                    end:    endInput.value    || '',
                     status: statusInput.value || '',
                     pdf_password: pdfPassword
                 });
@@ -726,88 +893,59 @@ include(__DIR__ . '/../inc/sidebar.php');
                 exportCsvBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Exporting...';
                 exportCsvBtn.disabled = true;
 
-                const exportUrl = 'compliance_logs_action.php?' + params.toString();
-
                 try {
                     await downloadFile(
-                        exportUrl,
+                        'compliance_logs_action.php?' + params.toString(),
                         'compliance_logs_' + new Date().toISOString().split('T')[0] + (pdfPassword ? '.zip' : '.csv')
                     );
-
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'CSV Exported',
-                        text: pdfPassword ? 'The ZIP file is password protected.' : 'File downloaded successfully.',
-                        timer: 3000,
-                        showConfirmButton: false
-                    });
+                    Swal.fire({ icon: 'success', title: 'CSV Exported', text: pdfPassword ? 'The ZIP file is password protected.' : 'File downloaded successfully.', timer: 3000, showConfirmButton: false });
                 } catch (error) {
                     toastError(error.message || 'Failed to export CSV.');
                 }
 
-                // Restore button state
                 exportCsvBtn.innerHTML = originalHTML;
                 exportCsvBtn.disabled = false;
             });
         }
 
-        // Initial load
-        loadLogs();
-
-        // Reload button - RESET ALL FILTERS
-        if (reloadBtn) {
-            reloadBtn.addEventListener('click', () => {
-                // Clear all filter inputs
-                searchInput.value = '';
-                startInput.value = '';
-                endInput.value = '';
-                statusInput.value = '';
-                rowsInput.value = '10';
-
-                // Reload data from page 1
-                loadLogs(1);
-            });
-        }
-
-        // Filter button
+        // ── Event Listeners ───────────────────────────────────────────
         document.getElementById('filterBtn').addEventListener('click', e => {
             e.preventDefault();
-
             if (startInput.value && endInput.value && startInput.value > endInput.value) {
                 return toastError('Start date must be before end date.');
             }
-
             loadLogs(1);
+            loadSummary();
         });
 
-        // Rows per page change
-        rowsInput.addEventListener('change', () => {
+        reloadBtn.addEventListener('click', () => {
+            searchInput.value = '';
+            startInput.value  = '';
+            endInput.value    = '';
+            statusInput.value = '';
+            rowsInput.value   = '10';
             loadLogs(1);
+            loadSummary();
         });
 
-        // Search on Enter key
+        rowsInput.addEventListener('change', () => { loadLogs(1); });
+
         searchInput.addEventListener('keypress', e => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                loadLogs(1);
-            }
+            if (e.key === 'Enter') { e.preventDefault(); loadLogs(1); loadSummary(); }
         });
 
-        // Status filter change
-        statusInput.addEventListener('change', () => {
-            loadLogs(1);
-        });
+        statusInput.addEventListener('change', () => { loadLogs(1); });
 
-        // Pagination click handler
         pagination.addEventListener('click', e => {
             e.preventDefault();
-
             if (e.target.tagName === 'A' && !e.target.parentElement.classList.contains('disabled')) {
                 const page = parseInt(e.target.dataset.page);
-                if (page > 0) {
-                    loadLogs(page);
-                }
+                if (page > 0) loadLogs(page);
             }
         });
+
+        // ── Initial Load ──────────────────────────────────────────────
+        loadLogs(1);
+        loadSummary();
     });
 </script>
