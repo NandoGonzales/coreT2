@@ -3,7 +3,8 @@ require_once(__DIR__ . '/../../initialize_coreT2.php');
 require_once(__DIR__ . '/../inc/sess_auth.php');
 require_once(__DIR__ . '/../inc/access_control.php');
 require_once __DIR__ . '/../inc/check_auth.php';
-require_once __DIR__ . '/compliance_logger.php'; // for get_full_compliance_info()
+require_once __DIR__ . '/../inc/log_audit_trial.php';  // ← determine_compliance_status() is here
+require_once __DIR__ . '/compliance_logger.php';         // ← get_full_compliance_info() and other helpers
 
 // Enforce RBAC
 checkPermission('compliance_logs');
@@ -94,7 +95,7 @@ function outputPdfDownload($pdf, string $filename): void
 }
 
 // ======================================================================
-// GET: ?detail=1&id=XX  — Row-click compliance detail modal
+// GET: ?detail=1&id=XX — Row-click compliance detail modal
 // ======================================================================
 if (isset($_GET['detail']) && $_GET['detail'] === '1') {
     header('Content-Type: application/json');
@@ -153,15 +154,12 @@ if (isset($_GET['detail']) && $_GET['detail'] === '1') {
 // ======================================================================
 if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     try {
-        $search  = trim($_GET['search'] ?? '');
-        $start   = trim($_GET['start']  ?? '');
-        $end     = trim($_GET['end']    ?? '');
-        $status  = trim($_GET['status'] ?? '');
+        $search = trim($_GET['search'] ?? '');
+        $start  = trim($_GET['start']  ?? '');
+        $end    = trim($_GET['end']    ?? '');
+        $status = trim($_GET['status'] ?? '');
 
-        $f        = buildWhereClause($search, $start, $end, $status);
-        $whereSQL = $f['sql'];
-        $params   = $f['params'];
-        $types    = $f['types'];
+        $f = buildWhereClause($search, $start, $end, $status);
 
         $sql = "
             SELECT
@@ -172,19 +170,19 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                 a.ip_address
             FROM audit_trail a
             LEFT JOIN users u ON a.user_id = u.user_id
-            $whereSQL
+            {$f['sql']}
             ORDER BY a.action_time DESC
         ";
 
         $stmt = $conn->prepare($sql);
         if (!$stmt) throw new Exception("Failed to prepare statement: " . $conn->error);
-        if ($types !== '' && count($params) > 0) $stmt->bind_param($types, ...$params);
+        if ($f['types'] !== '' && count($f['params']) > 0) $stmt->bind_param($f['types'], ...$f['params']);
         if (!$stmt->execute()) throw new Exception("Failed to execute query: " . $stmt->error);
 
-        $result        = $stmt->get_result();
-        $fn_base       = 'compliance_logs_' . date('Y-m-d_His');
-        $csv_fn        = $fn_base . '.csv';
-        $export_pass   = trim($_GET['pdf_password'] ?? '');
+        $result      = $stmt->get_result();
+        $fn_base     = 'compliance_logs_' . date('Y-m-d_His');
+        $csv_fn      = $fn_base . '.csv';
+        $export_pass = trim($_GET['pdf_password'] ?? '');
 
         $csv = fopen('php://temp', 'r+');
         fprintf($csv, chr(0xEF) . chr(0xBB) . chr(0xBF));
@@ -209,8 +207,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
         $stmt->close();
 
         if ($export_pass !== '' && class_exists('ZipArchive')) {
-            $zip  = new ZipArchive();
-            $tmp  = tempnam(sys_get_temp_dir(), 'zip');
+            $zip = new ZipArchive();
+            $tmp = tempnam(sys_get_temp_dir(), 'zip');
             if ($zip->open($tmp, ZipArchive::CREATE) === TRUE) {
                 $zip->addFromString($csv_fn, $csv_content);
                 if (method_exists($zip, 'setEncryptionName'))
@@ -219,9 +217,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                 header('Content-Type: application/zip');
                 header('Content-Disposition: attachment; filename="' . $fn_base . '.zip"');
                 header('Content-Length: ' . filesize($tmp));
-                readfile($tmp);
-                unlink($tmp);
-                exit;
+                readfile($tmp); unlink($tmp); exit;
             }
         }
 
@@ -262,10 +258,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'json') {
         if ($f['types'] !== '') $stmt->bind_param($f['types'], ...$f['params']);
         $stmt->execute();
         $result = $stmt->get_result();
-
-        $rows = [];
+        $rows   = [];
         while ($row = $result->fetch_assoc()) $rows[] = $row;
-
         echo json_encode(['status' => 'success', 'rows' => $rows]);
         $stmt->close();
         exit;
@@ -327,11 +321,10 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
         $f = buildWhereClause($search, $start, $end, $status);
 
         $sql = "
-            SELECT
-                a.audit_id, a.user_id, a.action_type, a.module_name, a.remarks,
-                a.compliance_status,
-                DATE_FORMAT(a.action_time, '%Y-%m-%d %h:%i %p') as action_time,
-                a.ip_address, u.full_name, u.username
+            SELECT a.audit_id, a.user_id, a.action_type, a.module_name, a.remarks,
+                   a.compliance_status,
+                   DATE_FORMAT(a.action_time, '%Y-%m-%d %h:%i %p') as action_time,
+                   a.ip_address, u.full_name, u.username
             FROM audit_trail a
             LEFT JOIN users u ON a.user_id = u.user_id
             {$f['sql']}
@@ -346,64 +339,46 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
         $result = $stmt->get_result();
 
         $pdf = new ComplianceExportPDF('L', 'mm', 'A4', true, 'UTF-8', false);
-        $pdf->SetCreator('Compliance System');
-        $pdf->SetAuthor('Admin');
+        $pdf->SetCreator('Compliance System'); $pdf->SetAuthor('Admin');
         $pdf->SetTitle('Compliance & Audit Trail Logs');
         $pdf->SetProtection(['print', 'copy'], $pdfPassword, md5(uniqid(mt_rand(), true)), 0, null);
-        $pdf->SetMargins(10, 32, 10);
-        $pdf->SetAutoPageBreak(TRUE, 15);
-        $pdf->AddPage();
+        $pdf->SetMargins(10, 32, 10); $pdf->SetAutoPageBreak(TRUE, 15); $pdf->AddPage();
 
-        $pdf->SetTextColor(34, 34, 34);
-        $pdf->SetFillColor(220, 252, 231);
-
+        $pdf->SetTextColor(34, 34, 34); $pdf->SetFillColor(220, 252, 231);
         $periodText = ($start && $end) ? 'Period: ' . $start . ' to ' . $end : 'Period: All Dates';
         $statusText = $status ? 'Status: ' . $status : 'Status: All';
-
         $pdf->SetFont('helvetica', 'B', 9);
         $pdf->Cell(138.5, 7, $periodText, 0, 0, 'L', true);
         $pdf->Cell(138.5, 7, $statusText, 0, 1, 'R', true);
         $pdf->SetFont('helvetica', '', 9);
-        $pdf->Cell(0, 6, 'Generated: ' . date('Y-m-d H:i:s'), 0, 1, 'L');
-        $pdf->Ln(3);
+        $pdf->Cell(0, 6, 'Generated: ' . date('Y-m-d H:i:s'), 0, 1, 'L'); $pdf->Ln(3);
 
-        $html = '
-            <style>
-                table { border-collapse: collapse; }
-                th { background-color: #14532d; color: #ffffff; font-size: 9px; font-weight: bold; padding: 6px; border: 1px solid #166534; text-align: center; }
-                td { font-size: 8px; color: #1f2937; padding: 5px; border: 1px solid #bbf7d0; }
-                .row-light { background-color: #f0fdf4; }
-                .row-alt   { background-color: #dcfce7; }
-                .center    { text-align: center; }
-            </style>
-            <table width="100%" cellpadding="4">
-                <thead>
-                    <tr>
-                        <th width="4%">#</th>
-                        <th width="14%">User</th>
-                        <th width="11%">Action</th>
-                        <th width="11%">Module</th>
-                        <th width="28%">Description</th>
-                        <th width="10%">Status</th>
-                        <th width="13%">Date/Time</th>
-                        <th width="9%">IP</th>
-                    </tr>
-                </thead>
-                <tbody>';
+        $html = '<style>
+            table{border-collapse:collapse;}
+            th{background-color:#14532d;color:#fff;font-size:9px;font-weight:bold;padding:6px;border:1px solid #166534;text-align:center;}
+            td{font-size:8px;color:#1f2937;padding:5px;border:1px solid #bbf7d0;}
+            .row-light{background-color:#f0fdf4;}.row-alt{background-color:#dcfce7;}.center{text-align:center;}
+        </style>
+        <table width="100%" cellpadding="4">
+            <thead><tr>
+                <th width="4%">#</th><th width="14%">User</th><th width="11%">Action</th>
+                <th width="11%">Module</th><th width="28%">Description</th>
+                <th width="10%">Status</th><th width="13%">Date/Time</th><th width="9%">IP</th>
+            </tr></thead><tbody>';
 
         $n = 1; $hasRows = false;
         while ($row = $result->fetch_assoc()) {
-            $hasRows  = true;
-            $rc       = ($n % 2 === 0) ? 'row-alt' : 'row-light';
-            $html .= '<tr class="' . $rc . '">'
-                . '<td class="center">' . $n . '</td>'
-                . '<td>' . htmlspecialchars($row['full_name'] ?? $row['username'] ?? 'System', ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td>' . htmlspecialchars($row['action_type'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td>' . htmlspecialchars($row['module_name'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td>' . htmlspecialchars($row['remarks'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td class="center">' . htmlspecialchars($row['compliance_status'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td class="center">' . htmlspecialchars($row['action_time'] ?? '', ENT_QUOTES, 'UTF-8') . '</td>'
-                . '<td class="center">' . htmlspecialchars($row['ip_address'] ?? '-', ENT_QUOTES, 'UTF-8') . '</td>'
+            $hasRows = true;
+            $rc = ($n % 2 === 0) ? 'row-alt' : 'row-light';
+            $html .= '<tr class="'.$rc.'">'
+                . '<td class="center">'.$n.'</td>'
+                . '<td>'.htmlspecialchars($row['full_name']??$row['username']??'System',ENT_QUOTES,'UTF-8').'</td>'
+                . '<td>'.htmlspecialchars($row['action_type']??'',ENT_QUOTES,'UTF-8').'</td>'
+                . '<td>'.htmlspecialchars($row['module_name']??'',ENT_QUOTES,'UTF-8').'</td>'
+                . '<td>'.htmlspecialchars($row['remarks']??'',ENT_QUOTES,'UTF-8').'</td>'
+                . '<td class="center">'.htmlspecialchars($row['compliance_status']??'',ENT_QUOTES,'UTF-8').'</td>'
+                . '<td class="center">'.htmlspecialchars($row['action_time']??'',ENT_QUOTES,'UTF-8').'</td>'
+                . '<td class="center">'.htmlspecialchars($row['ip_address']??'-',ENT_QUOTES,'UTF-8').'</td>'
                 . '</tr>';
             $n++;
         }
@@ -412,10 +387,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'pdf') {
             $html .= '<tr class="row-light"><td colspan="8" class="center">No compliance logs found for the selected filters.</td></tr>';
 
         $html .= '</tbody></table>';
-
         $pdf->writeHTML($html, true, false, true, false, '');
         $stmt->close();
-
         outputPdfDownload($pdf, 'compliance_logs_' . date('Y-m-d_His') . '.pdf');
 
     } catch (Exception $e) {

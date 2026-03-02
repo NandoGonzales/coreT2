@@ -2,56 +2,14 @@
 // ==================================================
 // Compliance Logger Helper
 // ==================================================
-// Load this file via initialize_coreT2.php so all
-// helper functions are available system-wide.
+// IMPORTANT: determine_compliance_status() is defined
+// in ../inc/log_audit_trial.php — that file must be
+// loaded BEFORE this one (compliance_logs_action.php
+// handles this automatically).
 // ==================================================
-
-if (!function_exists('determine_compliance_status')) {
-    function determine_compliance_status(string $action_type, ?string $description = null): string
-    {
-        $action = strtolower(trim($action_type));
-        $desc   = strtolower(trim($description ?? ''));
-
-        // ❌ NON-COMPLIANT
-        $nonCompliant = [
-            'failed', 'wrong', 'invalid', 'incorrect', 'unauthorized',
-            'denied', 'blocked', 'expired', 'error', 'rejected',
-            'violation', 'suspicious', 'banned', 'locked', 'inactive',
-            'unknown user', 'low risk', 'medium risk', 'high risk',
-        ];
-        foreach ($nonCompliant as $kw) {
-            if (str_contains($action, $kw) || str_contains($desc, $kw)) return 'Non-Compliant';
-        }
-
-        // 🟡 UNDER REVIEW
-        $underReview = [
-            'large', 'high amount', 'ai result', 'ai scored', 'credit score',
-            'credit scoring', 'ai decision', 'manual verification', 'review needed',
-            'flagged', 'override', 'bulk', 'mass', 'role change',
-            'permission change', 'high value',
-        ];
-        foreach ($underReview as $kw) {
-            if (str_contains($action, $kw) || str_contains($desc, $kw)) return 'Under Review';
-        }
-
-        // 🟠 PENDING
-        $pending = [
-            'otp sent', 'awaiting', 'waiting', 'pending approval',
-            'disbursement request', 'loan request', 'submitted', 'queued',
-            'in progress', 'processing', 'sent for approval',
-        ];
-        foreach ($pending as $kw) {
-            if (str_contains($action, $kw) || str_contains($desc, $kw)) return 'Pending';
-        }
-
-        // ✅ COMPLIANT — default
-        return 'Compliant';
-    }
-}
 
 // --------------------------------------------------
 // get_compliance_reason()
-// Returns WHY an action has its compliance status.
 // --------------------------------------------------
 if (!function_exists('get_compliance_reason')) {
     function get_compliance_reason(string $action_type, ?string $description = null): string
@@ -122,7 +80,6 @@ if (!function_exists('get_compliance_reason')) {
 
 // --------------------------------------------------
 // get_compliance_category()
-// Returns the category of the action.
 // --------------------------------------------------
 if (!function_exists('get_compliance_category')) {
     function get_compliance_category(string $action_type, ?string $description = null): string
@@ -130,41 +87,41 @@ if (!function_exists('get_compliance_category')) {
         $action = strtolower(trim($action_type));
 
         if (str_contains($action, 'login') || str_contains($action, 'logout') ||
-            str_contains($action, 'otp') || str_contains($action, 'password') ||
-            str_contains($action, 'locked') || str_contains($action, 'banned') ||
+            str_contains($action, 'otp')   || str_contains($action, 'password') ||
+            str_contains($action, 'locked')|| str_contains($action, 'banned') ||
             str_contains($action, 'unauthorized') || str_contains($action, 'brute') ||
-            str_contains($action, 'suspicious') || str_contains($action, 'blocked') ||
-            str_contains($action, 'session') || str_contains($action, 'token'))
+            str_contains($action, 'suspicious')   || str_contains($action, 'blocked') ||
+            str_contains($action, 'session')      || str_contains($action, 'token'))
             return 'Security & Authentication';
 
-        if (str_contains($action, 'loan') || str_contains($action, 'disbursement') ||
-            str_contains($action, 'repayment') || str_contains($action, 'interest') ||
-            str_contains($action, 'amortization') || str_contains($action, 'credit') ||
+        if (str_contains($action, 'loan')        || str_contains($action, 'disbursement') ||
+            str_contains($action, 'repayment')   || str_contains($action, 'interest') ||
+            str_contains($action, 'amortization')|| str_contains($action, 'credit') ||
             str_contains($action, 'borrower'))
             return 'Loan Process';
 
         if (str_contains($action, 'ai') || str_contains($action, 'credit scor') || str_contains($action, 'scoring'))
             return 'AI & Credit Scoring';
 
-        if (str_contains($action, 'user') || str_contains($action, 'role') ||
+        if (str_contains($action, 'user')       || str_contains($action, 'role') ||
             str_contains($action, 'permission') || str_contains($action, 'account') ||
-            str_contains($action, 'member') || str_contains($action, 'profile'))
+            str_contains($action, 'member')     || str_contains($action, 'profile'))
             return 'User Management';
 
         if (str_contains($action, 'import') || str_contains($action, 'export') ||
-            str_contains($action, 'bulk') || str_contains($action, 'mass') ||
+            str_contains($action, 'bulk')   || str_contains($action, 'mass') ||
             str_contains($action, 'delete') || str_contains($action, 'update') ||
-            str_contains($action, 'edit') || str_contains($action, 'record'))
+            str_contains($action, 'edit')   || str_contains($action, 'record'))
             return 'Data Management';
 
-        if (str_contains($action, 'payment') || str_contains($action, 'transaction') ||
-            str_contains($action, 'transfer') || str_contains($action, 'deposit') ||
+        if (str_contains($action, 'payment')    || str_contains($action, 'transaction') ||
+            str_contains($action, 'transfer')   || str_contains($action, 'deposit') ||
             str_contains($action, 'withdrawal') || str_contains($action, 'fund'))
             return 'Financial Transactions';
 
-        if (str_contains($action, 'setting') || str_contains($action, 'config') ||
-            str_contains($action, 'system') || str_contains($action, 'backup') ||
-            str_contains($action, 'restore') || str_contains($action, 'override'))
+        if (str_contains($action, 'setting')  || str_contains($action, 'config') ||
+            str_contains($action, 'system')   || str_contains($action, 'backup') ||
+            str_contains($action, 'restore')  || str_contains($action, 'override'))
             return 'System & Configuration';
 
         return 'General Operations';
@@ -173,7 +130,6 @@ if (!function_exists('get_compliance_category')) {
 
 // --------------------------------------------------
 // get_recommended_action()
-// Returns what should be done next.
 // --------------------------------------------------
 if (!function_exists('get_recommended_action')) {
     function get_recommended_action(string $action_type, ?string $description = null): string
@@ -227,7 +183,6 @@ if (!function_exists('get_recommended_action')) {
 
 // --------------------------------------------------
 // get_compliance_rules()
-// Returns applicable government/company rules.
 // --------------------------------------------------
 if (!function_exists('get_compliance_rules')) {
     function get_compliance_rules(string $action_type, ?string $description = null): array
@@ -287,7 +242,6 @@ if (!function_exists('get_compliance_rules')) {
 
 // --------------------------------------------------
 // get_full_compliance_info()
-// One-call helper — returns everything for the modal.
 // --------------------------------------------------
 if (!function_exists('get_full_compliance_info')) {
     function get_full_compliance_info(string $action_type, ?string $description = null): array
@@ -304,16 +258,13 @@ if (!function_exists('get_full_compliance_info')) {
 
 // --------------------------------------------------
 // log_compliance()
-// Inserts a record into the compliance_logs table.
 // --------------------------------------------------
 if (!function_exists('log_compliance')) {
     function log_compliance($user_id, $action_type, $module_name, $description, $status = null)
     {
         global $conn;
         if (!$conn) { error_log("Compliance Log Error: No DB connection"); return false; }
-
         if ($status === null) $status = determine_compliance_status($action_type, $description);
-
         $ip   = $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
         $stmt = $conn->prepare("
             INSERT INTO compliance_logs (user_id, action_type, module_name, description, status, ip_address)
@@ -327,7 +278,6 @@ if (!function_exists('log_compliance')) {
     }
 }
 
-// Optional wrapper to match old calls
 if (!function_exists('log_compliance_event')) {
     function log_compliance_event($user_id, $action_type, $module_name, $description, $status = null)
     {
