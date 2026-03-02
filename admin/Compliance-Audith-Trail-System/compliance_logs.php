@@ -151,28 +151,116 @@ include(__DIR__ . '/../inc/sidebar.php');
         margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;
     }
     .rule-card {
-        background: #f9fafb; border: 1px solid #e5e7eb;
-        border-left: 4px solid #059669; border-radius: 0.5rem;
-        padding: 0.875rem 1rem; margin-bottom: 0.75rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 0.875rem 1rem;
+        margin-bottom: 0.75rem;
+    }
+    .rule-card-gov {
+        background: #eff6ff;
+        border-left: 4px solid #2563eb;
+    }
+    .rule-card-company {
+        background: #f0fdf4;
+        border-left: 4px solid #059669;
     }
     .rule-code {
-        display: inline-block; font-size: 0.68rem; font-weight: 700; color: #059669;
-        background: #d1fae5; padding: 0.1rem 0.45rem; border-radius: 0.25rem;
-        text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 0.3rem;
+        display: inline-block; font-size: 0.68rem; font-weight: 700;
+        padding: 0.1rem 0.45rem; border-radius: 0.25rem;
+        text-transform: uppercase; letter-spacing: 0.07em;
     }
-    .rule-title  { font-weight: 700; color: #111827; font-size: 0.875rem; margin-bottom: 0.2rem; }
-    .rule-desc   { color: #4b5563; font-size: 0.8rem; line-height: 1.6; margin-bottom: 0.2rem; }
+    .rule-code-gov     { color: #1d4ed8; background: #dbeafe; }
+    .rule-code-company { color: #059669; background: #d1fae5; }
+    .rule-regulator { font-size: 0.72rem; color: #6b7280; font-style: italic; }
+    .rule-title  { font-weight: 700; color: #111827; font-size: 0.875rem; margin-bottom: 0.25rem; margin-top: 0.25rem; }
+    .rule-desc   { color: #4b5563; font-size: 0.8rem; line-height: 1.6; margin-bottom: 0.25rem; }
     .rule-source { font-size: 0.73rem; color: #6b7280; font-style: italic; }
+    .rules-section-header {
+        font-weight: 700; font-size: 0.8rem; text-transform: uppercase;
+        letter-spacing: 0.06em; padding: 0.5rem 0.75rem; border-radius: 0.375rem;
+        margin-bottom: 0.6rem; margin-top: 0.5rem;
+    }
+    .rules-gov-header     { background: #dbeafe; color: #1d4ed8; }
+    .rules-company-header { background: #d1fae5; color: #065f46; margin-top: 1rem; }
 
     .alert-compliant    { background:#d1fae5; border-color:#a7f3d0; color:#065f46; }
     .alert-noncompliant { background:#fee2e2; border-color:#fca5a5; color:#991b1b; }
     .alert-pending      { background:#fef3c7; border-color:#fde68a; color:#92400e; }
     .alert-underreview  { background:#dbeafe; border-color:#93c5fd; color:#1e40af; }
 
-    @media (max-width: 768px) {
-        .page-header { padding: 1.5rem; }
-        .filter-section { padding: 1rem; }
-        .table-card { padding: 1rem; }
+    /* ── Rules Guide Modal ── */
+    .rg-tab-bar {
+        display: flex; border-bottom: 2px solid #e5e7eb;
+        background: #f9fafb; padding: 0 1rem; gap: 0.25rem;
+    }
+    .rg-tab {
+        padding: 0.75rem 1.25rem; border: none; background: none;
+        font-weight: 600; font-size: 0.875rem; color: #6b7280;
+        border-bottom: 3px solid transparent; margin-bottom: -2px;
+        cursor: pointer; transition: all 0.2s;
+    }
+    .rg-tab:hover  { color: #1d4ed8; }
+    .rg-tab.active { color: #1d4ed8; border-bottom-color: #1d4ed8; }
+
+    .rg-panel { animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+    .rg-status-banner {
+        display: flex; align-items: center; gap: 1rem;
+        padding: 1rem 1.25rem; border-radius: 0.75rem;
+        margin-bottom: 1.25rem; color: white;
+    }
+    .rg-banner-compliant    { background: linear-gradient(135deg,#059669,#047857); }
+    .rg-banner-noncompliant { background: linear-gradient(135deg,#ef4444,#dc2626); }
+    .rg-banner-underreview  { background: linear-gradient(135deg,#3b82f6,#2563eb); }
+    .rg-banner-pending      { background: linear-gradient(135deg,#f59e0b,#d97706); }
+
+    .rg-keywords-box {
+        border-radius: 0.5rem; padding: 0.875rem 1rem;
+        margin-bottom: 1.25rem; border: 1px solid #e5e7eb;
+    }
+    .rg-kw-compliant    { background:#f0fdf4; border-color:#a7f3d0; }
+    .rg-kw-noncompliant { background:#fff1f2; border-color:#fecaca; }
+    .rg-kw-underreview  { background:#eff6ff; border-color:#bfdbfe; }
+    .rg-kw-pending      { background:#fffbeb; border-color:#fde68a; }
+
+    .rg-kw-title {
+        font-weight: 700; font-size: 0.78rem; text-transform: uppercase;
+        letter-spacing: 0.05em; color: #374151; margin-bottom: 0.6rem;
+    }
+    .rg-kw-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .rg-kw {
+        display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px;
+        font-size: 0.75rem; font-weight: 600;
+        background: white; color: #374151; border: 1px solid #d1d5db;
+    }
+    .rg-kw-danger  { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+    .rg-kw-review  { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+    .rg-kw-pending { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
+
+    .rg-section-title {
+        font-weight: 700; font-size: 0.85rem; color: #1f2937;
+        margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;
+    }
+    .rg-rule-card {
+        border-radius: 0.5rem; padding: 0.875rem 1rem;
+        margin-bottom: 0.6rem; border: 1px solid #e5e7eb;
+    }
+    .rg-rule-gov     { background:#eff6ff; border-left: 4px solid #2563eb; }
+    .rg-rule-company { background:#f0fdf4; border-left: 4px solid #059669; }
+    .rg-code {
+        display: inline-block; font-size: 0.68rem; font-weight: 700;
+        padding: 0.1rem 0.5rem; border-radius: 0.25rem;
+        text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.3rem;
+    }
+    .rg-code-gov     { background:#dbeafe; color:#1d4ed8; }
+    .rg-code-company { background:#d1fae5; color:#065f46; }
+    .rg-rule-title   { font-weight: 700; color:#111827; font-size:0.875rem; margin-bottom:0.2rem; }
+    .rg-agency       { font-weight: 400; color:#6b7280; font-size:0.8rem; }
+    .rg-rule-desc    { color:#4b5563; font-size:0.8rem; line-height:1.6; }
+
+    @media (max-width: 576px) {
+        .rg-tab { padding: 0.6rem 0.75rem; font-size: 0.8rem; }
     }
 </style>
 
@@ -187,12 +275,16 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <h4><i class="bi bi-shield-check me-2"></i>Compliance & Audit Trail Logs</h4>
                         <p class="subtitle mb-0">Monitor system compliance and track all audit activities</p>
                     </div>
-                    <div class="d-flex gap-2">
+                    <div class="d-flex gap-2 flex-wrap">
                         <button id="exportCsvBtn" class="btn btn-sm btn-success">
                             <i class="bi bi-file-earmark-spreadsheet"></i> Export CSV
                         </button>
                         <button id="exportPdfBtn" class="btn btn-sm btn-danger">
                             <i class="bi bi-file-earmark-pdf"></i> Export PDF
+                        </button>
+                        <button id="rulesGuideBtn" class="btn btn-sm btn-outline-light"
+                                onclick="document.getElementById('rulesGuideModal') && new bootstrap.Modal(document.getElementById('rulesGuideModal')).show()">
+                            <i class="bi bi-journal-bookmark-fill"></i> Rules Guide
                         </button>
                         <button id="reloadBtn" class="btn btn-sm btn-outline-light">
                             <i class="bi bi-arrow-clockwise"></i> Reload
@@ -462,6 +554,297 @@ include(__DIR__ . '/../inc/sidebar.php');
                 </div>
             </div>
 
+            <!-- ════════════════════════════════════════════════
+                 Rules Guide Modal
+                 ════════════════════════════════════════════════ -->
+            <div class="modal fade" id="rulesGuideModal" tabindex="-1">
+                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                    <div class="modal-content border-0 shadow-lg">
+
+                        <div class="modal-header" style="background:linear-gradient(135deg,#1e3a5f,#1d4ed8);color:white;">
+                            <div>
+                                <h5 class="modal-title mb-0">
+                                    <i class="bi bi-journal-bookmark-fill me-2"></i>Compliance Rules Guide
+                                </h5>
+                                <small class="opacity-75">Mga rules at policies para sa bawat compliance status</small>
+                            </div>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+
+                        <div class="modal-body p-0">
+
+                            <!-- Tabs -->
+                            <div class="rg-tab-bar">
+                                <button class="rg-tab active" onclick="rgShowTab('compliant', this)">
+                                    <i class="bi bi-check-circle-fill me-1" style="color:#10b981;"></i> Compliant
+                                </button>
+                                <button class="rg-tab" onclick="rgShowTab('noncompliant', this)">
+                                    <i class="bi bi-x-circle-fill me-1" style="color:#ef4444;"></i> Non-Compliant
+                                </button>
+                                <button class="rg-tab" onclick="rgShowTab('underreview', this)">
+                                    <i class="bi bi-eye-fill me-1" style="color:#3b82f6;"></i> Under Review
+                                </button>
+                                <button class="rg-tab" onclick="rgShowTab('pending', this)">
+                                    <i class="bi bi-hourglass-split me-1" style="color:#f59e0b;"></i> Pending
+                                </button>
+                            </div>
+
+                            <!-- ── COMPLIANT ── -->
+                            <div id="rg-compliant" class="rg-panel px-4 py-3">
+                                <div class="rg-status-banner rg-banner-compliant">
+                                    <i class="bi bi-check-circle-fill fs-4"></i>
+                                    <div>
+                                        <div class="fw-bold fs-6">✅ COMPLIANT</div>
+                                        <div class="small opacity-90">Ang action ay maayos at walang violation. Naaayon sa lahat ng rules at policies.</div>
+                                    </div>
+                                </div>
+
+                                <div class="rg-keywords-box rg-kw-compliant">
+                                    <div class="rg-kw-title"><i class="bi bi-lightning-fill me-1"></i>Mga Action na nagiging COMPLIANT</div>
+                                    <div class="rg-kw-list">
+                                        <span class="rg-kw">Successful Login</span><span class="rg-kw">OTP Verified</span>
+                                        <span class="rg-kw">Logout</span><span class="rg-kw">Create Record</span>
+                                        <span class="rg-kw">View Report</span><span class="rg-kw">Export Data</span>
+                                        <span class="rg-kw">Update Record</span><span class="rg-kw">Add Member</span>
+                                        <span class="rg-kw">Approve Loan</span><span class="rg-kw">at iba pang normal na actions</span>
+                                    </div>
+                                </div>
+
+                                <div class="rg-section-title"><i class="bi bi-bank me-2 text-primary"></i>Government Rules & Regulations</div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">RA-10173</span>
+                                    <div class="rg-rule-title">Data Privacy Act of 2012 <span class="rg-agency">— National Privacy Commission (NPC)</span></div>
+                                    <div class="rg-rule-desc">Ang personal na impormasyon ng borrower at users ay dapat protektahan. Ang nag-access ay may tamang authorization at ginamit lang para sa tamang layunin.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">BSP-982</span>
+                                    <div class="rg-rule-title">BSP IT Risk Management Guidelines <span class="rg-agency">— Bangko Sentral ng Pilipinas (BSP)</span></div>
+                                    <div class="rg-rule-desc">Ang sistema ay gumagamit ng tamang authentication, access controls, at audit logging ayon sa BSP technology risk management requirements.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">RA-9520</span>
+                                    <div class="rg-rule-title">Philippine Cooperative Code <span class="rg-agency">— Cooperative Development Authority (CDA)</span></div>
+                                    <div class="rg-rule-desc">Ang action ay naaayon sa governance, transparency, at operational requirements ng cooperative ayon sa RA 9520.</div>
+                                </div>
+
+                                <div class="rg-section-title mt-3"><i class="bi bi-building me-2 text-success"></i>Company Policies</div>
+                                <div class="rg-rule-card rg-rule-company">
+                                    <span class="rg-code rg-code-company">GEN-POL-001</span>
+                                    <div class="rg-rule-title">General Compliance Policy</div>
+                                    <div class="rg-rule-desc">Ang user ay kumilos ayon sa lahat ng company policies. Walang violations. Ginamit ang tamang role at access level.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-company">
+                                    <span class="rg-code rg-code-company">AUDIT-POL-001</span>
+                                    <div class="rg-rule-title">Audit Trail and Accountability Policy</div>
+                                    <div class="rg-rule-desc">Ang action ay naka-log nang maayos — may responsible user, timestamp, at details. Ito ay patunay ng compliant na paggamit ng sistema.</div>
+                                </div>
+                            </div>
+
+                            <!-- ── NON-COMPLIANT ── -->
+                            <div id="rg-noncompliant" class="rg-panel px-4 py-3" style="display:none;">
+                                <div class="rg-status-banner rg-banner-noncompliant">
+                                    <i class="bi bi-x-circle-fill fs-4"></i>
+                                    <div>
+                                        <div class="fw-bold fs-6">❌ NON-COMPLIANT</div>
+                                        <div class="small opacity-90">May violation o failed action. Kailangang i-review at aksyunan agad.</div>
+                                    </div>
+                                </div>
+
+                                <div class="rg-keywords-box rg-kw-noncompliant">
+                                    <div class="rg-kw-title"><i class="bi bi-lightning-fill me-1"></i>Mga keywords na nagiging NON-COMPLIANT</div>
+                                    <div class="rg-kw-list">
+                                        <span class="rg-kw rg-kw-danger">failed</span><span class="rg-kw rg-kw-danger">wrong</span>
+                                        <span class="rg-kw rg-kw-danger">invalid</span><span class="rg-kw rg-kw-danger">incorrect</span>
+                                        <span class="rg-kw rg-kw-danger">unauthorized</span><span class="rg-kw rg-kw-danger">denied</span>
+                                        <span class="rg-kw rg-kw-danger">blocked</span><span class="rg-kw rg-kw-danger">expired</span>
+                                        <span class="rg-kw rg-kw-danger">error</span><span class="rg-kw rg-kw-danger">rejected</span>
+                                        <span class="rg-kw rg-kw-danger">violation</span><span class="rg-kw rg-kw-danger">suspicious</span>
+                                        <span class="rg-kw rg-kw-danger">brute</span><span class="rg-kw rg-kw-danger">banned</span>
+                                        <span class="rg-kw rg-kw-danger">locked</span><span class="rg-kw rg-kw-danger">inactive</span>
+                                        <span class="rg-kw rg-kw-danger">unknown user</span><span class="rg-kw rg-kw-danger">login failed</span>
+                                        <span class="rg-kw rg-kw-danger">otp failed</span>
+                                    </div>
+                                </div>
+
+                                <div class="rg-section-title"><i class="bi bi-bank me-2 text-primary"></i>Government Rules & Regulations</div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">RA-10173</span>
+                                    <div class="rg-rule-title">Data Privacy Act — Violation Risk <span class="rg-agency">— NPC</span></div>
+                                    <div class="rg-rule-desc">Non-compliant actions na may kaugnayan sa personal data ay maaaring maglabag sa RA 10173. Ang data breaches at unauthorized access ay dapat i-report sa NPC sa loob ng 72 oras.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">RA-8792</span>
+                                    <div class="rg-rule-title">E-Commerce Act — Unauthorized Access <span class="rg-agency">— DTI</span></div>
+                                    <div class="rg-rule-desc">Ang pag-access nang walang pahintulot sa computer systems at electronic records ay krimen ayon sa RA 8792. Paulit-ulit na violations ay dapat i-escalate sa law enforcement.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">RA-9160</span>
+                                    <div class="rg-rule-title">Anti-Money Laundering Act — Suspicious Activity <span class="rg-agency">— AMLC</span></div>
+                                    <div class="rg-rule-desc">Ang hindi authorized na financial actions ay maaaring suspicious. Ang malalaking, irregular, o unauthorized na transaksyon ay dapat i-review at i-report sa AMLC kung kinakailangan.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">BSP-982</span>
+                                    <div class="rg-rule-title">BSP IT Risk Management — Security Violation <span class="rg-agency">— BSP</span></div>
+                                    <div class="rg-rule-desc">Ang failed authentication, unauthorized access attempts, at security violations ay dapat i-log at imbestigahan ayon sa BSP IT risk management requirements.</div>
+                                </div>
+
+                                <div class="rg-section-title mt-3"><i class="bi bi-building me-2 text-success"></i>Company Policies</div>
+                                <div class="rg-rule-card rg-rule-company">
+                                    <span class="rg-code rg-code-company">SEC-POL-001</span>
+                                    <div class="rg-rule-title">User Authentication Policy — Violation</div>
+                                    <div class="rg-rule-desc">Pagkatapos ng 5 consecutive na failed login attempts, automatic na nilo-lock ang account. Dapat abisuhan ang Security Officer para sa imbestigasyon.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-company">
+                                    <span class="rg-code rg-code-company">RBAC-POL-001</span>
+                                    <div class="rg-rule-title">Role-Based Access Control — Unauthorized Access</div>
+                                    <div class="rg-rule-desc">Ang pag-access sa modules o pagsasagawa ng actions na hindi allowed sa role ng user ay non-compliant. Dapat i-review ang permissions at gumawa ng corrective action.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-company">
+                                    <span class="rg-code rg-code-company">DATA-POL-001</span>
+                                    <div class="rg-rule-title">Data Integrity Policy — Invalid or Incorrect Data</div>
+                                    <div class="rg-rule-desc">Ang pag-submit ng invalid, incorrect, o incomplete na data ay labag sa Data Integrity Policy. Dapat itama ang records na may dokumentasyon. Paulit-ulit na violations ay maaaring magresulta sa disciplinary action.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-company">
+                                    <span class="rg-code rg-code-company">AUDIT-POL-002</span>
+                                    <div class="rg-rule-title">Audit Trail — Permanent Record of Violations</div>
+                                    <div class="rg-rule-desc">Lahat ng non-compliant actions ay permanenteng naka-record sa audit trail. Ang users ay accountable sa lahat ng actions na ginawa sa ilalim ng kanilang account.</div>
+                                </div>
+                            </div>
+
+                            <!-- ── UNDER REVIEW ── -->
+                            <div id="rg-underreview" class="rg-panel px-4 py-3" style="display:none;">
+                                <div class="rg-status-banner rg-banner-underreview">
+                                    <i class="bi bi-eye-fill fs-4"></i>
+                                    <div>
+                                        <div class="fw-bold fs-6">🔵 UNDER REVIEW</div>
+                                        <div class="small opacity-90">Kailangan ng manual na pag-review ng authorized officer bago maging final ang desisyon.</div>
+                                    </div>
+                                </div>
+
+                                <div class="rg-keywords-box rg-kw-underreview">
+                                    <div class="rg-kw-title"><i class="bi bi-lightning-fill me-1"></i>Mga keywords na nagiging UNDER REVIEW</div>
+                                    <div class="rg-kw-list">
+                                        <span class="rg-kw rg-kw-review">large</span><span class="rg-kw rg-kw-review">high amount</span>
+                                        <span class="rg-kw rg-kw-review">high-risk</span><span class="rg-kw rg-kw-review">high risk</span>
+                                        <span class="rg-kw rg-kw-review">ai result</span><span class="rg-kw rg-kw-review">ai scored</span>
+                                        <span class="rg-kw rg-kw-review">credit score</span><span class="rg-kw rg-kw-review">credit scoring</span>
+                                        <span class="rg-kw rg-kw-review">ai decision</span><span class="rg-kw rg-kw-review">manual verification</span>
+                                        <span class="rg-kw rg-kw-review">review needed</span><span class="rg-kw rg-kw-review">flagged</span>
+                                        <span class="rg-kw rg-kw-review">override</span><span class="rg-kw rg-kw-review">bulk</span>
+                                        <span class="rg-kw rg-kw-review">mass</span><span class="rg-kw rg-kw-review">role change</span>
+                                        <span class="rg-kw rg-kw-review">permission change</span><span class="rg-kw rg-kw-review">high value</span>
+                                    </div>
+                                </div>
+
+                                <div class="rg-section-title"><i class="bi bi-bank me-2 text-primary"></i>Government Rules & Regulations</div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">BSP-1048</span>
+                                    <div class="rg-rule-title">BSP Lending Regulations — Loan Review Requirements <span class="rg-agency">— BSP</span></div>
+                                    <div class="rg-rule-desc">Ang malalaking loans, AI-scored applications, at high-risk transactions ay kailangan ng manual review ng authorized officer bago mag-final approval ayon sa BSP lending regulations.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">RA-9160</span>
+                                    <div class="rg-rule-title">AMLA — High-Value Transaction Review <span class="rg-agency">— AMLC</span></div>
+                                    <div class="rg-rule-desc">Ang mga transaksyon na PHP 500,000 pataas (covered transactions) ay dapat i-review at maaaring i-report sa AMLC. Ang suspicious transactions ay dapat i-report kahit anong halaga.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">BSP-1082</span>
+                                    <div class="rg-rule-title">BSP Guidelines on AI Use — Human Oversight <span class="rg-agency">— BSP</span></div>
+                                    <div class="rg-rule-desc">Ang AI-generated decisions sa financial services ay dapat laging may human oversight at review bago maging final. Ang AI results ay recommendations lang — hindi final decisions.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">RA-10173</span>
+                                    <div class="rg-rule-title">Data Privacy Act — AI Decision Review <span class="rg-agency">— NPC</span></div>
+                                    <div class="rg-rule-desc">Ang automated decisions na nakakaapekto sa personal data — kasama ang AI credit scoring — ay dapat may human review para masiguro ang fairness at compliance sa data privacy rights.</div>
+                                </div>
+
+                                <div class="rg-section-title mt-3"><i class="bi bi-building me-2 text-success"></i>Company Policies</div>
+                                <div class="rg-rule-card rg-rule-company">
+                                    <span class="rg-code rg-code-company">AI-POL-002</span>
+                                    <div class="rg-rule-title">Human Review of AI Decisions Policy</div>
+                                    <div class="rg-rule-desc">Lahat ng AI credit scores at decisions ay dapat i-review ng authorized loan officer bago gumawa ng aksyon. Ang reviewer ay dapat mag-dokumento ng kanyang findings.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-company">
+                                    <span class="rg-code rg-code-company">LOAN-POL-002</span>
+                                    <div class="rg-rule-title">Loan Approval Policy — High-Value Review</div>
+                                    <div class="rg-rule-desc">Ang mga loans na nangangailangan ng special review ay dapat i-escalate sa tamang officer level batay sa halaga. Ang reviewing officer ay dapat mag-dokumento ng approval o rejection na may justification.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-company">
+                                    <span class="rg-code rg-code-company">USR-POL-002</span>
+                                    <div class="rg-rule-title">Role Change Authorization — Review Required</div>
+                                    <div class="rg-rule-desc">Ang role at permission changes ay kailangan ng review at written authorization ng System Administrator at Department Head bago maging final.</div>
+                                </div>
+                            </div>
+
+                            <!-- ── PENDING ── -->
+                            <div id="rg-pending" class="rg-panel px-4 py-3" style="display:none;">
+                                <div class="rg-status-banner rg-banner-pending">
+                                    <i class="bi bi-hourglass-split fs-4"></i>
+                                    <div>
+                                        <div class="fw-bold fs-6">🟠 PENDING</div>
+                                        <div class="small opacity-90">Nagsimula na ang action pero hindi pa tapos o approved. Naghihintay ng susunod na hakbang.</div>
+                                    </div>
+                                </div>
+
+                                <div class="rg-keywords-box rg-kw-pending">
+                                    <div class="rg-kw-title"><i class="bi bi-lightning-fill me-1"></i>Mga keywords na nagiging PENDING</div>
+                                    <div class="rg-kw-list">
+                                        <span class="rg-kw rg-kw-pending">otp sent</span><span class="rg-kw rg-kw-pending">awaiting</span>
+                                        <span class="rg-kw rg-kw-pending">waiting</span><span class="rg-kw rg-kw-pending">pending approval</span>
+                                        <span class="rg-kw rg-kw-pending">disbursement request</span><span class="rg-kw rg-kw-pending">loan request</span>
+                                        <span class="rg-kw rg-kw-pending">submitted</span><span class="rg-kw rg-kw-pending">queued</span>
+                                        <span class="rg-kw rg-kw-pending">in progress</span><span class="rg-kw rg-kw-pending">processing</span>
+                                        <span class="rg-kw rg-kw-pending">sent for approval</span>
+                                    </div>
+                                </div>
+
+                                <div class="rg-section-title"><i class="bi bi-bank me-2 text-primary"></i>Government Rules & Regulations</div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">BSP-1048</span>
+                                    <div class="rg-rule-title">BSP Lending Regulations — Processing Timeline <span class="rg-agency">— BSP</span></div>
+                                    <div class="rg-rule-desc">Ang loan applications ay dapat maproseso sa loob ng makatwirang panahon. Ang pending applications ay hindi dapat pabayaan. Dapat abisuhan ang applicant tungkol sa status ng kanilang application.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">RA-3765</span>
+                                    <div class="rg-rule-title">Truth in Lending Act — Disclosure Before Release <span class="rg-agency">— BSP</span></div>
+                                    <div class="rg-rule-desc">Bago ilabas ang loan mula sa pending status, lahat ng terms, interest rates, at fees ay dapat fully disclosed sa borrower sa sulat.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-gov">
+                                    <span class="rg-code rg-code-gov">RA-9520</span>
+                                    <div class="rg-rule-title">Philippine Cooperative Code — Member Rights <span class="rg-agency">— CDA</span></div>
+                                    <div class="rg-rule-desc">Ang mga miyembro ay may karapatang malaman ang status ng kanilang loan applications at transactions. Ang pending items ay dapat resolbahin sa tamang panahon.</div>
+                                </div>
+
+                                <div class="rg-section-title mt-3"><i class="bi bi-building me-2 text-success"></i>Company Policies</div>
+                                <div class="rg-rule-card rg-rule-company">
+                                    <span class="rg-code rg-code-company">LOAN-POL-001</span>
+                                    <div class="rg-rule-title">Loan Application Requirements — Pending Completion</div>
+                                    <div class="rg-rule-desc">Ang pending loan applications ay naghihintay ng kumpleto na dokumentasyon o required approvals. Lahat ng required documents ay dapat i-submit bago maproseso ang application.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-company">
+                                    <span class="rg-code rg-code-company">SLA-POL-001</span>
+                                    <div class="rg-rule-title">Service Level Agreement (SLA) — Processing Time</div>
+                                    <div class="rg-rule-desc">Loan applications: 3 business days. Disbursements: 1 business day pagkatapos ng approval. OTP verification: 10 minuto. Ang hindi masunod ang SLA ay escalation sa supervisor.</div>
+                                </div>
+                                <div class="rg-rule-card rg-rule-company">
+                                    <span class="rg-code rg-code-company">AUDIT-POL-001</span>
+                                    <div class="rg-rule-title">Audit Trail — Pending Status Monitoring</div>
+                                    <div class="rg-rule-desc">Lahat ng pending transactions ay nino-monitor ng sistema. Ang mga transaksyon na lumagpas sa SLA period ay automatic na ine-escalate sa responsible supervisor.</div>
+                                </div>
+                            </div>
+
+                        </div><!-- /.modal-body -->
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+                                <i class="bi bi-x-lg me-1"></i>Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- ════ End Rules Guide Modal ════ -->
+
         </div>
     </main>
 </div>
@@ -470,6 +853,14 @@ include(__DIR__ . '/../inc/sidebar.php');
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+
+    // ── Rules Guide Tab Switcher ─────────────────────────────────────
+    window.rgShowTab = function (tab, btn) {
+        document.querySelectorAll('.rg-panel').forEach(p => p.style.display = 'none');
+        document.querySelectorAll('.rg-tab').forEach(b => b.classList.remove('active'));
+        document.getElementById('rg-' + tab).style.display = '';
+        btn.classList.add('active');
+    };
 
     // ── Toast helper ────────────────────────────────────────────────
     const Toast = Swal.mixin({
@@ -671,21 +1062,43 @@ document.addEventListener('DOMContentLoaded', function () {
                 alertEl.className = `alert py-2 px-3 mb-0 ${cfg.alert}`;
                 document.getElementById('cdm-recommended').textContent = comp.recommended_action;
 
-                // Rules
+                // Rules — split into Government and Company sections
                 const rulesList = document.getElementById('cdm-rules-list');
                 rulesList.innerHTML = '';
                 if (comp.rules && comp.rules.length) {
-                    comp.rules.forEach(rule => {
+                    const govRules  = comp.rules.filter(r => r.type === 'government');
+                    const compRules = comp.rules.filter(r => r.type === 'company');
+
+                    function buildRuleCard(rule, isGov) {
                         const div = document.createElement('div');
-                        div.className = 'rule-card';
+                        div.className = 'rule-card ' + (isGov ? 'rule-card-gov' : 'rule-card-company');
                         div.innerHTML = `
-                            <span class="rule-code">${escapeHtml(rule.code)}</span>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="rule-code ${isGov ? 'rule-code-gov' : 'rule-code-company'}">${escapeHtml(rule.code)}</span>
+                                <span class="rule-regulator">${escapeHtml(rule.regulator || '')}</span>
+                            </div>
                             <div class="rule-title">${escapeHtml(rule.title)}</div>
                             <div class="rule-desc">${escapeHtml(rule.description)}</div>
                             <div class="rule-source"><i class="bi bi-book me-1"></i>${escapeHtml(rule.source)}</div>
                         `;
-                        rulesList.appendChild(div);
-                    });
+                        return div;
+                    }
+
+                    if (govRules.length) {
+                        const header = document.createElement('div');
+                        header.className = 'rules-section-header rules-gov-header';
+                        header.innerHTML = '<i class="bi bi-bank me-2"></i>Government Rules & Regulations (Philippines)';
+                        rulesList.appendChild(header);
+                        govRules.forEach(r => rulesList.appendChild(buildRuleCard(r, true)));
+                    }
+
+                    if (compRules.length) {
+                        const header = document.createElement('div');
+                        header.className = 'rules-section-header rules-company-header';
+                        header.innerHTML = '<i class="bi bi-building me-2"></i>Company Policies';
+                        rulesList.appendChild(header);
+                        compRules.forEach(r => rulesList.appendChild(buildRuleCard(r, false)));
+                    }
                 } else {
                     rulesList.innerHTML = '<p class="text-muted small">No specific rules found for this action.</p>';
                 }
