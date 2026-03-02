@@ -867,7 +867,7 @@ $isSuperAdmin = ($user_role === 'Super Admin');
 
         // ── Dynamic Notifications ─────────────────────────────
         function loadNotifications() {
-            fetch('<?= $base_url ?>/ajax_notifications.php', { cache: 'no-store' })
+            fetch('<?= $base_url ?>/inc/ajax_notifications.php', { cache: 'no-store' })
                 .then(r => r.json())
                 .then(data => {
                     const list    = document.getElementById('notifList');
