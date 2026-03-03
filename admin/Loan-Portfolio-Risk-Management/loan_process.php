@@ -915,13 +915,148 @@ async function loadUsersForCI() {
 }
 
 // ── Helpers ───────────────────────────────────────────
+// ── Session Management ────────────────────────────────
+const SESSION_TIMEOUT   = 120;   // must match PHP SESSION_TIMEOUT (seconds)
+const SESSION_WARN_AT   = 30;    // show warning this many seconds before expiry
+let sessionTimer        = null;
+let sessionWarningShown = false;
+let remainingSeconds    = SESSION_TIMEOUT;
+
+function startSessionCountdown(remaining = SESSION_TIMEOUT) {
+    clearInterval(sessionTimer);
+    remainingSeconds    = remaining;
+    sessionWarningShown = false;
+
+    sessionTimer = setInterval(() => {
+        remainingSeconds--;
+
+        // Update navbar timer if present
+        const el = document.getElementById('sessionCountdownDisplay');
+        if (el) el.textContent = formatCountdown(remainingSeconds);
+
+        if (remainingSeconds <= SESSION_WARN_AT && !sessionWarningShown) {
+            sessionWarningShown = true;
+            showSessionWarning();
+        }
+
+        if (remainingSeconds <= 0) {
+            clearInterval(sessionTimer);
+            forceSessionExpired();
+        }
+    }, 1000);
+}
+
+function resetSessionTimer() {
+    remainingSeconds    = SESSION_TIMEOUT;
+    sessionWarningShown = false;
+}
+
+function formatCountdown(secs) {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function showSessionWarning() {
+    Swal.fire({
+        icon: 'warning',
+        title: 'Session Expiring Soon',
+        html: `<p style="color:#856404;font-weight:600;">Mag-e-expire ang iyong session sa <strong id="swalCountdown">${remainingSeconds}s</strong>.</p>
+               <p style="color:#6c757d;font-size:.9rem;">I-click ang "Stay Logged In" para manatili.</p>`,
+        confirmButtonText: 'Stay Logged In',
+        confirmButtonColor: '#059669',
+        showCancelButton: true,
+        cancelButtonText: 'Logout',
+        cancelButtonColor: '#ef4444',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+            const countdown = document.getElementById('swalCountdown');
+            const warningTimer = setInterval(() => {
+                if (countdown) countdown.textContent = remainingSeconds + 's';
+                if (remainingSeconds <= 0) clearInterval(warningTimer);
+            }, 1000);
+        }
+    }).then(result => {
+        if (result.isConfirmed) {
+            // Ping server to keep session alive — use returned remaining time
+            fetch('/admin/inc/update_session_activity.php', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.session_valid && data.remaining > 0) {
+                        startSessionCountdown(data.remaining);
+                    } else {
+                        // Server says expired already
+                        forceSessionExpired();
+                    }
+                })
+                .catch(() => startSessionCountdown(SESSION_TIMEOUT));
+        } else {
+            window.location.replace('/admin/logout.php');
+        }
+    });
+}
+
+function forceSessionExpired() {
+    Swal.close();
+    sessionStorage.clear();
+    localStorage.removeItem('sessionActive');
+    Swal.fire({
+        icon: 'warning',
+        title: 'Session Expired',
+        html: '<p style="color:#856404;font-weight:bold;">Nag-expire ang iyong session dahil sa inactivity.</p><p style="color:#6c757d;font-size:.9rem;">Mag-login ulit para magpatuloy.</p>',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#3085d6',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+    }).then(() => {
+        window.location.replace('/admin/login.php');
+    });
+}
+
+// Reset timer on any user activity
+['click','keydown','mousemove','scroll'].forEach(evt => {
+    document.addEventListener(evt, () => resetSessionTimer(), { passive: true });
+});
+
+// Start session countdown on page load
+document.addEventListener('DOMContentLoaded', () => {
+    // Get remaining seconds from PHP session_info if available
+    const phpRemaining = <?php echo $_SESSION['session_info']['remaining_seconds'] ?? SESSION_TIMEOUT; ?>;
+    startSessionCountdown(phpRemaining > 0 ? phpRemaining : SESSION_TIMEOUT);
+});
+
+// ── apiFetch with session_expired handling ────────────
 async function apiFetch(url, postData = null) {
     try {
         const opts = postData
             ? { method: 'POST', body: new URLSearchParams(postData) }
             : { method: 'GET' };
         const res  = await fetch(url, opts);
-        return await res.json();
+        const data = await res.json();
+
+        // ── Handle session expired from server ──
+        if (data.session_expired) {
+            clearInterval(sessionTimer);
+            sessionStorage.clear();
+            localStorage.removeItem('sessionActive');
+            await Swal.fire({
+                icon: 'warning',
+                title: 'Session Expired',
+                html: '<p style="color:#856404;font-weight:bold;">Nag-expire ang iyong session.</p><p style="color:#6c757d;font-size:.9rem;">Mag-login ulit para magpatuloy.</p>',
+                confirmButtonText: 'Log In Again',
+                confirmButtonColor: '#3085d6',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+            });
+            window.location.replace('/admin/login.php');
+            return data;
+        }
+
+        // Reset timer on successful API call
+        resetSessionTimer();
+        return data;
+
     } catch (e) { return { success: false, error: e.message }; }
 }
 

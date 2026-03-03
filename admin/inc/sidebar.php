@@ -409,11 +409,28 @@ $default_logo = '/dist/img/default-logo.png';
             <span>Dashboard</span>
         </a>
 
-        <a href="<?= $base_url ?>/Loan-Portfolio-Risk-Management/index.php"
-            class="btn menu-btn <?= get_active_class('Loan-Portfolio', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
-            <span class="icon-box"><i class="bi bi-wallet2"></i></span>
-            <span>Loan Portfolio</span>
-        </a>
+        <!-- Loan Portfolio with Submenu -->
+        <button class="btn menu-btn <?= get_active_class('Loan-Portfolio', $current_path) ?> w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
+            data-bs-toggle="collapse" data-bs-target="#loanPortfolioSubmenu"
+            aria-expanded="<?= get_active_class('Loan-Portfolio', $current_path) ? 'true' : 'false' ?>">
+            <span class="d-flex align-items-center gap-3">
+                <span class="icon-box"><i class="bi bi-wallet2"></i></span>
+                <span>Loan Portfolio</span>
+            </span>
+            <span class="collapse-arrow">▾</span>
+        </button>
+        <div class="<?= get_active_class('Loan-Portfolio', $current_path) ? 'collapse show' : 'collapse' ?> submenu-container" id="loanPortfolioSubmenu">
+            <div class="submenu-items">
+                <a href="<?= $base_url ?>/Loan-Portfolio-Risk-Management/index.php"
+                    class="submenu-link <?= is_active('Loan-Portfolio', $current_path) && !is_active('loan_process', $current_path) ? 'active' : '' ?>">
+                    <i class="bi bi-list-ul me-2"></i>Loan List
+                </a>
+                <a href="<?= $base_url ?>/Loan-Portfolio-Risk-Management/loan_process.php"
+                    class="submenu-link <?= is_active('loan_process.php', $current_path) ? 'active' : '' ?>">
+                    <i class="bi bi-diagram-3-fill me-2"></i>Loan Process
+                </a>
+            </div>
+        </div>
 
         <div class="menu-heading">Transactions</div>
 
@@ -521,11 +538,28 @@ $default_logo = '/dist/img/default-logo.png';
             <span>Dashboard</span>
         </a>
 
-        <a href="<?= $base_url ?>/Loan-Portfolio-Risk-Management/index.php"
-            class="btn menu-btn <?= get_active_class('Loan-Portfolio', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
-            <span class="icon-box"><i class="bi bi-wallet2"></i></span>
-            <span>Loan Portfolio</span>
-        </a>
+        <!-- Loan Portfolio with Submenu -->
+        <button class="btn menu-btn <?= get_active_class('Loan-Portfolio', $current_path) ?> w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
+            data-bs-toggle="collapse" data-bs-target="#loanPortfolioSubmenuMobile"
+            aria-expanded="<?= get_active_class('Loan-Portfolio', $current_path) ? 'true' : 'false' ?>">
+            <span class="d-flex align-items-center gap-3">
+                <span class="icon-box"><i class="bi bi-wallet2"></i></span>
+                <span>Loan Portfolio</span>
+            </span>
+            <span class="collapse-arrow">▾</span>
+        </button>
+        <div class="<?= get_active_class('Loan-Portfolio', $current_path) ? 'collapse show' : 'collapse' ?> submenu-container" id="loanPortfolioSubmenuMobile">
+            <div class="submenu-items">
+                <a href="<?= $base_url ?>/Loan-Portfolio-Risk-Management/index.php"
+                    class="submenu-link <?= is_active('Loan-Portfolio', $current_path) && !is_active('loan_process', $current_path) ? 'active' : '' ?>">
+                    <i class="bi bi-list-ul me-2"></i>Loan List
+                </a>
+                <a href="<?= $base_url ?>/Loan-Portfolio-Risk-Management/loan_process.php"
+                    class="submenu-link <?= is_active('loan_process.php', $current_path) ? 'active' : '' ?>">
+                    <i class="bi bi-diagram-3-fill me-2"></i>Loan Process
+                </a>
+            </div>
+        </div>
 
         <div class="menu-heading">Transactions</div>
 
