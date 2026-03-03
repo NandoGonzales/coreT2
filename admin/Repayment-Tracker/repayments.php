@@ -1475,6 +1475,12 @@ include(__DIR__ . '/../inc/sidebar.php');
 
         // INITIAL LOAD
         loadData();
+
+        // ── Expose to global scope (needed by onclick= attributes) ──
+        window.openEmailModal     = openEmailModal;
+        window.sendEmailFromModal = sendEmailFromModal;
+        window.loadEmailRecords   = loadEmailRecords;
+        window.viewEmailContent   = viewEmailContent;
     });
 </script>
 
