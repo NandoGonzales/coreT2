@@ -133,7 +133,6 @@ input[type=range]::-webkit-slider-thumb {
 </style>
 
 <div class="main-wrap">
-    <?php include(__DIR__ . '/../inc/sidebar.php'); ?>
     <main class="p-4" style="padding-top: calc(4rem + 1.5rem) !important;">
 
         <!-- Header -->
