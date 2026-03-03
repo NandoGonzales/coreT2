@@ -541,8 +541,8 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <thead>
                             <tr>
                                 <th></th><!-- checkbox col -->
-                                <th>ID</th>
-                                <th>Loan ID</th>
+                                <th>#</th>
+                                <th>Loan</th>
                                 <th>Member</th>
                                 <th>Date</th>
                                 <th>Amount</th>
@@ -756,15 +756,21 @@ include(__DIR__ . '/../inc/sidebar.php');
                     const row = document.createElement('tr');
                     row.innerHTML = `
                     <td><input type="checkbox" class="row-select-chk" data-id="${d.disbursement_id}" ${selectedIds.has(d.disbursement_id) ? 'checked' : ''}></td>
-                    <td>${escapeHtml(String(d.disbursement_id))}</td>
-                    <td>${escapeHtml(String(d.loan_id))}</td>
+                    <td class="text-center text-muted small">${d.disbursement_id}</td>
+                    <td>
+                        <span class="fw-bold" style="color:#059669;">${escapeHtml(d.loan_code || ('ID: '+d.loan_id))}</span>
+                    </td>
                     <td>${escapeHtml(d.member_name || 'N/A')}</td>
-                    <td>${escapeHtml(d.disbursement_date || '')}</td>
-                    <td>₱${Number(d.amount || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
-                    <td>${escapeHtml(d.fund_source || '-')}</td>
-                    <td>${escapeHtml(d.approved_by_name || '-')}</td>
+                    <td class="small">${escapeHtml(d.disbursement_date || '')}</td>
+                    <td class="fw-bold">₱${Number(d.amount || 0).toLocaleString('en-PH', {minimumFractionDigits: 2})}</td>
+                    <td class="small">${escapeHtml(d.fund_source || '-')}</td>
+                    <td class="small">${escapeHtml(d.approved_by_name || '-')}</td>
                     <td><span class="badge ${statusBadge}">${escapeHtml(d.status)}</span></td>
-                    <td class="text-start">${escapeHtml(d.remarks || '-')}</td>
+                    <td class="text-start small text-muted" style="max-width:180px;">
+                        <span title="${escapeHtml(d.remarks || '')}" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">
+                            ${escapeHtml((d.remarks||'-').split('|')[0].split('[')[0].trim().substring(0,60))}${(d.remarks||'').length > 60 ? '…' : ''}
+                        </span>
+                    </td>
                     <td class="text-center">
                         <div class="action-btn-group">
                             <button class="btn btn-sm btn-info view-disb-btn" data-id="${d.disbursement_id}" title="View Details">

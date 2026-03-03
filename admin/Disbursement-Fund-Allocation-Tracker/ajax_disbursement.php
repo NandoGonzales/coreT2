@@ -146,14 +146,17 @@ try {
 
     $totalPages = ceil($totalRecords / $limit);
 
-    // PATCHED: main query with LEFT JOIN to members + users
+    // PATCHED: main query with LEFT JOIN to members + users + loan_portfolio
     $query = "
         SELECT d.*,
             COALESCE(m.full_name, 'N/A') AS member_name,
-            COALESCE(u.full_name, 'Admin') AS approved_by_name
+            COALESCE(u.full_name, 'Admin') AS approved_by_name,
+            COALESCE(lp.loan_code, CONCAT('LN-', LPAD(d.loan_id, 5, '0'))) AS loan_code,
+            lp.loan_type
         FROM disbursements d
         LEFT JOIN members m ON d.member_id = m.member_id
         LEFT JOIN users u ON d.approved_by = u.user_id
+        LEFT JOIN loan_portfolio lp ON d.loan_id = lp.loan_id
         {$whereClause}
         ORDER BY d.disbursement_date DESC, d.disbursement_id DESC LIMIT ? OFFSET ?
     ";
@@ -177,16 +180,18 @@ try {
     while ($row = $result->fetch_assoc()) {
         $disbursements[] = [
             'disbursement_id' => $row['disbursement_id'],
-            'loan_id' => $row['loan_id'],
-            'member_id' => $row['member_id'] ?? '',
-            'member_name' => $row['member_name'] ?? 'N/A',       // PATCHED: was $row['member_id']
+            'loan_id'         => $row['loan_id'],
+            'loan_code'       => $row['loan_code'] ?? null,
+            'loan_type'       => $row['loan_type'] ?? null,
+            'member_id'       => $row['member_id'] ?? '',
+            'member_name'     => $row['member_name'] ?? 'N/A',
             'disbursement_date' => date('M d, Y', strtotime($row['disbursement_date'])),
-            'amount' => floatval($row['amount']),
-            'fund_source' => $row['fund_source'] ?? 'N/A',
-            'status' => $row['status'],
-            'approved_by' => $row['approved_by'] ?? 0,
-            'approved_by_name' => $row['approved_by_name'] ?? 'Admin', // PATCHED: was hardcoded 'Admin'
-            'remarks' => $row['remarks'] ?? ''
+            'amount'          => floatval($row['amount']),
+            'fund_source'     => $row['fund_source'] ?? 'N/A',
+            'status'          => $row['status'],
+            'approved_by'     => $row['approved_by'] ?? 0,
+            'approved_by_name' => $row['approved_by_name'] ?? 'Admin',
+            'remarks'         => $row['remarks'] ?? ''
         ];
     }
     $stmt->close();
