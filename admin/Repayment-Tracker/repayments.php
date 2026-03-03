@@ -442,9 +442,46 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <button id="exportExcelBtn" class="btn btn-sm btn-success">
                             <i class="bi bi-file-earmark-spreadsheet"></i> Export Excel
                         </button>
+                        <button id="autoNotifyBtn" class="btn btn-sm btn-warning fw-bold" onclick="runAutoNotifications()" title="Send automatic due/overdue reminders">
+                            <i class="bi bi-bell-fill me-1"></i>Auto Notify
+                        </button>
                         <button id="reloadBtn" class="btn btn-sm btn-outline-light">
                             <i class="bi bi-arrow-clockwise"></i> Reload
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Email Records Toggle Button -->
+            <div class="d-flex justify-content-end mb-2" id="emailRecordsToggleWrap">
+                <button class="btn btn-sm btn-outline-info fw-bold" id="toggleEmailRecordsBtn" onclick="toggleEmailRecords()">
+                    <i class="bi bi-envelope-check me-1"></i>Email Records
+                </button>
+            </div>
+
+            <!-- Email Records Section (hidden by default) -->
+            <div id="emailRecordsSection" style="display:none;" class="mb-4">
+                <div class="table-card" style="background:white;padding:1.5rem;border-radius:1rem;box-shadow:0 4px 6px -1px rgba(0,0,0,.1);border:1px solid #e5e7eb;">
+                    <div class="d-flex justify-content-between align-items-center mb-3 pb-2" style="border-bottom:2px solid #f3f4f6;">
+                        <h6 class="fw-bold mb-0"><i class="bi bi-envelope-check-fill text-info me-2"></i>Email Notification Records</h6>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="loadEmailRecords()"><i class="bi bi-arrow-clockwise"></i> Refresh</button>
+                    </div>
+                    <div class="table-wrapper" style="overflow-x:auto;border-radius:.75rem;border:1px solid #e5e7eb;">
+                        <table class="table table-hover mb-0">
+                            <thead style="background:#f9fafb;">
+                                <tr>
+                                    <th>Borrower</th>
+                                    <th>Date Sent</th>
+                                    <th>Sender</th>
+                                    <th>Message Type</th>
+                                    <th>Status</th>
+                                    <th class="text-center">View</th>
+                                </tr>
+                            </thead>
+                            <tbody id="emailRecordsTbody">
+                                <tr><td colspan="6" class="text-center text-muted">Click "Refresh" to load records.</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -669,45 +706,145 @@ include(__DIR__ . '/../inc/sidebar.php');
         // EMAIL NOTIFICATION FUNCTIONS
         // ═══════════════════════════════════════════════════════════════
 
-        async function sendEmailNotification(loanId, memberName, memberEmail) {
+        // ── Email Modal ───────────────────────────────────────
+        let emailModalInstance = null;
+
+        async function openEmailModal(loanId, memberName, memberEmail, loanCode, msgType) {
             if (!memberEmail) {
-                showToast('❌ No email address for ' + memberName, 'error');
+                Swal.fire({ icon:'warning', title:'No Email', text:`${memberName} walang email address sa records.`, confirmButtonColor:'#059669' });
                 return;
             }
 
-            if (!confirm(`Send email reminder to ${memberName} (${memberEmail})?`)) {
-                return;
-            }
+            // Show loading
+            Swal.fire({ title:'Loading...', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
 
             try {
-                const response = await fetch('/admin/Repayment-Tracker/send_ai_message.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        loan_id: loanId
-                    })
+                const res = await fetch('/admin/Repayment-Tracker/send_ai_message.php', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ action:'preview', loan_id: parseInt(loanId) })
                 });
+                const data = await res.json();
+                Swal.close();
 
-                const result = await response.json();
+                // Populate modal
+                document.getElementById('emailModal_loanId').value    = loanId;
+                document.getElementById('emailModal_memberName').textContent  = memberName;
+                document.getElementById('emailModal_memberEmail').textContent = memberEmail;
+                document.getElementById('emailModal_loanCode').textContent    = loanCode || loanId;
 
-                if (result.success) {
-                    showToast('✅ ' + result.message, 'success');
-                    // Update button to show sent
-                    const button = document.querySelector(`button[data-notify-loan="${loanId}"]`);
-                    if (button) {
-                        button.innerHTML = '✅ Sent';
-                        button.classList.remove('btn-primary');
-                        button.classList.add('btn-success');
-                        button.disabled = true;
-                    }
-                } else {
-                    showToast('❌ ' + result.message, 'error');
-                }
-            } catch (error) {
-                showToast('❌ Error: ' + error.message, 'error');
+                // Set message type
+                const typeSelect = document.getElementById('emailModal_msgType');
+                typeSelect.value = data.message_type || msgType || '3_days_before';
+
+                // Set message body
+                const msgBody = data.ai_message?.message || data.ai_message || '';
+                document.getElementById('emailModal_body').value = typeof msgBody === 'string' ? msgBody : JSON.stringify(msgBody);
+
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('emailModal'));
+                modal.show();
+
+            } catch(e) {
+                Swal.close();
+                Swal.fire({ icon:'error', title:'Error', text:e.message, confirmButtonColor:'#ef4444' });
             }
+        }
+
+        async function sendEmailFromModal() {
+            const loanId  = document.getElementById('emailModal_loanId').value;
+            const msgType = document.getElementById('emailModal_msgType').value;
+            const body    = document.getElementById('emailModal_body').value.trim();
+            const sendBtn = document.getElementById('emailModal_sendBtn');
+
+            if (!body) { Swal.fire({ icon:'warning', title:'Walang mensahe', text:'Ilagay ang message bago mag-send.', confirmButtonColor:'#059669' }); return; }
+
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<div class="spinner-border spinner-border-sm me-1"></div>Sending...';
+
+            try {
+                const res = await fetch('/admin/Repayment-Tracker/send_ai_message.php', {
+                    method:'POST',
+                    headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ action:'send', loan_id: parseInt(loanId), message_type: msgType, custom_message: body })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('emailModal'))?.hide();
+                    Swal.fire({ icon:'success', title:'Email Sent!', html:`<p>Naipadala na ang email kay <strong>${data.member_name}</strong>.</p>`, confirmButtonColor:'#059669' });
+                    // Refresh email records if visible
+                    if (document.getElementById('emailRecordsSection').style.display !== 'none') loadEmailRecords();
+                    // Update button
+                    const btn = document.querySelector(`button[data-notify-loan="${loanId}"]`);
+                    if (btn) { btn.innerHTML = '<i class="bi bi-envelope-check-fill"></i>'; btn.classList.replace('btn-outline-primary','btn-success'); }
+                } else {
+                    Swal.fire({ icon:'error', title:'Send Failed', text: data.message, confirmButtonColor:'#ef4444' });
+                }
+            } catch(e) {
+                Swal.fire({ icon:'error', title:'Error', text:e.message });
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="bi bi-send-fill me-1"></i>Send Email';
+            }
+        }
+
+        // ── Email Records ─────────────────────────────────────
+        async function loadEmailRecords() {
+            const tbody = document.getElementById('emailRecordsTbody');
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
+            try {
+                const res  = await fetch('/admin/Repayment-Tracker/email_records.php');
+                const data = await res.json();
+                tbody.innerHTML = '';
+                if (!data.records?.length) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted"><i class="bi bi-inbox"></i> Walang email records pa.</td></tr>';
+                    return;
+                }
+                data.records.forEach(r => {
+                    const statusBadge = r.status === 'sent' ? 'bg-success' : r.status === 'failed' ? 'bg-danger' : 'bg-warning text-dark';
+                    const typeLabel = { '7_days_before':'Due Reminder (7d)', '3_days_before':'Due Reminder (3d)', 'due_today':'Due Today', 'overdue':'Overdue Notice', 'manual':'Manual', 'final_notice':'Final Notice' }[r.message_type] || r.message_type;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${escapeHtml(r.member_name||'—')}</td>
+                        <td class="small text-muted">${escapeHtml(r.sent_at||'')}</td>
+                        <td class="small">${escapeHtml(r.sent_by_name||'System')}</td>
+                        <td><span class="badge bg-info">${escapeHtml(typeLabel)}</span></td>
+                        <td><span class="badge ${statusBadge}">${escapeHtml(r.status)}</span></td>
+                        <td>
+                            <button class="btn btn-xs btn-outline-secondary" style="font-size:.75rem;padding:.2rem .5rem;"
+                                onclick="viewEmailContent('${r.message_id}')">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </td>`;
+                    tbody.appendChild(tr);
+                });
+            } catch(e) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">${escapeHtml(e.message)}</td></tr>`;
+            }
+        }
+
+        async function viewEmailContent(id) {
+            // Show message content in Swal
+            try {
+                const res  = await fetch('/admin/Repayment-Tracker/email_records.php?id=' + id);
+                const data = await res.json();
+                if (data.record) {
+                    Swal.fire({
+                        title: 'Email Content',
+                        html: `<div class="text-start small"><strong>To:</strong> ${escapeHtml(data.record.member_name)} &lt;${escapeHtml(data.record.member_email||'')}&gt;<br>
+                               <strong>Type:</strong> ${escapeHtml(data.record.message_type)}<br>
+                               <strong>Date:</strong> ${escapeHtml(data.record.sent_at)}<br><hr>
+                               <pre style="white-space:pre-wrap;font-size:.8rem;max-height:300px;overflow:auto;">${escapeHtml(data.record.message_content)}</pre></div>`,
+                        confirmButtonColor:'#059669', width:'600px'
+                    });
+                }
+            } catch(e) {}
+        }
+
+        // Legacy wrapper (keep for compatibility)
+        function sendEmailNotification(loanId, memberName, memberEmail) {
+            openEmailModal(loanId, memberName, memberEmail, '', 'reminder');
         }
 
         function showToast(message, type) {
@@ -829,12 +966,12 @@ include(__DIR__ . '/../inc/sidebar.php');
         function handleNotifyButtonClick(e) {
             const button = e.target.closest('.notify-btn');
             if (!button) return;
-
-            const loanId = button.dataset.notifyLoan;
-            const memberName = button.dataset.memberName;
+            const loanId      = button.dataset.notifyLoan;
+            const memberName  = button.dataset.memberName;
             const memberEmail = button.dataset.memberEmail;
-
-            sendEmailNotification(loanId, memberName, memberEmail);
+            const loanCode    = button.dataset.loanCode;
+            const msgType     = button.dataset.msgType;
+            openEmailModal(loanId, memberName, memberEmail, loanCode, msgType);
         }
 
         // --- Load data ---
@@ -1027,9 +1164,11 @@ include(__DIR__ . '/../inc/sidebar.php');
                         l.status === 'Delinquent' ? 'bg-danger' :
                         l.status === 'Completed' ? 'bg-info' : 'bg-warning';
 
-                    // Calculate days until due for notification button
+                    // Email button — always show if loan is active
                     const daysUntilDue = getDaysUntilDue(l.next_due);
-                    const showNotifyButton = daysUntilDue <= 7 && l.email;
+                    const isOverdue = l.overdue_count > 0;
+                    const autoMsgType = isOverdue ? 'overdue' : (daysUntilDue <= 3 ? 'due_today' : (daysUntilDue <= 7 ? '3_days_before' : '7_days_before'));
+                    const showNotifyButton = l.email;
 
                     const row = document.createElement('tr');
                     row.innerHTML = `
@@ -1047,14 +1186,16 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <td>${l.next_due || '-'}</td>
                         <td class="text-center">
                             ${showNotifyButton ? `
-                                <button class="btn btn-sm btn-primary notify-btn" 
+                                <button class="btn btn-sm btn-outline-primary notify-btn"
                                     data-notify-loan="${l.loan_id}"
                                     data-member-name="${escapeHtml(l.member_name)}"
-                                    data-member-email="${escapeHtml(l.email)}"
-                                    title="Send email reminder">
-                                    📧
+                                    data-member-email="${escapeHtml(l.email || '')}"
+                                    data-loan-code="${escapeHtml(l.loan_code||'')}"
+                                    data-msg-type="${autoMsgType}"
+                                    title="Send Email Notification">
+                                    <i class="bi bi-envelope-fill"></i>
                                 </button>
-                            ` : '<small class="text-muted">-</small>'}
+                            ` : '<small class="text-muted">—</small>'}
                         </td>
                         <td class="text-center">
                             <button class="btn btn-sm btn-info view-loan-btn" data-id="${l.loan_id}" title="View Details">
@@ -1335,6 +1476,113 @@ include(__DIR__ . '/../inc/sidebar.php');
         // INITIAL LOAD
         loadData();
     });
+</script>
+
+<!-- ── Email Compose Modal ── -->
+<div class="modal fade" id="emailModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius:1rem;border:none;box-shadow:0 20px 25px -5px rgba(0,0,0,.15);">
+            <div class="modal-header text-white" style="background:linear-gradient(135deg,#059669,#047857);border-radius:1rem 1rem 0 0;">
+                <h5 class="modal-title fw-bold"><i class="bi bi-envelope-fill me-2"></i>Send Email Notification</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="emailModal_loanId">
+
+                <!-- Recipient Info -->
+                <div class="p-3 mb-3 rounded-3" style="background:#f0fdf4;border:1px solid #d1fae5;">
+                    <div class="row g-2">
+                        <div class="col-md-4"><span class="text-muted small">Borrower:</span><br><strong id="emailModal_memberName"></strong></div>
+                        <div class="col-md-4"><span class="text-muted small">Email:</span><br><strong id="emailModal_memberEmail" class="text-success"></strong></div>
+                        <div class="col-md-4"><span class="text-muted small">Loan:</span><br><strong id="emailModal_loanCode"></strong></div>
+                    </div>
+                </div>
+
+                <!-- Message Type -->
+                <div class="mb-3">
+                    <label class="fw-bold mb-1">Message Type</label>
+                    <select id="emailModal_msgType" class="form-select" style="border:1.5px solid #e5e7eb;border-radius:.5rem;">
+                        <option value="7_days_before">📅 Due Reminder (7 days)</option>
+                        <option value="3_days_before">⏰ Due Reminder (3 days)</option>
+                        <option value="due_today">🔔 Due Today Notice</option>
+                        <option value="overdue">⚠️ Overdue Notice</option>
+                        <option value="final_notice">🚨 Final Notice</option>
+                    </select>
+                </div>
+
+                <!-- Editable Message -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label class="fw-bold">Message</label>
+                        <small class="text-muted">Pwede i-edit ang message bago i-send</small>
+                    </div>
+                    <textarea id="emailModal_body" class="form-control" rows="8"
+                        style="border:1.5px solid #e5e7eb;border-radius:.5rem;font-size:.9rem;line-height:1.6;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-top:2px solid #f3f4f6;">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button id="emailModal_sendBtn" class="btn btn-success fw-bold px-4" onclick="sendEmailFromModal()">
+                    <i class="bi bi-send-fill me-1"></i>Send Email
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function runAutoNotifications() {
+    const result = await Swal.fire({
+        title: 'Auto Email Notifications',
+        html: `<p class="text-muted small">Magpapadala ng automatic reminders sa lahat ng borrowers na may:</p>
+               <ul class="text-start small ms-3">
+                   <li>Due sa loob ng 7 days</li>
+                   <li>Due sa loob ng 3 days</li>
+                   <li>Due ngayon</li>
+                   <li>Overdue na payments</li>
+               </ul>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: '<i class="bi bi-send-fill me-1"></i>Run Now',
+        confirmButtonColor: '#f59e0b',
+        cancelButtonText: 'Cancel'
+    });
+    if (!result.isConfirmed) return;
+
+    const btn = document.getElementById('autoNotifyBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner-border spinner-border-sm me-1"></div>Sending...';
+
+    try {
+        const res  = await fetch('/admin/Repayment-Tracker/auto_email_notifications.php?action=run', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        const data = await res.json();
+        Swal.fire({
+            icon: data.success ? 'success' : 'error',
+            title: data.success ? 'Done!' : 'Error',
+            html: `<p>${data.message}</p>${data.sent > 0 ? `<div class="mt-2 p-2 rounded bg-light small">${data.log?.slice(0,5).map(l=>`✅ ${l.email} (${l.type})`).join('<br>')}</div>` : ''}`,
+            confirmButtonColor: '#059669'
+        });
+        if (data.sent > 0 && document.getElementById('emailRecordsSection').style.display !== 'none') loadEmailRecords();
+    } catch(e) {
+        Swal.fire({ icon:'error', title:'Error', text:e.message });
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-bell-fill me-1"></i>Auto Notify';
+    }
+}
+
+function toggleEmailRecords() {
+    const section = document.getElementById('emailRecordsSection');
+    const btn     = document.getElementById('toggleEmailRecordsBtn');
+    const visible = section.style.display !== 'none';
+    section.style.display = visible ? 'none' : 'block';
+    btn.innerHTML = visible
+        ? '<i class="bi bi-envelope-check me-1"></i>Email Records'
+        : '<i class="bi bi-x-circle me-1"></i>Hide Email Records';
+    if (!visible) loadEmailRecords();
+}
 </script>
 
 <?php include(__DIR__ . '/../inc/footer.php'); ?>
