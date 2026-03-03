@@ -434,11 +434,26 @@ $default_logo = '/dist/img/default-logo.png';
 
         <div class="menu-heading">Transactions</div>
 
-        <a href="<?= $base_url ?>/Repayment-Tracker/repayments.php"
-            class="btn menu-btn <?= get_active_class('Repayment-Tracker', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
+        <!-- Collection Monitoring Submenu -->
+        <?php $isCollection = strpos($current_path, 'Repayment-Tracker') !== false; ?>
+        <button class="btn menu-btn <?= $isCollection ? 'active' : '' ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3"
+            data-bs-toggle="collapse" data-bs-target="#collectionSubmenu" aria-expanded="<?= $isCollection ? 'true' : 'false' ?>">
             <span class="icon-box"><i class="bi bi-cash-stack"></i></span>
-            <span>Collection Monitoring</span>
-        </a>
+            <span class="flex-grow-1">Collection Monitoring</span>
+            <i class="bi bi-chevron-down small"></i>
+        </button>
+        <div class="collapse <?= $isCollection ? 'show' : '' ?>" id="collectionSubmenu">
+            <div class="ps-4 pe-2 pb-1">
+                <a href="<?= $base_url ?>/Repayment-Tracker/repayments.php"
+                    class="btn menu-btn <?= strpos($current_path,'repayments') !== false ? 'active' : '' ?> w-100 text-start d-flex align-items-center gap-2 mt-1 px-3 py-2" style="font-size:.875rem;">
+                    <i class="bi bi-table me-1"></i><span>Loan Monitoring</span>
+                </a>
+                <a href="<?= $base_url ?>/Repayment-Tracker/email_history.php"
+                    class="btn menu-btn <?= strpos($current_path,'email_history') !== false ? 'active' : '' ?> w-100 text-start d-flex align-items-center gap-2 mt-1 px-3 py-2" style="font-size:.875rem;">
+                    <i class="bi bi-envelope-check me-1"></i><span>Email History</span>
+                </a>
+            </div>
+        </div>
 
         <a href="<?= $base_url ?>/Saving-Collection-Monitoring/savings_monitoring.php"
             class="btn menu-btn <?= get_active_class('Saving-Collection', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
@@ -563,11 +578,26 @@ $default_logo = '/dist/img/default-logo.png';
 
         <div class="menu-heading">Transactions</div>
 
-        <a href="<?= $base_url ?>/Repayment-Tracker/repayments.php"
-            class="btn menu-btn <?= get_active_class('Repayment-Tracker', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
+        <!-- Collection Monitoring Mobile Submenu -->
+        <?php $isCollectionM = strpos($current_path, 'Repayment-Tracker') !== false; ?>
+        <button class="btn menu-btn <?= $isCollectionM ? 'active' : '' ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3"
+            data-bs-toggle="collapse" data-bs-target="#collectionSubmenuMobile" aria-expanded="<?= $isCollectionM ? 'true' : 'false' ?>">
             <span class="icon-box"><i class="bi bi-cash-stack"></i></span>
-            <span>Collection Monitoring</span>
-        </a>
+            <span class="flex-grow-1">Collection Monitoring</span>
+            <i class="bi bi-chevron-down small"></i>
+        </button>
+        <div class="collapse <?= $isCollectionM ? 'show' : '' ?>" id="collectionSubmenuMobile">
+            <div class="ps-4 pe-2 pb-1">
+                <a href="<?= $base_url ?>/Repayment-Tracker/repayments.php"
+                    class="btn menu-btn w-100 text-start d-flex align-items-center gap-2 mt-1 px-3 py-2" style="font-size:.875rem;">
+                    <i class="bi bi-table me-1"></i><span>Loan Monitoring</span>
+                </a>
+                <a href="<?= $base_url ?>/Repayment-Tracker/email_history.php"
+                    class="btn menu-btn w-100 text-start d-flex align-items-center gap-2 mt-1 px-3 py-2" style="font-size:.875rem;">
+                    <i class="bi bi-envelope-check me-1"></i><span>Email History</span>
+                </a>
+            </div>
+        </div>
         <a href="<?= $base_url ?>/Saving-Collection-Monitoring/savings_monitoring.php"
             class="btn menu-btn <?= get_active_class('Saving-Collection', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
             <span class="icon-box"><i class="bi bi-piggy-bank"></i></span>
