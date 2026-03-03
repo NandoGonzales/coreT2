@@ -752,7 +752,14 @@ async function openDetail(app_id) {
             <div class="p-3 rounded-3 text-center" style="background:#d1fae5;border:2px solid #6ee7b7;">
                 <i class="bi bi-trophy-fill text-success fs-2"></i>
                 <div class="fw-bold text-success mt-1">Loan Approved!</div>
-                ${a.loan_id ? `<a href="/admin/Loan-Portfolio-Risk-Management/index.php" class="btn btn-sm btn-success mt-2">View Loan #${a.loan_id}</a>` : ''}
+                <div class="small text-muted mt-1 mb-2">Naka-queue na sa Disbursement Tracker</div>
+                <div class="d-flex gap-2 justify-content-center flex-wrap">
+                    ${a.loan_id ? `<a href="/admin/Loan-Portfolio-Risk-Management/index.php" class="btn btn-sm btn-success">
+                        <i class="bi bi-wallet2 me-1"></i>View Loan #${a.loan_id}</a>` : ''}
+                    <a href="/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php"
+                       class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-send me-1"></i>Go to Disbursement</a>
+                </div>
             </div>` : ''}
 
             ${a.status === 'Rejected' ? `
@@ -893,8 +900,27 @@ async function takeAction(decision) {
     if (data.success) {
         bootstrap.Modal.getInstance(document.getElementById('actionModal'))?.hide();
         bootstrap.Modal.getInstance(document.getElementById('detailModal'))?.hide();
-        Swal.fire({ icon: 'success', title: 'Done!', text: data.message, confirmButtonColor: '#059669' })
-            .then(() => loadApplications());
+
+        let html = `<p>${esc(data.message)}</p>`;
+        if (decision === 'Approved' && data.disb_id) {
+            html += `
+            <div class="mt-3 p-3 rounded-3" style="background:#d1fae5;border:1px solid #6ee7b7;">
+                <div class="fw-bold text-success mb-2"><i class="bi bi-send-check-fill me-1"></i>Next Step: Disbursement</div>
+                <p class="small text-muted mb-2">Ang loan ay naka-queue na sa Disbursement Tracker para i-release ng Finance Team.</p>
+                <a href="/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php"
+                   class="btn btn-success btn-sm fw-bold">
+                    <i class="bi bi-arrow-right-circle-fill me-1"></i>Go to Disbursement Tracker
+                </a>
+            </div>`;
+        }
+
+        Swal.fire({
+            icon: 'success',
+            title: decision === 'Approved' ? '✅ Loan Approved!' : 'Done!',
+            html: html,
+            confirmButtonColor: '#059669',
+            confirmButtonText: 'OK'
+        }).then(() => loadApplications());
     } else showErr(data.error);
 }
 

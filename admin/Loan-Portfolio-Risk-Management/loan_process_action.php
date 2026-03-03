@@ -206,10 +206,55 @@ try {
             $ins->bind_param('sisddiisi',$loan_code,$app['member_id'],$app['loan_type'],$final_amount,$app['interest_rate'],$app['loan_term'],$app['loan_term'],$final_score,$final_risk);
             $ins->execute(); $loan_id = $conn->insert_id; $ins->close();
             $conn->query("UPDATE loan_applications SET loan_id=$loan_id WHERE app_id=$app_id");
+
+            // ── Step 7: Auto-create Disbursement record ──
+            $disb_amount = $amount ?: $app['principal_amount'];
+            $disb_ins = $conn->prepare("
+                INSERT INTO disbursements
+                    (loan_id, member_id, disbursement_date, amount, fund_source,
+                     approved_by, status, remarks, created_at)
+                VALUES (?, ?, CURDATE(), ?, 'General Fund', ?, 'Pending',
+                        ?, NOW())
+            ");
+            $disb_remarks = "Auto-created from Loan Process approval. App: {$app['app_code']} | Score: {$app['final_score']} ({$app['final_risk_category']})";
+            $disb_ins->bind_param('iidis',
+                $loan_id, $app['member_id'],
+                $disb_amount, $user_id,
+                $disb_remarks
+            );
+            $disb_ins->execute();
+            $disb_id = $conn->insert_id;
+            $disb_ins->close();
+
+            // Generate payment schedules for the new loan
+            if ($loan_id) {
+                $term      = (int)$app['loan_term'];
+                $principal = (float)($amount ?: $app['principal_amount']);
+                $rate      = (float)$app['interest_rate'];
+                $time_yrs  = $term / 12;
+                $total_int = $principal * ($rate / 100) * $time_yrs;
+                $monthly   = round(($principal + $total_int) / $term, 2);
+                $start_dt  = new DateTime();
+                for ($i = 1; $i <= $term; $i++) {
+                    $start_dt->modify('+1 month');
+                    $due      = $start_dt->format('Y-m-d');
+                    $st_sched = (new DateTime() > $start_dt) ? 'Overdue' : 'Pending';
+                    $sc = $conn->prepare("INSERT INTO loan_schedule (loan_id,loan_code,payment_number,due_date,amount_due,amount_paid,status) VALUES (?,?,?,?,?,0.00,?)");
+                    $sc->bind_param('isisds', $loan_id, $loan_code, $i, $due, $monthly, $st_sched);
+                    $sc->execute(); $sc->close();
+                }
+            }
         }
+
         _audit($conn,$user_id,"Loan $decision",'Loan Process',$app_id,"Decision:$decision ₱".number_format($amount,2));
-        $msg = match($decision){'Approved'=>"✅ Loan approved! Loan #$loan_id created.",'Rejected'=>"❌ Application rejected.",'Pending'=>"⏳ Set to For Review.",default=>"Done."};
-        echo json_encode(['success'=>true,'decision'=>$decision,'loan_id'=>$loan_id,'message'=>$msg]);
+        $disb_info = isset($disb_id) && $disb_id ? " Disbursement #$disb_id created." : '';
+        $msg = match($decision){
+            'Approved' => "✅ Loan approved! Loan #$loan_id created.$disb_info Ipadala sa Finance para i-release.",
+            'Rejected' => "❌ Application rejected.",
+            'Pending'  => "⏳ Set to For Review.",
+            default    => "Done."
+        };
+        echo json_encode(['success'=>true,'decision'=>$decision,'loan_id'=>$loan_id,'disb_id'=>$disb_id??null,'message'=>$msg]);
         exit();
     }
 
