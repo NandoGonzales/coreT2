@@ -141,9 +141,16 @@ input[type=range]::-webkit-slider-thumb {
                 <h4 class="mb-0 fw-bold"><i class="bi bi-diagram-3-fill me-2"></i>Loan Application Process</h4>
                 <div class="opacity-90 small mt-1">End-to-end loan processing — Application → CI → Evaluation → Decision</div>
             </div>
-            <button class="btn btn-light fw-bold px-4" onclick="openNewAppModal()">
-                <i class="bi bi-plus-circle-fill me-2"></i>New Application
-            </button>
+            <div class="d-flex gap-2 flex-wrap">
+                <button class="btn fw-bold px-4" id="syncCore1Btn"
+                    style="background:rgba(255,255,255,.15);color:#fff;border:2px solid rgba(255,255,255,.4);"
+                    onclick="syncFromCore1()">
+                    <i class="bi bi-arrow-repeat me-2"></i>Sync from Core 1
+                </button>
+                <button class="btn btn-light fw-bold px-4" onclick="openNewAppModal()">
+                    <i class="bi bi-plus-circle-fill me-2"></i>New Application
+                </button>
+            </div>
         </div>
 
         <!-- Pipeline Bar -->
@@ -459,6 +466,45 @@ const ACTION_URL = '/admin/Loan-Portfolio-Risk-Management/loan_process_action.ph
 let allApps = [];
 let debounceTimer;
 let currentAppId = null;
+
+// ── Sync from Core 1 ─────────────────────────────────
+async function syncFromCore1() {
+    const btn = document.getElementById('syncCore1Btn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Syncing...';
+
+    const result = await Swal.fire({
+        title: 'Sync from Core 1?',
+        html: `<p class="text-muted small mb-0">Kukuha ng <strong>Pending</strong> loan applications mula sa Core 1 API.</p>`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Sync',
+        confirmButtonColor: '#059669',
+        cancelButtonColor: '#6b7280',
+    });
+
+    if (!result.isConfirmed) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Sync from Core 1';
+        return;
+    }
+
+    const data = await apiFetch(ACTION_URL, { action: 'sync_core1' });
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-repeat me-2"></i>Sync from Core 1';
+
+    if (data.success) {
+        Swal.fire({
+            icon: data.synced > 0 ? 'success' : 'info',
+            title: data.synced > 0 ? `${data.synced} Application${data.synced > 1 ? 's' : ''} Synced!` : 'No New Applications',
+            text: data.message,
+            confirmButtonColor: '#059669'
+        }).then(() => loadApplications());
+    } else {
+        showErr(data.error || 'Sync failed. Check Core 1 connection.');
+    }
+}
 
 // ── On Load ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {

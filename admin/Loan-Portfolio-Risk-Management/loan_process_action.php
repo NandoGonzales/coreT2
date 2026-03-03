@@ -213,6 +213,115 @@ try {
         exit();
     }
 
+
+    // ── POST/GET: Sync from Core 1 API ───────────────────
+    if ($action === 'sync_core1') {
+        define('CORE1_LOANS_API', 'https://core1.microfinancial-1.com/api/loans');
+
+        // Fetch from Core 1
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL            => CORE1_LOANS_API,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 30,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_HTTPHEADER     => ['Accept: application/json','Content-Type: application/json'],
+        ]);
+        $raw       = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_err  = curl_error($ch);
+        curl_close($ch);
+
+        if ($http_code !== 200 || !$raw) {
+            echo json_encode(['success'=>false,'error'=>"Core 1 API error: HTTP $http_code — $curl_err"]);
+            exit();
+        }
+
+        $data  = json_decode($raw, true);
+        if (!$data) { echo json_encode(['success'=>false,'error'=>'Invalid JSON from Core 1']); exit(); }
+
+        // Handle both array and {data:[]} structures
+        $loans = isset($data[0]) ? $data : ($data['data'] ?? []);
+
+        if (empty($loans)) {
+            echo json_encode(['success'=>true,'synced'=>0,'skipped'=>0,'message'=>'Walang bagong loans mula Core 1.']);
+            exit();
+        }
+
+        // Only pull Pending loans — filter out already synced
+        $synced  = 0;
+        $skipped = 0;
+        $errors  = 0;
+
+        foreach ($loans as $loan) {
+            $loan_code  = trim($loan['loan_code'] ?? '');
+            $client_id  = intval($loan['client_id'] ?? 0);
+            $amount     = floatval($loan['loan_amount'] ?? 0);
+            $loan_type  = trim($loan['loan_type'] ?? 'Regular Loan');
+            $term       = intval($loan['loan_term'] ?? 12);
+            $rate       = floatval($loan['interest_rate'] ?? 0);
+            $purpose    = trim($loan['purpose'] ?? '');
+            $core1_status = strtolower($loan['status'] ?? 'pending');
+
+            if (!$loan_code || !$amount) { $errors++; continue; }
+
+            // Only sync pending/new applications
+            if (!in_array($core1_status, ['pending','new'])) { $skipped++; continue; }
+
+            // Check if already in loan_applications (by app_code = loan_code)
+            $chk = $conn->prepare("SELECT app_id FROM loan_applications WHERE app_code = ? LIMIT 1");
+            $chk->bind_param('s', $loan_code);
+            $chk->execute();
+            $exists = $chk->get_result()->fetch_assoc();
+            $chk->close();
+
+            if ($exists) { $skipped++; continue; }
+
+            // Find member by client_id (Core 1 client_id = members.member_id or user_id)
+            $member_id = 0;
+            if ($client_id) {
+                $ms = $conn->prepare("SELECT member_id FROM members WHERE member_id=? OR user_id=? LIMIT 1");
+                $ms->bind_param('ii', $client_id, $client_id);
+                $ms->execute();
+                $mrow = $ms->get_result()->fetch_assoc();
+                $ms->close();
+                $member_id = $mrow ? (int)$mrow['member_id'] : 0;
+            }
+
+            // Insert into loan_applications
+            $ins = $conn->prepare("INSERT INTO loan_applications
+                (app_code,member_id,loan_type,principal_amount,interest_rate,loan_term,
+                 purpose,status,created_by)
+                VALUES (?,?,?,?,?,?,?,'Pending',?)");
+            $ins->bind_param('sisddiisi',
+                $loan_code, $member_id, $loan_type,
+                $amount, $rate, $term, $purpose, $user_id);
+            if ($ins->execute()) {
+                $new_id = $conn->insert_id;
+                $synced++;
+                _audit($conn,$user_id,'Core1 Loan Synced','Loan Process',$new_id,
+                    "Synced $loan_code from Core 1 — ₱".number_format($amount,2));
+            } else {
+                $errors++;
+            }
+            $ins->close();
+        }
+
+        $msg = "✅ Synced $synced new loan applications from Core 1.";
+        if ($skipped > 0) $msg .= " ($skipped skipped — already synced or non-pending)";
+        if ($errors > 0)  $msg .= " ⚠️ $errors errors.";
+
+        echo json_encode([
+            'success' => true,
+            'synced'  => $synced,
+            'skipped' => $skipped,
+            'errors'  => $errors,
+            'message' => $msg
+        ]);
+        exit();
+    }
+
     echo json_encode(['success'=>false,'error'=>"Unknown action: $action"]);
 
 } catch (Throwable $e) {

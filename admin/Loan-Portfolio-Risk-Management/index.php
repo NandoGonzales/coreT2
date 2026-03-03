@@ -757,33 +757,46 @@ if (session_status() === PHP_SESSION_NONE) session_start();
                 });
         });
 
-        // ─── Auto Sync ───
-        function autoSync() {
-            console.log('🔄 [AutoSync] Checking for updates...');
-            fetch(API_BASE_URL)
-                .then(r => {
-                    if (!r.ok) {
-                        console.warn('[AutoSync] HTTP error:', r.status);
-                        throw new Error(`HTTP ${r.status}`);
-                    }
-                    return r.text();
-                })
-                .then(text => {
-                    try {
-                        const res = JSON.parse(text);
-                        if (res.success) {
-                            console.log('✅ [AutoSync] Success:', res.message);
-                            loadData();
-                        } else {
-                            console.log('⏭️ [AutoSync] Skipped or failed:', res.message || res.error);
-                        }
-                    } catch (e) {
-                        console.warn('⚠️ [AutoSync] Invalid JSON response');
-                    }
-                })
-                .catch(err => {
-                    console.warn('⚠️ [AutoSync] Failed silently:', err.message);
-                });
+        // ─── Smart Polling — lightweight check, only reload if data changed ───
+        let _lastDataHash = null;
+
+        function _quickHash(summary) {
+            // Simple signature using counts — if any number changed, reload
+            return [
+                summary?.total_loans,
+                summary?.active_loans,
+                summary?.overdue_loans,
+                summary?.defaulted_loans
+            ].join('|');
+        }
+
+        async function autoSync() {
+            try {
+                // Lightweight fetch — only summary counts (no loans data)
+                const res = await fetch(`${API_BASE_URL}&limit=1&page=1`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data.success) return;
+
+                const newHash = _quickHash(data.summary);
+
+                if (_lastDataHash === null) {
+                    // First run — just store hash, data already loaded by loadData()
+                    _lastDataHash = newHash;
+                    return;
+                }
+
+                if (newHash !== _lastDataHash) {
+                    // Data changed! Update silently — no spinner, no flicker
+                    console.log('🔄 [AutoSync] New data detected, refreshing...');
+                    _lastDataHash = newHash;
+                    loadData(true); // true = silent mode
+                }
+                // If same hash — do nothing, charts stay untouched
+
+            } catch (err) {
+                // Silent fail — don't disrupt the user
+            }
         }
 
         function showSyncToast(message, type) {
@@ -813,8 +826,8 @@ if (session_status() === PHP_SESSION_NONE) session_start();
             }, 5000);
         }
 
-        // ✅ FIXED: Load data function
-        function loadData() {
+        // ✅ FIXED: Load data function (silent=true skips spinner for background refresh)
+        function loadData(silent = false) {
             const params = new URLSearchParams({
                 page: currentPage,
                 limit: limit,
@@ -825,7 +838,9 @@ if (session_status() === PHP_SESSION_NONE) session_start();
                 cardFilter: currentFilters.cardFilter
             });
 
-            tbody.innerHTML = '<tr><td colspan="14" class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
+            if (!silent) {
+                tbody.innerHTML = '<tr><td colspan="14" class="text-center"><div class="spinner-border spinner-border-sm"></div> Loading...</td></tr>';
+            }
 
             console.log('📊 Loading data with params:', params.toString());
 
@@ -900,57 +915,59 @@ if (session_status() === PHP_SESSION_NONE) session_start();
             document.getElementById('card_overdue_loans').textContent = data.summary?.overdue_loans || 0;
             document.getElementById('card_defaulted_loans').textContent = data.summary?.defaulted_loans || 0;
 
-            // Loan Status Pie
-            if (loanStatusChart) loanStatusChart.destroy();
+            // ── Loan Status Pie — update in-place, no flicker ──
             if (data.loan_status && data.loan_status.labels && data.loan_status.labels.length > 0) {
                 const ctx = document.getElementById('loanStatusPie');
                 if (ctx) {
-                    loanStatusChart = new Chart(ctx, {
-                        type: 'pie',
-                        data: {
-                            labels: data.loan_status.labels,
-                            datasets: [{
-                                data: data.loan_status.values,
-                                backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6c757d']
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom'
-                                }
+                    if (loanStatusChart) {
+                        loanStatusChart.data.labels = data.loan_status.labels;
+                        loanStatusChart.data.datasets[0].data = data.loan_status.values;
+                        loanStatusChart.update('none'); // 'none' = no animation on update
+                    } else {
+                        loanStatusChart = new Chart(ctx, {
+                            type: 'pie',
+                            data: {
+                                labels: data.loan_status.labels,
+                                datasets: [{
+                                    data: data.loan_status.values,
+                                    backgroundColor: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#6c757d']
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { position: 'bottom' } }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
             }
 
-            // Risk Donut
-            if (riskDonutChart) riskDonutChart.destroy();
+            // ── Risk Donut — update in-place, no flicker ──
             if (data.risk_breakdown && data.risk_breakdown.labels && data.risk_breakdown.labels.length > 0) {
                 const ctx = document.getElementById('riskDonut');
                 if (ctx) {
-                    riskDonutChart = new Chart(ctx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: data.risk_breakdown.labels,
-                            datasets: [{
-                                data: data.risk_breakdown.values,
-                                backgroundColor: ['#198754', '#ffc107', '#dc3545']
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: {
-                                    position: 'bottom'
-                                }
+                    if (riskDonutChart) {
+                        riskDonutChart.data.labels = data.risk_breakdown.labels;
+                        riskDonutChart.data.datasets[0].data = data.risk_breakdown.values;
+                        riskDonutChart.update('none');
+                    } else {
+                        riskDonutChart = new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: data.risk_breakdown.labels,
+                                datasets: [{
+                                    data: data.risk_breakdown.values,
+                                    backgroundColor: ['#198754', '#ffc107', '#dc3545']
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { position: 'bottom' } }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
             }
 
@@ -1306,8 +1323,8 @@ if (session_status() === PHP_SESSION_NONE) session_start();
         autoSync();
         loadData();
 
-        // Auto-sync every 3 minutes (180 seconds)
-        setInterval(autoSync, 180000);
-        console.log('✅ Auto-sync enabled (every 3 minutes)');
+        // Smart poll every 30 seconds — only reloads if data actually changed
+        setInterval(autoSync, 30000);
+        console.log('✅ Smart polling enabled (check every 30s, reload only on change)');
     });
 </script>
