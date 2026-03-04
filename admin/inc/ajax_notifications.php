@@ -13,6 +13,13 @@ $user_role = $_SESSION['userdata']['role'] ?? 'Staff';
 $notifications = [];
 
 try {
+    // Auto-add column if not exists
+    $conn->query("ALTER TABLE users ADD COLUMN IF NOT EXISTS notif_last_seen DATETIME DEFAULT NULL");
+
+    // Get last seen time for this user
+    $seenRow = $conn->query("SELECT notif_last_seen FROM users WHERE user_id = " . (int)$user_id . " LIMIT 1")->fetch_assoc();
+    $lastSeen = $seenRow['notif_last_seen'] ?? null;
+
 
     // ══════════════════════════════════════════════════════════════
     // SUPER ADMIN
@@ -408,18 +415,24 @@ try {
     usort($notifications, fn($a, $b) => strtotime($b['time']) - strtotime($a['time']));
     $notifications = array_slice($notifications, 0, 10);
 
-    // ── Human-readable time labels ────────────────────────────────
+    // ── Human-readable time labels + is_new flag ─────────────────
+    $unreadCount = 0;
     foreach ($notifications as &$n) {
         $diff = time() - strtotime($n['time']);
         if ($diff < 60)        $n['time_label'] = 'Just now';
         elseif ($diff < 3600)  $n['time_label'] = floor($diff / 60) . ' mins ago';
         elseif ($diff < 86400) $n['time_label'] = floor($diff / 3600) . ' hrs ago';
         else                   $n['time_label'] = date('M j', strtotime($n['time']));
+
+        // Mark as new if newer than last seen
+        $n['is_new'] = (!$lastSeen || strtotime($n['time']) > strtotime($lastSeen)) ? 1 : 0;
+        if ($n['is_new']) $unreadCount++;
     }
 
     echo json_encode([
         'status'        => 'success',
-        'count'         => count($notifications),
+        'count'         => $unreadCount,      // only UNREAD count for badge
+        'total'         => count($notifications),
         'notifications' => $notifications,
     ]);
 

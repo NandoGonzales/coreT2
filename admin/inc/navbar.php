@@ -190,6 +190,26 @@ $isSuperAdmin = ($user_role === 'Super Admin');
         font-size: 0.9rem;
     }
 
+    /* Unread notification styles */
+    .notif-unread {
+        background: linear-gradient(135deg, #f0fdf4, #dcfce7) !important;
+        border-left: 3px solid #059669 !important;
+    }
+    .notif-unread:hover {
+        background: linear-gradient(135deg, #dcfce7, #bbf7d0) !important;
+    }
+    .notif-new-dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #059669; flex-shrink: 0;
+        margin-top: 6px; align-self: flex-start;
+    }
+    .notif-dot {
+        position: absolute; top: 4px; right: 4px;
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #ef4444; border: 2px solid white;
+        pointer-events: none;
+    }
+
     .user-role-badge {
         text-transform: uppercase;
         font-size: 0.625rem;
@@ -895,13 +915,14 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                     
                     list.innerHTML = data.notifications.map(n => `
                         <li>
-                            <a class="dropdown-item py-2 px-3" href="${n.link}" style="white-space:normal;">
+                            <a class="dropdown-item py-2 px-3 ${n.is_new ? 'notif-unread' : ''}" href="${n.link}" style="white-space:normal;">
                                 <div class="d-flex align-items-start gap-2">
                                     <i class="bi ${n.icon} mt-1 flex-shrink-0"></i>
-                                    <div>
+                                    <div class="flex-grow-1">
                                         <div class="small fw-semibold" style="line-height:1.3;">${n.message}</div>
                                         <div class="text-muted" style="font-size:0.7rem;">${n.time_label}</div>
                                     </div>
+                                    ${n.is_new ? '<span class="notif-new-dot"></span>' : ''}
                                 </div>
                             </a>
                         </li>
@@ -913,8 +934,28 @@ $isSuperAdmin = ($user_role === 'Super Admin');
                 });
         }
 
-        // Load on bell click
-        document.getElementById('notificationDropdown').addEventListener('click', loadNotifications);
+        // Mark all as read when bell is opened
+        function markNotifRead() {
+            fetch('<?= $base_url ?>/inc/mark_notif_read.php', { method: 'POST', cache: 'no-store' })
+                .then(() => {
+                    // Hide badge immediately
+                    const badge = document.getElementById('notifBadge');
+                    const dot   = document.getElementById('notifDot');
+                    const counter = document.getElementById('notifCountLabel');
+                    if (badge)   { badge.classList.add('d-none'); badge.textContent = '0'; }
+                    if (dot)     { dot.classList.add('d-none'); }
+                    if (counter) { counter.textContent = '0'; }
+                    // Remove unread highlights
+                    document.querySelectorAll('.notif-unread').forEach(el => el.classList.remove('notif-unread'));
+                    document.querySelectorAll('.notif-new-dot').forEach(el => el.remove());
+                });
+        }
+
+        // Load on bell click + mark as read
+        document.getElementById('notificationDropdown').addEventListener('click', function() {
+            loadNotifications();
+            markNotifRead();
+        });
 
         // Auto-refresh every 60 seconds
         setInterval(loadNotifications, 60000);
