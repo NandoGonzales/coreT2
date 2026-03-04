@@ -467,6 +467,12 @@ $default_logo = '/dist/img/default-logo.png';
             <span>Disbursement Tracker</span>
         </a>
 
+
+        <a href="<?= $base_url ?>/Rewards/member_rewards.php"
+            class="btn menu-btn <?= get_active_class('Rewards', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
+            <span class="icon-box"><i class="bi bi-trophy-fill"></i></span>
+            <span>Member Rewards</span>
+        </a>
         <?php if ($_SESSION['userdata']['role'] !== 'Staff'): ?>
             <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_logs.php"
                 class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
@@ -611,7 +617,13 @@ $default_logo = '/dist/img/default-logo.png';
         </a>
 
         <?php if ($_SESSION['userdata']['role'] !== 'Staff'): ?>
-            <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_logs.php"
+    
+        <a href="<?= $base_url ?>/Rewards/member_rewards.php"
+            class="btn menu-btn <?= get_active_class('Rewards', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
+            <span class="icon-box"><i class="bi bi-trophy-fill"></i></span>
+            <span>Member Rewards</span>
+        </a>
+        <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_logs.php"
                 class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
                 <span class="icon-box"><i class="bi bi-shield-check"></i></span>
                 <span>Compliance & Audit</span>
