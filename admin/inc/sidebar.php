@@ -474,11 +474,27 @@ $default_logo = '/dist/img/default-logo.png';
             <span>Member Rewards</span>
         </a>
         <?php if ($_SESSION['userdata']['role'] !== 'Staff'): ?>
-            <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_logs.php"
-                class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
-                <span class="icon-box"><i class="bi bi-shield-check"></i></span>
-                <span>Compliance & Audit</span>
-            </a>
+            <button class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
+                data-bs-toggle="collapse" data-bs-target="#complianceSubmenu"
+                aria-expanded="<?= get_active_class('Compliance', $current_path) ? 'true' : 'false' ?>">
+                <span class="d-flex align-items-center gap-3">
+                    <span class="icon-box"><i class="bi bi-shield-check"></i></span>
+                    <span>Compliance & Audit</span>
+                </span>
+                <span class="collapse-arrow">▾</span>
+            </button>
+            <div class="<?= get_active_class('Compliance', $current_path) ? 'collapse show' : 'collapse' ?> submenu-container" id="complianceSubmenu">
+                <div class="submenu-items">
+                    <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_logs.php"
+                        class="submenu-link <?= is_active('compliance_logs', $current_path) ? 'active' : '' ?>">
+                        <i class="bi bi-journal-text me-2"></i>Audit Logs
+                    </a>
+                    <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_checker.php"
+                        class="submenu-link <?= is_active('compliance_checker', $current_path) ? 'active' : '' ?>">
+                        <i class="bi bi-clipboard2-check me-2"></i>Compliance Checker
+                    </a>
+                </div>
+            </div>
         <?php endif; ?>
 
         <?php if (in_array($_SESSION['userdata']['role'], ['Super Admin', 'Admin'])): ?>
@@ -623,11 +639,27 @@ $default_logo = '/dist/img/default-logo.png';
             <span class="icon-box"><i class="bi bi-trophy-fill"></i></span>
             <span>Member Rewards</span>
         </a>
-        <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_logs.php"
-                class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
-                <span class="icon-box"><i class="bi bi-shield-check"></i></span>
-                <span>Compliance & Audit</span>
-            </a>
+        <button class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
+                data-bs-toggle="collapse" data-bs-target="#complianceSubmenuMobile"
+                aria-expanded="<?= get_active_class('Compliance', $current_path) ? 'true' : 'false' ?>">
+                <span class="d-flex align-items-center gap-3">
+                    <span class="icon-box"><i class="bi bi-shield-check"></i></span>
+                    <span>Compliance & Audit</span>
+                </span>
+                <span class="collapse-arrow">▾</span>
+            </button>
+            <div class="<?= get_active_class('Compliance', $current_path) ? 'collapse show' : 'collapse' ?> submenu-container" id="complianceSubmenuMobile">
+                <div class="submenu-items">
+                    <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_logs.php"
+                        class="submenu-link <?= is_active('compliance_logs', $current_path) ? 'active' : '' ?>">
+                        <i class="bi bi-journal-text me-2"></i>Audit Logs
+                    </a>
+                    <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_checker.php"
+                        class="submenu-link <?= is_active('compliance_checker', $current_path) ? 'active' : '' ?>">
+                        <i class="bi bi-clipboard2-check me-2"></i>Compliance Checker
+                    </a>
+                </div>
+            </div>
         <?php endif; ?>
 
         <?php if (in_array($_SESSION['userdata']['role'], ['Super Admin', 'Admin'])): ?>
