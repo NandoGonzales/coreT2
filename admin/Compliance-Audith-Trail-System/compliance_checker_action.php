@@ -18,28 +18,7 @@ if (!isset($_SESSION['userdata'])) {
 $userId   = (int)($_SESSION['userdata']['user_id'] ?? 0);
 $userName = $_SESSION['userdata']['full_name'] ?? 'Admin';
 
-// Auto-create checklist table
-$conn->query("
-    CREATE TABLE IF NOT EXISTS loan_compliance_checklist (
-        checklist_id INT AUTO_INCREMENT PRIMARY KEY,
-        loan_id INT NOT NULL,
-        member_id INT NOT NULL,
-        complete_documents TINYINT(1) DEFAULT 0,
-        valid_id TINYINT(1) DEFAULT 0,
-        ci_completed TINYINT(1) DEFAULT 0,
-        approved_loan TINYINT(1) DEFAULT 0,
-        disbursement_record TINYINT(1) DEFAULT 0,
-        payment_records TINYINT(1) DEFAULT 0,
-        compliance_status VARCHAR(50) DEFAULT 'Incomplete',
-        checked_score INT DEFAULT 0 COMMENT '0-6 items checked',
-        notes TEXT DEFAULT NULL,
-        last_checked_by INT DEFAULT NULL,
-        last_checked_by_name VARCHAR(100) DEFAULT NULL,
-        last_checked_at DATETIME DEFAULT NULL,
-        created_at DATETIME DEFAULT NOW(),
-        UNIQUE KEY unique_loan (loan_id)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-");
+// Table loan_compliance_checklist already exists in DB — no need to auto-create
 
 function computeStatus(int $score): string {
     if ($score >= 6) return 'Compliant';
@@ -250,20 +229,22 @@ try {
         $stmt->execute();
         $stmt->close();
 
-        // Also log to compliance_logs (map to existing ENUM values)
-        $desc = "Loan {$loanId} compliance checked: {$status} ({$score}/6 items)";
-        // compliance_logs ENUM: 'Compliant', 'Non-Compliant', 'Under Review'
-        $dbStatus = $status === 'Compliant' ? 'Compliant' :
-                   ($status === 'For Verification' ? 'Under Review' : 'Non-Compliant');
-
-        $logStmt = $conn->prepare("
-            INSERT INTO compliance_logs (description, compliance_status, review_date)
-            VALUES (?, ?, CURDATE())
-        ");
-        if ($logStmt) {
-            $logStmt->bind_param('ss', $desc, $dbStatus);
-            $logStmt->execute();
-            $logStmt->close();
+        // Log to compliance_logs — safely map status to existing ENUM
+        try {
+            $desc     = "Loan {$loanId} compliance checked: {$status} ({$score}/6 items) by {$userName}";
+            $dbStatus = ($status === 'Compliant') ? 'Compliant' : 
+                        ($status === 'For Verification') ? 'Under Review' : 'Non-Compliant';
+            $logStmt  = $conn->prepare(
+                "INSERT INTO compliance_logs (description, compliance_status, review_date) VALUES (?, ?, CURDATE())"
+            );
+            if ($logStmt) {
+                $logStmt->bind_param('ss', $desc, $dbStatus);
+                $logStmt->execute();
+                $logStmt->close();
+            }
+        } catch (Exception $logErr) {
+            // Don't fail the whole save just because of log insert
+            error_log("compliance_logs insert skipped: " . $logErr->getMessage());
         }
 
         echo json_encode([
