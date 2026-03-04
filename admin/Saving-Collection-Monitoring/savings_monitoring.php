@@ -293,6 +293,9 @@ body {
                         <button id="syncCore1Btn" class="btn btn-sm btn-outline-light btn-sync" title="Pull latest savings from Core1">
                             <i class="bi bi-arrow-repeat"></i> Sync Core1
                         </button>
+                        <button id="applyInterestBtn" class="btn btn-sm btn-warning" title="Apply 2.5% Monthly Interest">
+                            <i class="bi bi-percent"></i> Apply Interest
+                        </button>
                         <button id="exportPdfBtn" class="btn btn-sm btn-danger">
                             <i class="bi bi-file-earmark-pdf"></i> Export PDF
                         </button>
@@ -1168,5 +1171,94 @@ document.addEventListener('DOMContentLoaded', () => {
     autoSync();
     loadData();
     setInterval(autoSync, 30000);
+
+    // ── Monthly Interest Auto-Check ──────────────────────────────────
+    async function checkAndApplyInterest(force = false) {
+        try {
+            const checkRes = await fetch('apply_savings_interest.php?action=check');
+            const check = await checkRes.json();
+            if (!check.success) return;
+
+            // Auto-apply if 1st of month and not yet applied
+            if (check.should_run && !force) {
+                const applyRes = await fetch('apply_savings_interest.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'apply' })
+                });
+                const apply = await applyRes.json();
+                if (apply.success) {
+                    await Swal.fire({
+                        icon: 'success',
+                        title: '✅ Monthly Interest Applied!',
+                        html: `<b>2.5%</b> interest na-apply sa <b>${apply.members_count}</b> members.<br>
+                               Total Interest Added: <b>₱${apply.total_interest}</b><br>
+                               Period: <b>${apply.period}</b>`,
+                        confirmButtonColor: '#059669'
+                    });
+                    loadData();
+                }
+                return;
+            }
+
+            // Manual apply
+            if (force) {
+                const alreadyMsg = check.already_applied
+                    ? `<div class="alert alert-warning py-2 small mb-2">⚠️ Already applied for ${check.period}. Mag-override?</div>`
+                    : '';
+
+                const confirmResult = await Swal.fire({
+                    title: 'Apply Monthly Interest?',
+                    html: `${alreadyMsg}
+                           Mag-a-apply ng <b>2.5% interest</b> sa lahat ng members na may positive balance.<br><br>
+                           <div class="text-start small p-2 bg-light rounded">
+                             <b>Period:</b> ${check.period}<br>
+                             <b>Date:</b> ${check.today}<br>
+                             <b>Rate:</b> ${check.interest_rate}
+                           </div>`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#f59e0b',
+                    confirmButtonText: '<i class="bi bi-percent"></i> Yes, Apply Now',
+                    cancelButtonText: 'Cancel'
+                });
+
+                if (!confirmResult.isConfirmed) return;
+
+                Swal.fire({ title: 'Applying interest...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+                const applyRes = await fetch('apply_savings_interest.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'apply', force: true })
+                });
+                const apply = await applyRes.json();
+
+                if (apply.success) {
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Interest Applied!',
+                        html: `<b>2.5%</b> interest na-apply sa <b>${apply.members_count}</b> members.<br>
+                               Total Interest Added: <b>₱${apply.total_interest}</b><br>
+                               Period: <b>${apply.period}</b>`,
+                        confirmButtonColor: '#059669'
+                    });
+                    loadData();
+                } else {
+                    Swal.fire('Failed', apply.message || 'Unknown error', 'error');
+                }
+            }
+        } catch(e) {
+            console.warn('Interest check error:', e);
+        }
+    }
+
+    // Auto-check on page load (applies only if today is 1st of month)
+    checkAndApplyInterest(false);
+
+    // Manual button
+    document.getElementById('applyInterestBtn')?.addEventListener('click', () => {
+        checkAndApplyInterest(true);
+    });
 });
 </script>
