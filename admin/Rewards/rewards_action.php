@@ -73,13 +73,13 @@ function upsertReward(mysqli $conn, int $memberId, int $addPoints, string $reaso
             consecutive_on_time = ?, best_streak = ?, last_reward_date = NOW()
         WHERE member_id = ?
     ");
-    $stmt->bind_param('isiii i', $newPoints, $newTier, $newOnTime, $newConsecutive, $bestStreak, $memberId);
+    $stmt->bind_param('isiiii', $newPoints, $newTier, $newOnTime, $newConsecutive, $bestStreak, $memberId);
     $stmt->execute();
     $stmt->close();
 
     // Log it
     $logStmt = $conn->prepare("INSERT INTO rewards_log (member_id, points, reason, reference_id, recorded_by, recorded_by_name) VALUES (?,?,?,?,?,?)");
-    $logStmt->bind_param('isissi', $memberId, $addPoints, $reason, $refId, $userId, $userName);
+    $logStmt->bind_param('isiisi', $memberId, $addPoints, $reason, $refId, $userId, $userName);
     $logStmt->execute();
     $logStmt->close();
 
