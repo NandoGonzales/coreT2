@@ -233,37 +233,54 @@ try {
 
     // ── SYNC — scan all repayments and award missing rewards ────────
     if ($action === 'sync_all') {
-        $conn->begin_transaction();
+        set_time_limit(120);
         $synced = 0; $totalPts = 0;
 
-        // Get all paid on-time repayments not yet in rewards_log
+        // Use LEFT JOIN instead of NOT IN for performance
         $res = $conn->query("
-            SELECT r.repayment_id, r.loan_id, r.late_days,
+            SELECT r.repayment_id, r.loan_id,
+                   COALESCE(r.late_days, 0) AS late_days,
                    lp.member_id,
-                   (lp.status = 'Completed') AS is_completion
+                   IF(lp.status = 'Completed', 1, 0) AS is_completion
             FROM repayments r
-            JOIN loan_portfolio lp ON r.loan_id = lp.loan_id
-            WHERE (r.late_days <= 0 OR lp.status = 'Completed')
-              AND r.repayment_id NOT IN (SELECT COALESCE(reference_id,0) FROM rewards_log WHERE reason LIKE '%payment%' OR reason LIKE '%completion%')
+            INNER JOIN loan_portfolio lp ON r.loan_id = lp.loan_id
+            LEFT JOIN rewards_log rl ON rl.reference_id = r.repayment_id
+                AND rl.reason LIKE '%payment%'
+            WHERE rl.log_id IS NULL
+              AND (COALESCE(r.late_days,0) <= 0 OR lp.status = 'Completed')
             ORDER BY r.repayment_id ASC
-            LIMIT 500
+            LIMIT 300
         ");
 
+        if (!$res) throw new Exception('Sync query failed: ' . $conn->error);
+
         while ($row = $res->fetch_assoc()) {
-            $pts = PTS_ONTIME;
-            $reasons = ['On-time payment'];
+            try {
+                $pts     = PTS_ONTIME;
+                $reasons = ['On-time payment'];
 
-            if ((int)$row['late_days'] < 0) { $pts += PTS_EARLY; $reasons[] = 'Early payment bonus'; }
-            if ($row['is_completion'])       { $pts += PTS_COMPLETION; $reasons[] = 'Full loan completion'; }
+                if ((int)$row['late_days'] < 0)  { $pts += PTS_EARLY;       $reasons[] = 'Early payment bonus'; }
+                if ((int)$row['is_completion'])   { $pts += PTS_COMPLETION;  $reasons[] = 'Full loan completion'; }
 
-            upsertReward($conn, (int)$row['member_id'], $pts, implode(' + ', $reasons),
-                         (int)$row['repayment_id'], $userId, $userName,
-                         1, 1);
-            $synced++; $totalPts += $pts;
+                upsertReward(
+                    $conn, (int)$row['member_id'], $pts,
+                    implode(' + ', $reasons),
+                    (int)$row['repayment_id'],
+                    $userId, $userName, 1, 1
+                );
+                $synced++;
+                $totalPts += $pts;
+            } catch (Exception $rowErr) {
+                error_log("Sync skip repayment {$row['repayment_id']}: " . $rowErr->getMessage());
+            }
         }
 
-        $conn->commit();
-        echo json_encode(['success' => true, 'message' => "Synced $synced payments.", 'total_points_awarded' => $totalPts]);
+        echo json_encode([
+            'success'              => true,
+            'message'              => "Synced {$synced} payment(s).",
+            'total_points_awarded' => $totalPts,
+            'synced_count'         => $synced
+        ]);
         exit;
     }
 

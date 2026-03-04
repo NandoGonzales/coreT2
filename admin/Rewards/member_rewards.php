@@ -237,7 +237,7 @@ body { background:#f9fafb; font-family:'Segoe UI',system-ui,sans-serif; }
 </div>
 
 <!-- Log Modal -->
-<div class="modal fade" id="logModal" tabindex="-1">
+<div class="modal fade" id="logModal" tabindex="-1" aria-labelledby="logModalLabel" aria-modal="true" role="dialog">
     <div class="modal-dialog modal-dialog-centered modal-md">
         <div class="modal-content" style="border-radius:1rem;border:none;">
             <div class="modal-header text-white fw-bold" style="background:linear-gradient(135deg,#0f172a,#854d0e);border-radius:1rem 1rem 0 0;">
@@ -428,22 +428,46 @@ async function syncAll() {
     });
     if (!confirm.isConfirmed) return;
 
-    Swal.fire({ title:'Syncing...', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+    Swal.fire({ title:'Syncing...', text:'Sandali lang...', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
 
-    const res  = await fetch('rewards_action.php', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ action:'sync_all' })
-    });
-    const data = await res.json();
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 90000); // 90s timeout
 
-    if (data.success) {
-        Swal.fire({ icon:'success', title:'Sync Complete!',
-            html:`Synced <b>${data.message}</b><br>Total Points Awarded: <b>${data.total_points_awarded}</b>`,
-            confirmButtonColor:'#059669'
+        const res = await fetch('rewards_action.php', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ action:'sync_all' }),
+            signal: controller.signal
         });
-        loadData();
-    } else {
-        Swal.fire('Error', data.message, 'error');
+        clearTimeout(timeout);
+
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); }
+        catch(e) { throw new Error('Invalid server response: ' + text.substring(0,200)); }
+
+        if (data.success) {
+            const pts = data.total_points_awarded || 0;
+            const cnt = data.synced_count || 0;
+            Swal.fire({
+                icon: cnt > 0 ? 'success' : 'info',
+                title: cnt > 0 ? 'Sync Complete!' : 'Already Up to Date',
+                html: cnt > 0
+                    ? `Na-award ang points sa <b>${cnt}</b> payment(s).<br>Total Points: <b>+${pts}</b>`
+                    : 'Lahat ng payments ay may rewards na.',
+                confirmButtonColor:'#059669'
+            });
+            loadData();
+        } else {
+            Swal.fire('Sync Failed', data.message || 'Unknown error', 'error');
+        }
+    } catch(e) {
+        if (e.name === 'AbortError') {
+            Swal.fire('Timeout', 'Sync took too long. Try again.', 'warning');
+        } else {
+            Swal.fire('Error', e.message, 'error');
+        }
     }
 }
 
