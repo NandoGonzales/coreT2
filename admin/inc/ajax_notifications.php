@@ -185,6 +185,31 @@ try {
             ];
         }
 
+        // 10. Staff actions (last 24 hrs)
+        $conn->query("CREATE TABLE IF NOT EXISTS staff_action_notifications (
+            notif_id INT AUTO_INCREMENT PRIMARY KEY,
+            user_id INT NOT NULL, user_name VARCHAR(100) NOT NULL,
+            user_role VARCHAR(50) NOT NULL, action_type VARCHAR(100) NOT NULL,
+            module_name VARCHAR(100) DEFAULT NULL, details TEXT DEFAULT NULL,
+            record_id INT DEFAULT 0, created_at DATETIME DEFAULT NOW(), is_read TINYINT(1) DEFAULT 0
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $res = $conn->query("
+            SELECT notif_id, user_name, action_type, module_name, details, created_at
+            FROM staff_action_notifications
+            WHERE user_role = 'Staff'
+              AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            ORDER BY created_at DESC LIMIT 5");
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $notifications[] = [
+                'type'    => 'staff',
+                'icon'    => 'bi-person-gear text-info',
+                'message' => '👤 ' . htmlspecialchars($row['user_name']) . ': ' . htmlspecialchars($row['action_type']) . ($row['details'] ? ' — ' . htmlspecialchars(substr($row['details'], 0, 60)) : ''),
+                'time'    => $row['created_at'],
+                'link'    => '/admin/Compliance-Audith-Trail-System/compliance_logs.php',
+            ];
+        }
+
     // ══════════════════════════════════════════════════════════════
     // ADMIN
     // ══════════════════════════════════════════════════════════════
@@ -310,6 +335,23 @@ try {
                 'message' => 'Disbursement released: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
                 'time'    => $row['disbursement_date'],
                 'link'    => '/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php',
+            ];
+        }
+
+        // 8. Staff actions (last 24 hrs) — visible to Admin too
+        $res = $conn->query("
+            SELECT notif_id, user_name, action_type, module_name, details, created_at
+            FROM staff_action_notifications
+            WHERE user_role = 'Staff'
+              AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            ORDER BY created_at DESC LIMIT 5");
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $notifications[] = [
+                'type'    => 'staff',
+                'icon'    => 'bi-person-gear text-info',
+                'message' => '👤 ' . htmlspecialchars($row['user_name']) . ': ' . htmlspecialchars($row['action_type']) . ($row['details'] ? ' — ' . htmlspecialchars(substr($row['details'], 0, 60)) : ''),
+                'time'    => $row['created_at'],
+                'link'    => '/admin/Compliance-Audith-Trail-System/compliance_logs.php',
             ];
         }
 
