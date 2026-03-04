@@ -1,8 +1,8 @@
 <?php
 /**
  * Apply Monthly Savings Interest (2.5%)
- * Auto-runs every 1st of the month
- * Also callable manually via POST action=apply
+ * - Auto-detects missed months and applies retroactively
+ * - Records interest with correct backdated date (1st of each month)
  */
 if (session_status() === PHP_SESSION_NONE) session_start();
 require_once(__DIR__ . '/../../initialize_coreT2.php');
@@ -19,12 +19,11 @@ if (!isset($_SESSION['userdata'])) {
 $userId   = (int)($_SESSION['userdata']['user_id'] ?? 0);
 $userName = $_SESSION['userdata']['full_name'] ?? 'System';
 
-const INTEREST_RATE = 0.025; // 2.5% monthly
-const INTEREST_LOG_TABLE = 'savings_interest_log';
+define('INTEREST_RATE', 0.025); // 2.5% monthly
 
 // Auto-create log table if not exists
 $conn->query("
-    CREATE TABLE IF NOT EXISTS " . INTEREST_LOG_TABLE . " (
+    CREATE TABLE IF NOT EXISTS savings_interest_log (
         id INT AUTO_INCREMENT PRIMARY KEY,
         period VARCHAR(7) NOT NULL COMMENT 'YYYY-MM format',
         applied_at DATETIME NOT NULL,
@@ -40,28 +39,44 @@ try {
     $raw    = file_get_contents('php://input');
     $body   = json_decode($raw ?: '{}', true) ?: [];
     $action = trim($body['action'] ?? $_GET['action'] ?? 'check');
+    $force  = !empty($body['force']);
 
-    $today    = date('Y-m-d');
-    $dayOfMonth = (int)date('j');
-    $period   = date('Y-m'); // e.g. 2026-03
+    // ── Find earliest savings transaction to know start month ───────
+    $firstRow = $conn->query("SELECT MIN(transaction_date) AS first_date FROM savings")->fetch_assoc();
+    $firstDate = $firstRow['first_date'] ?? date('Y-m-01');
+    
+    // Start from the month AFTER first transaction
+    $startMonth = date('Y-m', strtotime($firstDate . ' +1 month'));
+    $startMonth = min($startMonth, date('Y-m')); // don't go beyond current month
 
-    // ── CHECK: was interest already applied this month? ──────────────
-    $logRow = $conn->query(
-        "SELECT * FROM " . INTEREST_LOG_TABLE . " WHERE period = '$period' LIMIT 1"
-    )->fetch_assoc();
+    // ── Get all months that should have had interest applied ─────────
+    $allMonths = [];
+    $cursor = strtotime($startMonth . '-01');
+    $now    = strtotime(date('Y-m') . '-01');
+    while ($cursor <= $now) {
+        $allMonths[] = date('Y-m', $cursor);
+        $cursor = strtotime('+1 month', $cursor);
+    }
 
-    $alreadyApplied = !empty($logRow);
+    // ── Get already-applied months ───────────────────────────────────
+    $appliedRes = $conn->query("SELECT period FROM savings_interest_log");
+    $appliedMonths = [];
+    while ($r = $appliedRes->fetch_assoc()) {
+        $appliedMonths[] = $r['period'];
+    }
 
+    $missedMonths = array_values(array_diff($allMonths, $appliedMonths));
+
+    // ── CHECK action ─────────────────────────────────────────────────
     if ($action === 'check') {
         echo json_encode([
-            'success'         => true,
-            'today'           => $today,
-            'day_of_month'    => $dayOfMonth,
-            'period'          => $period,
-            'already_applied' => $alreadyApplied,
-            'last_applied'    => $logRow ? $logRow['applied_at'] : null,
-            'should_run'      => ($dayOfMonth === 1 && !$alreadyApplied),
-            'interest_rate'   => (INTEREST_RATE * 100) . '%',
+            'success'        => true,
+            'today'          => date('Y-m-d'),
+            'current_period' => date('Y-m'),
+            'missed_months'  => $missedMonths,
+            'missed_count'   => count($missedMonths),
+            'should_run'     => count($missedMonths) > 0,
+            'interest_rate'  => (INTEREST_RATE * 100) . '%',
         ]);
         exit;
     }
@@ -71,56 +86,20 @@ try {
         exit;
     }
 
-    if ($alreadyApplied && empty($body['force'])) {
-        echo json_encode([
-            'success'  => false,
-            'message'  => "Interest already applied for {$period}. Use force=true to override.",
-            'period'   => $period,
-            'applied_at' => $logRow['applied_at'],
-        ]);
-        exit;
-    }
+    // ── Manual: use specific month if provided, else all missed ─────
+    $targetMonths = !empty($body['month']) ? [$body['month']] : $missedMonths;
 
-    // ── GET ALL MEMBERS WITH POSITIVE BALANCE ────────────────────────
-    $result = $conn->query("
-        SELECT member_id, MAX(balance) AS current_balance
-        FROM savings
-        WHERE transaction_type IN ('Deposit', 'Interest', 'Withdrawal')
-        GROUP BY member_id
-        HAVING current_balance > 0
-    ");
-
-    if (!$result) throw new Exception('Failed to query member balances: ' . $conn->error);
-
-    $members = [];
-    while ($row = $result->fetch_assoc()) {
-        // Get the LATEST balance (last transaction's balance)
-        $balRes = $conn->query("
-            SELECT balance FROM savings
-            WHERE member_id = {$row['member_id']}
-            ORDER BY saving_id DESC LIMIT 1
-        ");
-        $latestBal = $balRes ? (float)$balRes->fetch_assoc()['balance'] : 0;
-        if ($latestBal > 0) {
-            $members[] = [
-                'member_id' => (int)$row['member_id'],
-                'balance'   => $latestBal,
-            ];
-        }
-    }
-
-    if (empty($members)) {
+    if (empty($targetMonths)) {
         echo json_encode([
             'success' => false,
-            'message' => 'No members with positive balance found.',
+            'message' => 'Walang missed months. Interest already applied sa lahat ng months.',
         ]);
         exit;
     }
 
-    // ── APPLY INTEREST TO EACH MEMBER ───────────────────────────────
+    // ── APPLY INTEREST PER MISSED MONTH ─────────────────────────────
     $conn->begin_transaction();
-    $applied     = [];
-    $totalInterest = 0.0;
+    $summary = [];
 
     $insertStmt = $conn->prepare("
         INSERT INTO savings (member_id, transaction_date, transaction_type, amount, balance, recorded_by)
@@ -128,48 +107,80 @@ try {
     ");
     if (!$insertStmt) throw new Exception('Prepare failed: ' . $conn->error);
 
-    foreach ($members as $m) {
-        $interest    = round($m['balance'] * INTEREST_RATE, 2);
-        $newBalance  = round($m['balance'] + $interest, 2);
-        $memberId    = $m['member_id'];
+    $logStmt = $conn->prepare("
+        INSERT INTO savings_interest_log (period, applied_at, applied_by, applied_by_name, members_count, total_interest)
+        VALUES (?, NOW(), ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            applied_at = NOW(), members_count = VALUES(members_count),
+            total_interest = VALUES(total_interest)
+    ");
 
-        $insertStmt->bind_param('isddi', $memberId, $today, $interest, $newBalance, $userId);
-        if (!$insertStmt->execute()) {
-            throw new Exception("Failed to insert interest for member {$memberId}: " . $insertStmt->error);
+    foreach ($targetMonths as $period) {
+        // Interest date = 1st of that month
+        $interestDate = $period . '-01';
+
+        // Get each member's balance as of end of PREVIOUS month
+        // (last transaction before the interest date)
+        $membersRes = $conn->query("
+            SELECT s1.member_id, s1.balance AS balance_before
+            FROM savings s1
+            INNER JOIN (
+                SELECT member_id, MAX(saving_id) AS max_id
+                FROM savings
+                WHERE transaction_date < '$interestDate'
+                GROUP BY member_id
+            ) s2 ON s1.member_id = s2.member_id AND s1.saving_id = s2.max_id
+            WHERE s1.balance > 0
+        ");
+
+        if (!$membersRes) continue;
+
+        $monthTotal   = 0.0;
+        $monthCount   = 0;
+
+        while ($m = $membersRes->fetch_assoc()) {
+            $balanceBefore = (float)$m['balance_before'];
+            if ($balanceBefore <= 0) continue;
+
+            $interest   = round($balanceBefore * INTEREST_RATE, 2);
+            $newBalance = round($balanceBefore + $interest, 2);
+            $memberId   = (int)$m['member_id'];
+
+            $insertStmt->bind_param('isddi', $memberId, $interestDate, $interest, $newBalance, $userId);
+            if (!$insertStmt->execute()) {
+                throw new Exception("Insert failed for member {$memberId} period {$period}: " . $insertStmt->error);
+            }
+
+            $monthTotal += $interest;
+            $monthCount++;
         }
 
-        $applied[]      = ['member_id' => $memberId, 'interest' => $interest, 'new_balance' => $newBalance];
-        $totalInterest += $interest;
+        // Log this period
+        $logStmt->bind_param('siisi', $period, $userId, $userName, $monthCount, $monthTotal);
+        $logStmt->execute();
+
+        $summary[] = [
+            'period'         => $period,
+            'interest_date'  => $interestDate,
+            'members_count'  => $monthCount,
+            'total_interest' => number_format($monthTotal, 2),
+        ];
     }
 
     $insertStmt->close();
-
-    // ── LOG THIS APPLICATION ─────────────────────────────────────────
-    $count = count($applied);
-    $logStmt = $conn->prepare("
-        INSERT INTO " . INTEREST_LOG_TABLE . " (period, applied_at, applied_by, applied_by_name, members_count, total_interest)
-        VALUES (?, NOW(), ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-            applied_at = NOW(), applied_by = VALUES(applied_by),
-            applied_by_name = VALUES(applied_by_name),
-            members_count = VALUES(members_count),
-            total_interest = VALUES(total_interest)
-    ");
-    $logStmt->bind_param('siisi', $period, $userId, $userName, $count, $totalInterest);
-    $logStmt->execute();
     $logStmt->close();
-
     $conn->commit();
 
+    $grandTotal = array_sum(array_map(fn($s) => (float)str_replace(',','',$s['total_interest']), $summary));
+
     echo json_encode([
-        'success'        => true,
-        'message'        => "Interest applied successfully for {$period}!",
-        'period'         => $period,
-        'interest_rate'  => (INTEREST_RATE * 100) . '%',
-        'members_count'  => $count,
-        'total_interest' => number_format($totalInterest, 2),
-        'applied_at'     => date('Y-m-d H:i:s'),
-        'details'        => array_slice($applied, 0, 10), // first 10 only
+        'success'            => true,
+        'message'            => count($summary) . ' month(s) na na-apply ng interest!',
+        'months_applied'     => count($summary),
+        'grand_total_interest' => number_format($grandTotal, 2),
+        'interest_rate'      => (INTEREST_RATE * 100) . '%',
+        'applied_at'         => date('Y-m-d H:i:s'),
+        'details'            => $summary,
     ]);
 
 } catch (Exception $e) {

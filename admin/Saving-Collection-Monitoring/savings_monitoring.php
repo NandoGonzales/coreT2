@@ -1179,8 +1179,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const check = await checkRes.json();
             if (!check.success) return;
 
-            // Auto-apply if 1st of month and not yet applied
-            if (check.should_run && !force) {
+            const hasMissed = check.missed_count > 0;
+
+            // Auto-apply missed months silently on page load
+            if (hasMissed && !force) {
+                const missedList = check.missed_months.join(', ');
                 const applyRes = await fetch('apply_savings_interest.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1188,33 +1191,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 const apply = await applyRes.json();
                 if (apply.success) {
+                    const rows = apply.details.map(d =>
+                        `<tr><td>${d.period}</td><td>${d.interest_date}</td><td>${d.members_count}</td><td>₱${d.total_interest}</td></tr>`
+                    ).join('');
                     await Swal.fire({
                         icon: 'success',
-                        title: '✅ Monthly Interest Applied!',
-                        html: `<b>2.5%</b> interest na-apply sa <b>${apply.members_count}</b> members.<br>
-                               Total Interest Added: <b>₱${apply.total_interest}</b><br>
-                               Period: <b>${apply.period}</b>`,
-                        confirmButtonColor: '#059669'
+                        title: '✅ Missed Interest Applied!',
+                        html: `Na-detect ang <b>${apply.months_applied}</b> missed month(s). Na-apply na retroactively.<br><br>
+                               <table class="table table-sm table-bordered small mt-2">
+                                 <thead class="table-dark"><tr><th>Period</th><th>Date Applied</th><th>Members</th><th>Total</th></tr></thead>
+                                 <tbody>${rows}</tbody>
+                               </table>
+                               <b>Grand Total Interest: ₱${apply.grand_total_interest}</b>`,
+                        confirmButtonColor: '#059669',
+                        width: '600px'
                     });
                     loadData();
                 }
                 return;
             }
 
-            // Manual apply
+            // Manual button click
             if (force) {
-                const alreadyMsg = check.already_applied
-                    ? `<div class="alert alert-warning py-2 small mb-2">⚠️ Already applied for ${check.period}. Mag-override?</div>`
-                    : '';
+                const missedInfo = hasMissed
+                    ? `<div class="alert alert-warning py-2 small text-start mb-2">
+                         ⚠️ <b>${check.missed_count} missed month(s):</b> ${check.missed_months.join(', ')}
+                       </div>`
+                    : `<div class="alert alert-success py-2 small mb-2">✅ Interest up to date.</div>`;
 
                 const confirmResult = await Swal.fire({
                     title: 'Apply Monthly Interest?',
-                    html: `${alreadyMsg}
-                           Mag-a-apply ng <b>2.5% interest</b> sa lahat ng members na may positive balance.<br><br>
+                    html: `${missedInfo}
+                           Mag-a-apply ng <b>2.5% interest</b> sa lahat ng members na may positive balance.<br>
+                           Interest date = 1st ng bawat month.<br><br>
                            <div class="text-start small p-2 bg-light rounded">
-                             <b>Period:</b> ${check.period}<br>
-                             <b>Date:</b> ${check.today}<br>
-                             <b>Rate:</b> ${check.interest_rate}
+                             <b>Rate:</b> ${check.interest_rate}<br>
+                             <b>Months to apply:</b> ${hasMissed ? check.missed_months.join(', ') : 'None'}
                            </div>`,
                     icon: 'question',
                     showCancelButton: true,
@@ -1230,18 +1242,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 const applyRes = await fetch('apply_savings_interest.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'apply', force: true })
+                    body: JSON.stringify({ action: 'apply' })
                 });
                 const apply = await applyRes.json();
 
                 if (apply.success) {
+                    const rows = apply.details.map(d =>
+                        `<tr><td>${d.period}</td><td>${d.interest_date}</td><td>${d.members_count}</td><td>₱${d.total_interest}</td></tr>`
+                    ).join('');
                     await Swal.fire({
                         icon: 'success',
                         title: 'Interest Applied!',
-                        html: `<b>2.5%</b> interest na-apply sa <b>${apply.members_count}</b> members.<br>
-                               Total Interest Added: <b>₱${apply.total_interest}</b><br>
-                               Period: <b>${apply.period}</b>`,
-                        confirmButtonColor: '#059669'
+                        html: `<table class="table table-sm table-bordered small">
+                                 <thead class="table-dark"><tr><th>Period</th><th>Date</th><th>Members</th><th>Total</th></tr></thead>
+                                 <tbody>${rows}</tbody>
+                               </table>
+                               <b>Grand Total: ₱${apply.grand_total_interest}</b>`,
+                        confirmButtonColor: '#059669',
+                        width: '600px'
                     });
                     loadData();
                 } else {
@@ -1253,7 +1271,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Auto-check on page load (applies only if today is 1st of month)
+    // Auto-check on page load — applies ALL missed months automatically
     checkAndApplyInterest(false);
 
     // Manual button
