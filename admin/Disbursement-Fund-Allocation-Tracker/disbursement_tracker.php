@@ -923,7 +923,7 @@ include(__DIR__ . '/../inc/sidebar.php');
             if (selectedIds.size === 0) return;
             Swal.fire({
                 title: 'Send to Finance?',
-                html: `Ipapadala ang <strong>${selectedIds.size}</strong> record(s) sa Financial Team (Core1).`,
+                html: `Ipapadala ang <strong>${selectedIds.size}</strong> record(s) sa <strong>Finance Team</strong> para sa approval.<br><small class="text-muted">Hindi pa ito mapupunta sa Core1 hanggang hindi nila ito app-approve.</small>`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#f59e0b',
@@ -952,10 +952,15 @@ include(__DIR__ . '/../inc/sidebar.php');
                         if (res.success) {
                             Swal.fire({
                                 icon: 'success',
-                                title: 'Sent!',
-                                html: `<strong>${res.records_sent}</strong> record(s) sent to Core1.`,
-                                timer: 3000,
-                                showConfirmButton: false
+                                title: 'Sent to Finance Team!',
+                                html: `<strong>${res.records_sent}</strong> record(s) naipadala na sa <strong>Finance Team</strong> para sa approval.<br><br>
+                                       <div class="text-start small p-2 bg-light rounded">
+                                         <b>Susunod na steps:</b><br>
+                                         1. Finance Team mag-re-review at mag-a-approve<br>
+                                         2. Pagkatapos ng approval → Core 1 mag-re-release ng funds
+                                       </div>`,
+                                confirmButtonColor: '#059669',
+                                confirmButtonText: 'OK'
                             });
                             selectedIds.clear();
                             updateSelectedCount();
