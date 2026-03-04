@@ -82,7 +82,7 @@ try {
             d.remarks,
             lp.loan_code
         FROM disbursements d
-        LEFT JOIN loan_portfolio lp ON d.loan_id = lp.loan_code
+        LEFT JOIN loan_portfolio lp ON d.loan_id = lp.loan_id
         WHERE d.disbursement_id = ?
         LIMIT 1
     ");
