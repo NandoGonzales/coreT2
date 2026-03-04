@@ -30,7 +30,7 @@ $conn->query("
         approved_loan TINYINT(1) DEFAULT 0,
         disbursement_record TINYINT(1) DEFAULT 0,
         payment_records TINYINT(1) DEFAULT 0,
-        compliance_status ENUM('Compliant','For Verification','Incomplete') DEFAULT 'Incomplete',
+        compliance_status VARCHAR(50) DEFAULT 'Incomplete',
         checked_score INT DEFAULT 0 COMMENT '0-6 items checked',
         notes TEXT DEFAULT NULL,
         last_checked_by INT DEFAULT NULL,
@@ -250,8 +250,9 @@ try {
         $stmt->execute();
         $stmt->close();
 
-        // Also log to compliance_logs
+        // Also log to compliance_logs (map to existing ENUM values)
         $desc = "Loan {$loanId} compliance checked: {$status} ({$score}/6 items)";
+        // compliance_logs ENUM: 'Compliant', 'Non-Compliant', 'Under Review'
         $dbStatus = $status === 'Compliant' ? 'Compliant' :
                    ($status === 'For Verification' ? 'Under Review' : 'Non-Compliant');
 
@@ -259,9 +260,11 @@ try {
             INSERT INTO compliance_logs (description, compliance_status, review_date)
             VALUES (?, ?, CURDATE())
         ");
-        $logStmt->bind_param('ss', $desc, $dbStatus);
-        $logStmt->execute();
-        $logStmt->close();
+        if ($logStmt) {
+            $logStmt->bind_param('ss', $desc, $dbStatus);
+            $logStmt->execute();
+            $logStmt->close();
+        }
 
         echo json_encode([
             'success'           => true,
