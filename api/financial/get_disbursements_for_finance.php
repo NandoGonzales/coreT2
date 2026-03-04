@@ -42,14 +42,14 @@ try {
         throw new Exception('Only GET method allowed');
     }
 
-    $status = trim($_GET['status'] ?? 'Pending');
+    $status = trim($_GET['status'] ?? 'For Finance Approval');
     $page   = max(1, (int)($_GET['page'] ?? 1));
     $limit  = max(10, min(100, (int)($_GET['limit'] ?? 20)));
     $offset = ($page - 1) * $limit;
 
-    $allowedStatuses = ['Pending', 'Finance Approved', 'Released', 'Cancelled'];
+    $allowedStatuses = ['Pending', 'For Finance Approval', 'Finance Approved', 'Released', 'Cancelled'];
     if (!in_array($status, $allowedStatuses, true)) {
-        $status = 'Pending';
+        $status = 'For Finance Approval';
     }
 
     // Count total
