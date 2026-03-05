@@ -79,7 +79,7 @@ include(__DIR__ . '/../inc/sidebar.php');
     .table { margin-bottom: 0; }
     .table thead { background: #1f2937 !important; }
     .table thead th {
-        color: white !important; font-weight: 700; font-size: .8rem;
+        color: #1f2937 !important; font-weight: 700; font-size: .8rem;
         padding: 1rem .75rem; border: none; text-transform: uppercase; letter-spacing: .025em;
     }
     .table tbody tr { transition: all .2s; border-bottom: 1px solid #f3f4f6; }
