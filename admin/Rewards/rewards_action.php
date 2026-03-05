@@ -79,7 +79,7 @@ function upsertReward(mysqli $conn, int $memberId, int $addPoints, string $reaso
 
     // Log it
     $logStmt = $conn->prepare("INSERT INTO rewards_log (member_id, points, reason, reference_id, recorded_by, recorded_by_name) VALUES (?,?,?,?,?,?)");
-    $logStmt->bind_param('isiisi', $memberId, $addPoints, $reason, $refId, $userId, $userName);
+    $logStmt->bind_param('iisiis', $memberId, $addPoints, $reason, $refId, $userId, $userName);
     $logStmt->execute();
     $logStmt->close();
 
@@ -235,6 +235,9 @@ try {
     if ($action === 'sync_all') {
         set_time_limit(120);
         $synced = 0; $totalPts = 0;
+
+        // ── Clean up corrupted log entries (reason='0' from old bind_param bug) ──
+        $conn->query("DELETE FROM rewards_log WHERE reason = '0' OR reason = '' OR reason IS NULL");
 
         // Use LEFT JOIN instead of NOT IN for performance
         $res = $conn->query("
