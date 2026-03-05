@@ -777,8 +777,12 @@ include(__DIR__ . '/../inc/sidebar.php');
                                 <i class="bi bi-eye"></i>
                             </button>
                             ${d.status === 'Pending' ? `
-                            <button class="btn btn-sm btn-success approve-btn" data-id="${d.disbursement_id}" title="Approve">
-                                <i class="bi bi-check-circle"></i>
+                            <button class="btn btn-sm btn-warning approve-btn" data-id="${d.disbursement_id}" title="Send to Finance">
+                                <i class="bi bi-send"></i>
+                            </button>` : ''}
+                            ${d.status === 'Finance Approved' ? `
+                            <button class="btn btn-sm btn-success approve-btn" data-id="${d.disbursement_id}" title="Release to Core 1">
+                                <i class="bi bi-check-circle-fill"></i> Release
                             </button>` : ''}
                         </div>
                     </td>`;
