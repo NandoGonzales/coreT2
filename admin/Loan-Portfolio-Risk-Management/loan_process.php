@@ -1538,6 +1538,7 @@ $user_role = $_SESSION['userdata']['role'] ?? 'Staff';
                 })
                 .then(r => r.json())
                 .then(data => {
+                    if (data.session_expired) { window.location.replace('/admin/login.php'); return; }
                     if (!data.count || data.count === 0) return;
 
                     // Update poll time

@@ -1289,6 +1289,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .then(r => r.json())
             .then(data => {
+                    if (data.session_expired) { window.location.replace('/admin/login.php'); return; }
                 if (!data.count || data.count === 0) return;
                 if (data.records.length > 0) lastSavingId = Math.max(...data.records.map(r => r.saving_id));
                 loadData();

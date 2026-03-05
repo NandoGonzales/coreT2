@@ -1266,6 +1266,7 @@ include(__DIR__ . '/../inc/sidebar.php');
             })
             .then(r => r.json())
             .then(data => {
+                if (data.session_expired) { window.location.replace('/admin/login.php'); return; }
                 if (!data.ids || data.ids.length === 0) return;
 
                 const newIds = data.ids.filter(id => !lastFinanceApprovedIds.has(id));

@@ -10,9 +10,15 @@ require_once(__DIR__ . '/../../initialize_coreT2.php');
 header('Content-Type: application/json; charset=utf-8');
 
 if (!isset($_SESSION['userdata'])) {
-    echo json_encode(['count' => 0, 'records' => []]);
+    // Session gone - tell frontend to redirect to login
+    echo json_encode(['count' => 0, 'records' => [], 'session_expired' => true]);
     exit;
 }
+
+// ── Do NOT update last_activity for polling requests ──────────
+// Polling should not reset the inactivity timer
+// The PHP session timeout is handled by sess_auth.php
+// We only check if session exists, we don't extend it here
 
 $module = trim($_GET['module'] ?? '');
 $since  = trim($_GET['since']  ?? '');

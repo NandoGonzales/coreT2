@@ -35,14 +35,25 @@ function checkSessionTimeout()
         return true;
     }
 
-    $current_time   = time();
-    $last_activity  = $_SESSION['last_activity'];
+    $current_time  = time();
+    $last_activity = $_SESSION['last_activity'];
 
     if (($current_time - $last_activity) > SESSION_TIMEOUT) {
         return false;
     }
 
-    $_SESSION['last_activity'] = $current_time;
+    // ── Do NOT reset timer for background polling requests ────────
+    // Polling (poll_new_records, ajax_notifications) should NOT extend session
+    $isPollRequest = (
+        strpos($_SERVER['REQUEST_URI'] ?? '', 'poll_new_records') !== false ||
+        strpos($_SERVER['REQUEST_URI'] ?? '', 'ajax_notifications') !== false ||
+        strpos($_SERVER['REQUEST_URI'] ?? '', 'mark_notif_read') !== false
+    );
+
+    if (!$isPollRequest) {
+        $_SESSION['last_activity'] = $current_time;
+    }
+
     return true;
 }
 
@@ -120,7 +131,9 @@ function handleInactiveUser()
         'Warning'
     );
 
-    $_SESSION = array();
+    // Properly destroy session - correct order
+    $_SESSION = [];
+    session_unset();
 
     if (ini_get("session.use_cookies")) {
         $params = session_get_cookie_params();
@@ -130,8 +143,11 @@ function handleInactiveUser()
     }
 
     session_destroy();
+
+    // Start fresh session with new ID to prevent session fixation
     session_start();
     session_regenerate_id(true);
+    $_SESSION = []; // clear the new session too
 
     // ✅ AJAX — return JSON instead of HTML
     if (IS_AJAX) {
@@ -197,7 +213,9 @@ function handleSessionTimeout()
         'Failed'
     );
 
-    $_SESSION = array();
+    // Properly destroy session - correct order
+    $_SESSION = [];
+    session_unset();
 
     if (ini_get("session.use_cookies")) {
         $params = session_get_cookie_params();
@@ -207,8 +225,11 @@ function handleSessionTimeout()
     }
 
     session_destroy();
+
+    // Start fresh session with new ID to prevent session fixation
     session_start();
     session_regenerate_id(true);
+    $_SESSION = []; // clear the new session too
 
     // ✅ AJAX — return JSON instead of HTML
     if (IS_AJAX) {
