@@ -459,6 +459,9 @@ include(__DIR__ . '/../inc/sidebar.php');
           </div>
           <div class="d-flex gap-2">
             <?php if (in_array($_SESSION['userdata']['role'], ['Super Admin', 'Admin'])): ?>
+              <button class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#positionGuideModal">
+                <i class="fas fa-book me-1"></i>Position Guide
+              </button>
               <button class="btn btn-sm btn-primary" id="addUserBtn">
                 <i class="fas fa-plus"></i> Add User
               </button>
@@ -594,6 +597,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                 <th>Full Name</th>
                 <th>Email</th>
                 <th>Role</th>
+                <th>Position</th>
                 <th>Status</th>
                 <th>Date Created</th>
                 <th class="text-center">Actions</th>
@@ -601,7 +605,7 @@ include(__DIR__ . '/../inc/sidebar.php');
             </thead>
             <tbody id="userTableBody">
               <tr>
-                <td colspan="8" class="text-center">Loading...</td>
+                <td colspan="9" class="text-center">Loading...</td>
               </tr>
             </tbody>
           </table>
@@ -659,6 +663,36 @@ include(__DIR__ . '/../inc/sidebar.php');
               <option value="Staff">Staff</option>
             </select>
           </div>
+          <div class="mb-3" id="positionGroup" style="display:none;">
+            <label class="form-label"><i class="fas fa-id-badge me-1 text-muted"></i>Position <small class="text-muted">(Staff only)</small></label>
+            <select name="position" id="position" class="form-control">
+              <option value="">-- Select Position --</option>
+              <optgroup label="Branch Operations">
+              <option value="Branch Manager">Branch Manager</option>
+              </optgroup>
+              <optgroup label="Loan Processing">
+              <option value="Loan Officer">Loan Officer</option>
+              <option value="Account Officer">Account Officer</option>
+              <option value="Loan Processor">Loan Processor</option>
+              <option value="Credit Investigator">Credit Investigator</option>
+              </optgroup>
+              <optgroup label="Collections &amp; Disbursement">
+              <option value="Collection Officer">Collection Officer</option>
+              <option value="Cashier">Cashier</option>
+              <option value="Teller">Teller</option>
+              </optgroup>
+              <optgroup label="Compliance &amp; Administration">
+              <option value="Compliance Officer">Compliance Officer</option>
+              <option value="System Administrator">System Administrator</option>
+              <option value="Bookkeeper">Bookkeeper</option>
+              </optgroup>
+              <optgroup label="Field &amp; Support">
+              <option value="Field Officer">Field Officer</option>
+              <option value="Customer Service">Customer Service</option>
+              <option value="Encoder">Encoder</option>
+              </optgroup>
+            </select>
+          </div>
           <div class="mb-3 form-check">
             <input type="checkbox" name="status" id="status" class="form-check-input" checked>
             <label class="form-check-label">Active</label>
@@ -677,6 +711,243 @@ include(__DIR__ . '/../inc/sidebar.php');
   </div>
 </div>
 
+
+<!-- Position Guide Modal -->
+<div class="modal fade" id="positionGuideModal" tabindex="-1" aria-modal="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+    <div class="modal-content" style="border-radius:1rem;border:none;">
+      <div class="modal-header text-white fw-bold" style="background:linear-gradient(135deg,#0f172a,#1e40af);border-radius:1rem 1rem 0 0;">
+        <h5 class="modal-title"><i class="fas fa-book me-2"></i>Staff Position Guide — Roles & CORE2 Access</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <p class="text-muted small mb-4">Reference guide for assigning positions to staff members. Each position has defined CORE2 access and responsibilities.</p>
+        <div class="row g-3">
+
+          <!-- 1. Branch Manager -->
+          <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+              <div class="card-header d-flex align-items-center gap-2" style="background:#dc2626;color:white;border-radius:.5rem .5rem 0 0;">
+                <span style="font-size:1.25rem;">🏢</span>
+                <div>
+                  <div class="fw-bold">Branch Manager</div>
+                  <span class="badge bg-white text-danger small">Management</span>
+                </div>
+              </div>
+              <div class="card-body p-3">
+                <p class="small fw-semibold text-muted mb-1">CORE2 Access:</p>
+                <ul class="small mb-2 ps-3">
+                  <li>Loan approval (final)</li>
+                  <li>View all reports</li>
+                  <li>Monitor branch performance</li>
+                  <li>Check loan portfolio</li>
+                </ul>
+                <p class="small fw-semibold text-muted mb-1">Responsibilities:</p>
+                <ul class="small mb-0 ps-3 text-muted">
+                  <li>Final approval of loans</li>
+                  <li>Monitor branch operations</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Loan Officer / Account Officer -->
+          <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+              <div class="card-header d-flex align-items-center gap-2" style="background:#1d4ed8;color:white;border-radius:.5rem .5rem 0 0;">
+                <span style="font-size:1.25rem;">📋</span>
+                <div>
+                  <div class="fw-bold">Loan Officer / Account Officer</div>
+                  <span class="badge bg-white text-primary small">Loan Processing</span>
+                </div>
+              </div>
+              <div class="card-body p-3">
+                <p class="small fw-semibold text-muted mb-1">CORE2 Access:</p>
+                <ul class="small mb-2 ps-3">
+                  <li>Encode loan applications</li>
+                  <li>View pending loans</li>
+                  <li>Update borrower information</li>
+                </ul>
+                <p class="small fw-semibold text-muted mb-1">Responsibilities:</p>
+                <ul class="small mb-0 ps-3 text-muted">
+                  <li>Process loan applications</li>
+                  <li>Coordinate with borrowers</li>
+                  <li>Submit loans for CI or approval</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Credit Investigator -->
+          <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+              <div class="card-header d-flex align-items-center gap-2" style="background:#d97706;color:white;border-radius:.5rem .5rem 0 0;">
+                <span style="font-size:1.25rem;">🔍</span>
+                <div>
+                  <div class="fw-bold">Credit Investigator (CI)</div>
+                  <span class="badge bg-white text-warning small">Investigation</span>
+                </div>
+              </div>
+              <div class="card-body p-3">
+                <p class="small fw-semibold text-muted mb-1">CORE2 Access:</p>
+                <ul class="small mb-2 ps-3">
+                  <li>View loan applicant details</li>
+                  <li>Encode CI report</li>
+                  <li>Add remarks / recommendation</li>
+                </ul>
+                <p class="small fw-semibold text-muted mb-1">Responsibilities:</p>
+                <ul class="small mb-0 ps-3 text-muted">
+                  <li>Investigate borrowers</li>
+                  <li>Provide CI feedback to Loan Officer</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4. Loan Processor -->
+          <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+              <div class="card-header d-flex align-items-center gap-2" style="background:#0891b2;color:white;border-radius:.5rem .5rem 0 0;">
+                <span style="font-size:1.25rem;">📁</span>
+                <div>
+                  <div class="fw-bold">Loan Processor</div>
+                  <span class="badge bg-white text-info small">Document Processing</span>
+                </div>
+              </div>
+              <div class="card-body p-3">
+                <p class="small fw-semibold text-muted mb-1">CORE2 Access:</p>
+                <ul class="small mb-2 ps-3">
+                  <li>Verify documents</li>
+                  <li>Prepare loan details</li>
+                  <li>Update loan status</li>
+                </ul>
+                <p class="small fw-semibold text-muted mb-1">Responsibilities:</p>
+                <ul class="small mb-0 ps-3 text-muted">
+                  <li>Organize borrower documents</li>
+                  <li>Prepare loan before approval</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. Collection Officer -->
+          <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+              <div class="card-header d-flex align-items-center gap-2" style="background:#15803d;color:white;border-radius:.5rem .5rem 0 0;">
+                <span style="font-size:1.25rem;">💸</span>
+                <div>
+                  <div class="fw-bold">Collection Officer</div>
+                  <span class="badge bg-white text-success small">Collections</span>
+                </div>
+              </div>
+              <div class="card-body p-3">
+                <p class="small fw-semibold text-muted mb-1">CORE2 Access:</p>
+                <ul class="small mb-2 ps-3">
+                  <li>Collection monitoring</li>
+                  <li>Check due dates</li>
+                  <li>Update payments</li>
+                </ul>
+                <p class="small fw-semibold text-muted mb-1">Responsibilities:</p>
+                <ul class="small mb-0 ps-3 text-muted">
+                  <li>Monitor due dates & overdue loans</li>
+                  <li>Follow up with borrowers</li>
+                  <li>Send email notifications</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6. Cashier / Teller -->
+          <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+              <div class="card-header d-flex align-items-center gap-2" style="background:#4b5563;color:white;border-radius:.5rem .5rem 0 0;">
+                <span style="font-size:1.25rem;">💰</span>
+                <div>
+                  <div class="fw-bold">Cashier / Teller</div>
+                  <span class="badge bg-white text-secondary small">Disbursement</span>
+                </div>
+              </div>
+              <div class="card-body p-3">
+                <p class="small fw-semibold text-muted mb-1">CORE2 Access:</p>
+                <ul class="small mb-2 ps-3">
+                  <li>Payment entry</li>
+                  <li>Loan disbursement</li>
+                  <li>Receipt generation</li>
+                </ul>
+                <p class="small fw-semibold text-muted mb-1">Responsibilities:</p>
+                <ul class="small mb-0 ps-3 text-muted">
+                  <li>Accept payments from borrowers</li>
+                  <li>Release loan funds</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- 7. Compliance Officer -->
+          <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+              <div class="card-header d-flex align-items-center gap-2" style="background:#1e293b;color:white;border-radius:.5rem .5rem 0 0;">
+                <span style="font-size:1.25rem;">✅</span>
+                <div>
+                  <div class="fw-bold">Compliance Officer</div>
+                  <span class="badge bg-white text-dark small">Compliance</span>
+                </div>
+              </div>
+              <div class="card-body p-3">
+                <p class="small fw-semibold text-muted mb-1">CORE2 Access:</p>
+                <ul class="small mb-2 ps-3">
+                  <li>Compliance checklist</li>
+                  <li>Audit trail logs</li>
+                  <li>Document verification</li>
+                </ul>
+                <p class="small fw-semibold text-muted mb-1">Responsibilities:</p>
+                <ul class="small mb-0 ps-3 text-muted">
+                  <li>Ensure loan process follows rules</li>
+                  <li>Check compliance with policies</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- 8. System Administrator / IT -->
+          <div class="col-md-6">
+            <div class="card h-100 border-0 shadow-sm">
+              <div class="card-header d-flex align-items-center gap-2" style="background:#7c2d12;color:white;border-radius:.5rem .5rem 0 0;">
+                <span style="font-size:1.25rem;">⚙️</span>
+                <div>
+                  <div class="fw-bold">System Administrator / IT</div>
+                  <span class="badge bg-white text-danger small">IT / Admin</span>
+                </div>
+              </div>
+              <div class="card-body p-3">
+                <p class="small fw-semibold text-muted mb-1">CORE2 Access:</p>
+                <ul class="small mb-2 ps-3">
+                  <li>User management</li>
+                  <li>Role permissions</li>
+                  <li>System configuration</li>
+                  <li>Audit logs</li>
+                </ul>
+                <p class="small fw-semibold text-muted mb-1">Responsibilities:</p>
+                <ul class="small mb-0 ps-3 text-muted">
+                  <li>Manage system users</li>
+                  <li>Set role permissions</li>
+                  <li>Maintain system</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- end row -->
+      </div>
+      <div class="modal-footer bg-light" style="border-radius:0 0 1rem 1rem;">
+        <small class="text-muted me-auto"><i class="fas fa-info-circle me-1"></i>Microfinance EIS — Staff Position Guide v1.0</small>
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- End Position Guide Modal -->
+
 <?php include(__DIR__ . '/../inc/footer.php'); ?>
 
 <script>
@@ -694,6 +965,26 @@ include(__DIR__ . '/../inc/sidebar.php');
   let filters = { search: '', role: '', status: '' };
 
   /* ── helpers ── */
+  function positionBadgeClass(pos) {
+    const map = {
+      'Branch Manager':     'bg-danger',
+      'Loan Officer':       'bg-primary',
+      'Account Officer':    'bg-primary',
+      'Credit Investigator':'bg-warning text-dark',
+      'Loan Processor':     'bg-info text-dark',
+      'Collection Officer': 'bg-success',
+      'Cashier':            'bg-secondary',
+      'Teller':             'bg-secondary',
+      'Compliance Officer': 'bg-dark',
+      'System Administrator':'bg-danger',
+      'Bookkeeper':         'bg-secondary',
+      'Field Officer':      'bg-success',
+      'Customer Service':   'bg-info text-dark',
+      'Encoder':            'bg-secondary',
+    };
+    return map[pos] || 'bg-secondary';
+  }
+
   function escapeHtml(text) {
     if (text === null || text === undefined) return '';
     const d = document.createElement('div');
@@ -743,7 +1034,7 @@ include(__DIR__ . '/../inc/sidebar.php');
     tbody.innerHTML = '';
 
     if (!filteredUsers.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted"><i class="bi bi-inbox"></i> No users found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted"><i class="bi bi-inbox"></i> No users found</td></tr>';
       updatePagination();
       return;
     }
@@ -784,6 +1075,7 @@ include(__DIR__ . '/../inc/sidebar.php');
           <td>${escapeHtml(u.full_name)}</td>
           <td>${escapeHtml(u.email)}</td>
           <td><span class="badge bg-info">${escapeHtml(u.role)}</span></td>
+          <td>${u.position ? `<span class="badge ${positionBadgeClass(u.position)}">${escapeHtml(u.position)}</span>` : '<span class="text-muted small">—</span>'}</td>
           <td>${statusBadge}</td>
           <td>${escapeHtml(u.date_created)}</td>
           <td class="text-center">${actions}</td>
@@ -953,9 +1245,17 @@ include(__DIR__ . '/../inc/sidebar.php');
 
   /* ── Add User ── */
   if (isAdmin) {
-    document.getElementById('addUserBtn').addEventListener('click', () => {
+    // Show/hide position based on role
+  document.getElementById('role').addEventListener('change', function() {
+    const pg = document.getElementById('positionGroup');
+    pg.style.display = this.value === 'Staff' ? 'block' : 'none';
+    if (this.value !== 'Staff') document.getElementById('position').value = '';
+  });
+
+  document.getElementById('addUserBtn').addEventListener('click', () => {
       currentUserId = null;
       document.getElementById('userForm').reset();
+      document.getElementById('positionGroup').style.display = 'none';
       document.getElementById('userModalTitle').innerHTML = '<i class="fas fa-plus-circle me-2"></i>Add User';
       document.getElementById('password').setAttribute('required', 'required');
       document.getElementById('passwordRequired').style.display = 'inline';
@@ -979,7 +1279,8 @@ include(__DIR__ . '/../inc/sidebar.php');
         full_name: fd.get('full_name'),
         email: fd.get('email'),
         role: fd.get('role'),
-        status: document.getElementById('status').checked ? 'Active' : 'Inactive'
+        status: document.getElementById('status').checked ? 'Active' : 'Inactive',
+        position: fd.get('role') === 'Staff' ? (fd.get('position') || '') : ''
       };
 
       const arFd = new FormData();
@@ -1011,7 +1312,8 @@ include(__DIR__ . '/../inc/sidebar.php');
       full_name: fd.get('full_name'),
       email: fd.get('email'),
       role: fd.get('role'),
-      status: document.getElementById('status').checked ? 'Active' : 'Inactive'
+      status: document.getElementById('status').checked ? 'Active' : 'Inactive',
+      position: fd.get('role') === 'Staff' ? (fd.get('position') || '') : ''
     };
 
     const arFd = new FormData();
@@ -1053,6 +1355,15 @@ include(__DIR__ . '/../inc/sidebar.php');
           document.getElementById('email').value = u.email || '';
           document.getElementById('role').value = u.role;
           document.getElementById('status').checked = u.status === 'Active';
+          // Position field — show only for Staff
+          const pg = document.getElementById('positionGroup');
+          if (u.role === 'Staff') {
+            pg.style.display = 'block';
+            document.getElementById('position').value = u.position || '';
+          } else {
+            pg.style.display = 'none';
+            document.getElementById('position').value = '';
+          }
           document.getElementById('password').value = '';
           document.getElementById('password').removeAttribute('required');
           document.getElementById('passwordRequired').style.display = 'none';

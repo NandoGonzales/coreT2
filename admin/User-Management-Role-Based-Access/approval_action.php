@@ -339,8 +339,9 @@ try {
                 $e = $request_data['can_edit'];
                 $d = $request_data['can_delete'];
 
-                $stmt = $conn->prepare("INSERT INTO role_permissions (role_id, module_name, can_view, can_add, can_edit, can_delete) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param('isiiii', $role_id, $module, $v, $a, $e, $d);
+                $action_name = $request_data['action_name'] ?? '';
+                $stmt = $conn->prepare("INSERT INTO role_permissions (role_id, module_name, action_name, can_view, can_add, can_edit, can_delete) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param('issiiiii', $role_id, $module, $action_name, $v, $a, $e, $d);
             } elseif ($request['request_type'] === 'role_permission_edit') {
                 // Role Permission: Edit
                 $perm_id = $request_data['perm_id'];
@@ -351,13 +352,36 @@ try {
                 $e = $request_data['can_edit'];
                 $d = $request_data['can_delete'];
 
-                $stmt = $conn->prepare("UPDATE role_permissions SET role_id=?, module_name=?, can_view=?, can_add=?, can_edit=?, can_delete=? WHERE perm_id=?");
-                $stmt->bind_param('isiiiii', $role_id, $module, $v, $a, $e, $d, $perm_id);
+                $action_name = $request_data['action_name'] ?? '';
+                $stmt = $conn->prepare("UPDATE role_permissions SET role_id=?, module_name=?, action_name=?, can_view=?, can_add=?, can_edit=?, can_delete=? WHERE perm_id=?");
+                $stmt->bind_param('issiiiii', $role_id, $module, $action_name, $v, $a, $e, $d, $perm_id);
             } elseif ($request['request_type'] === 'role_permission_delete') {
                 // Role Permission: Delete
                 $perm_id = $request_data['perm_id'];
                 $stmt = $conn->prepare("DELETE FROM role_permissions WHERE perm_id=?");
                 $stmt->bind_param('i', $perm_id);
+            } elseif ($request['request_type'] === 'user_creation') {
+                // ── CREATE NEW USER (was missing! fell to else/UPDATE before) ──
+                $username   = $request_data['username'] ?? '';
+                $password   = $request_data['password'] ?? '';
+                $full_name  = $request_data['full_name'] ?? '';
+                $email      = $request_data['email'] ?? '';
+                $role       = $request_data['role'] ?? 'Staff';
+                $status     = $request_data['status'] ?? 'Active';
+                $hash       = password_hash($password, PASSWORD_DEFAULT);
+
+                // Map role to role_id
+                $role_map = ['Super Admin' => 1, 'Admin' => 2, 'Staff' => 3];
+                $role_id = $role_map[$role] ?? null;
+
+                // Get next user_id
+                $maxRes  = $conn->query("SELECT MAX(user_id) as max_id FROM users");
+                $maxRow  = $maxRes->fetch_assoc();
+                $next_id = ($maxRow['max_id'] ?? 0) + 1;
+
+                $position = ($role === 'Staff') ? ($request_data['position'] ?? '') : null;
+                $stmt = $conn->prepare("INSERT INTO users (user_id, role_id, username, password_hash, full_name, email, role, status, position, date_created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+                $stmt->bind_param('iisssssss', $next_id, $role_id, $username, $hash, $full_name, $email, $role, $status, $position);
             } else {
                 // Profile Update: Update user record
                 $full_name = $request_data['full_name'] ?? ($request['full_name'] ?? '');
@@ -367,8 +391,9 @@ try {
                 $status = $request_data['status'] ?? 'Active';
                 $phone = $request_data['phone'] ?? '';
 
-                $stmt = $conn->prepare("UPDATE users SET username=?, full_name=?, email=?, role=?, status=?, phone=? WHERE user_id=?");
-                $stmt->bind_param('ssssssi', $username, $full_name, $email, $role, $status, $phone, $user_id);
+                $position = ($role === 'Staff') ? ($request_data['position'] ?? '') : null;
+                $stmt = $conn->prepare("UPDATE users SET username=?, full_name=?, email=?, role=?, status=?, phone=?, position=? WHERE user_id=?");
+                $stmt->bind_param('sssssssi', $username, $full_name, $email, $role, $status, $phone, $position, $user_id);
             }
 
             if ($stmt->execute()) {
@@ -382,9 +407,16 @@ try {
                 $stmt->bind_param("i", $request_id);
                 $stmt->execute();
 
-                // Send email confirmation to user (if email available in request data)
-                $user_email = $request['email'] ?? ($request_data['email'] ?? null);
-                $user_full_name = $request['full_name'] ?? ($request_data['full_name'] ?? 'User');
+                // Send email confirmation to user
+                // For user_creation: user doesn't exist yet, use request_data
+                // For others: use joined users table email
+                if ($request['request_type'] === 'user_creation') {
+                    $user_email     = $request_data['email'] ?? null;
+                    $user_full_name = $request_data['full_name'] ?? 'New User';
+                } else {
+                    $user_email     = $request['email'] ?? ($request_data['email'] ?? null);
+                    $user_full_name = $request['full_name'] ?? ($request_data['full_name'] ?? 'User');
+                }
 
                 if ($user_email) {
                     $subject_map = [

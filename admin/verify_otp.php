@@ -100,10 +100,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 session_regenerate_id(true);
 
                 $_SESSION['userdata'] = [
-                    'user_id' => $user['user_id'],
-                    'username' => $user['username'],
-                    'full_name' => $user['full_name'] ?? 'User',
-                    'role' => $user['role'] ?? 'Member'
+                    'user_id'  => $user['user_id'],
+                    'username' => $user['username'] ?? '',
+                    'full_name'=> $user['full_name'] ?? 'User',
+                    'role'     => $user['role'] ?? 'Staff',
+                    'position' => $user['position'] ?? ''
                 ];
 
                 $_SESSION['last_activity'] = time();

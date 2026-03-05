@@ -530,6 +530,10 @@ $default_logo = '/dist/img/default-logo.png';
                         class="submenu-link <?= is_active('profile_requests.php', $current_path) ? 'active' : '' ?>">
                         Approval Requests
                     </a>
+                    <a href="<?= $base_url ?>/User-Management-Role-Based-Access/promotions.php"
+                        class="submenu-link <?= is_active('promotions.php', $current_path) ? 'active' : '' ?>">
+                        🏅 Promotions
+                    </a>
                 </div>
             </div>
         <?php endif; ?>
@@ -693,6 +697,10 @@ $default_logo = '/dist/img/default-logo.png';
                     <a href="<?= $base_url ?>/User-Management-Role-Based-Access/profile_requests.php"
                         class="submenu-link <?= is_active('profile_requests.php', $current_path) ? 'active' : '' ?>">
                         Approval Requests
+                    </a>
+                    <a href="<?= $base_url ?>/User-Management-Role-Based-Access/promotions.php"
+                        class="submenu-link <?= is_active('promotions.php', $current_path) ? 'active' : '' ?>">
+                        🏅 Promotions
                     </a>
                 </div>
             </div>

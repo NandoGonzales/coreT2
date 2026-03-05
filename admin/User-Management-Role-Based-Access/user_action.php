@@ -31,11 +31,11 @@ switch ($action) {
         
         try {
             if ($search !== '') {
-                $stmt = $conn->prepare("SELECT user_id, username, full_name, email, role, status, date_created FROM users WHERE username LIKE ? OR full_name LIKE ? OR email LIKE ? OR user_id LIKE ? ORDER BY user_id DESC");
+                $stmt = $conn->prepare("SELECT user_id, username, full_name, email, role, status, position, date_created FROM users WHERE username LIKE ? OR full_name LIKE ? OR email LIKE ? OR user_id LIKE ? ORDER BY user_id DESC");
                 $like = "%$search%";
                 $stmt->bind_param('ssss', $like, $like, $like, $like);
             } else {
-                $stmt = $conn->prepare("SELECT user_id, username, full_name, email, role, status, date_created FROM users ORDER BY user_id DESC");
+                $stmt = $conn->prepare("SELECT user_id, username, full_name, email, role, status, position, date_created FROM users ORDER BY user_id DESC");
             }
             
             $stmt->execute();
@@ -86,7 +86,7 @@ switch ($action) {
         if ($id <= 0) json_out(['status' => 'error', 'msg' => 'Invalid user ID']);
         
         try {
-            $stmt = $conn->prepare("SELECT user_id, username, full_name, email, role, status, date_created FROM users WHERE user_id=?");
+            $stmt = $conn->prepare("SELECT user_id, username, full_name, email, role, status, position, date_created FROM users WHERE user_id=?");
             $stmt->bind_param('i', $id);
             $stmt->execute();
             $user = $stmt->get_result()->fetch_assoc();
@@ -109,7 +109,9 @@ switch ($action) {
         $full_name = sanitize_input($_POST['full_name'] ?? '');
         $email = sanitize_input($_POST['email'] ?? '');
         $role = sanitize_input($_POST['role'] ?? '');
-        $status = sanitize_input($_POST['status'] ?? '');
+        $status   = sanitize_input($_POST['status'] ?? '');
+        $position = sanitize_input($_POST['position'] ?? '');
+        if ($role !== 'Staff') $position = null;
         
         // Normalize status
         if ($status === 'on' || $status === '1' || $status === 'Active') {
@@ -183,8 +185,8 @@ switch ($action) {
                 $role_id = null;
                 
                 // Insert new user WITH user_id specified
-                $stmt = $conn->prepare("INSERT INTO users (user_id, role_id, username, password_hash, full_name, email, role, status, date_created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
-                $stmt->bind_param('iissssss', $next_id, $role_id, $username, $hash, $full_name, $email, $role, $status);
+                $stmt = $conn->prepare("INSERT INTO users (user_id, role_id, username, password_hash, full_name, email, role, status, position, date_created) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+                $stmt->bind_param('iisssssss', $next_id, $role_id, $username, $hash, $full_name, $email, $role, $status, $position);
                 $ok = $stmt->execute();
                 
                 if (!$ok) {
@@ -261,12 +263,12 @@ switch ($action) {
                         json_out(['status' => 'error', 'msg' => 'Password must be at least 6 characters']);
                     }
                     $hash = password_hash($password, PASSWORD_DEFAULT);
-                    $stmt = $conn->prepare("UPDATE users SET username=?, password_hash=?, full_name=?, email=?, role=?, status=? WHERE user_id=?");
-                    $stmt->bind_param('ssssssi', $username, $hash, $full_name, $email, $role, $status, $id);
+                    $stmt = $conn->prepare("UPDATE users SET username=?, password_hash=?, full_name=?, email=?, role=?, status=?, position=? WHERE user_id=?");
+                    $stmt->bind_param('sssssssi', $username, $hash, $full_name, $email, $role, $status, $position, $id);
                 } else {
                     // No password change
-                    $stmt = $conn->prepare("UPDATE users SET username=?, full_name=?, email=?, role=?, status=? WHERE user_id=?");
-                    $stmt->bind_param('sssssi', $username, $full_name, $email, $role, $status, $id);
+                    $stmt = $conn->prepare("UPDATE users SET username=?, full_name=?, email=?, role=?, status=?, position=? WHERE user_id=?");
+                    $stmt->bind_param('ssssssi', $username, $full_name, $email, $role, $status, $position, $id);
                 }
                 
                 $ok = $stmt->execute();

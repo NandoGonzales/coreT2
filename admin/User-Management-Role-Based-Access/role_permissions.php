@@ -22,8 +22,10 @@ $stmt->execute();
 $result = $stmt->get_result();
 $user = $result->fetch_assoc();
 
-// Fetch all roles for dropdown
-$roles_query = "SELECT role_id, role_name FROM user_roles ORDER BY role_name";
+// Fetch roles: separate system roles (1-3,16) from position roles (10-20)
+$roles_query = "SELECT role_id, role_name,
+    CASE WHEN role_id IN (1,2,3,16) THEN 'system' ELSE 'position' END AS role_group
+    FROM user_roles ORDER BY role_group DESC, role_name";
 $roles_result = $conn->query($roles_query);
 $roles = [];
 while ($role = $roles_result->fetch_assoc()) {
@@ -463,7 +465,16 @@ include(__DIR__ . '/../inc/sidebar.php');
                         <select class="form-select" id="filterRole">
                             <option value="">All Roles</option>
                             <?php foreach ($roles as $role): ?>
-                                <option value="<?= $role['role_id'] ?>"><?= htmlspecialchars($role['role_name']) ?></option>
+                                <?php
+                            static $last_group = null;
+                            if ($role['role_group'] !== $last_group) {
+                                if ($last_group !== null) echo '</optgroup>';
+                                $groupLabel = $role['role_group'] === 'system' ? '⚙️ System Roles' : '🪪 Staff Positions';
+                                echo "<optgroup label='" . htmlspecialchars($groupLabel) . "'>";
+                                $last_group = $role['role_group'];
+                            }
+                            ?>
+                            <option value="<?= $role['role_id'] ?>"><?= htmlspecialchars($role['role_name']) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -678,7 +689,7 @@ include(__DIR__ . '/../inc/sidebar.php');
                     modules = new Set();
 
                 data.forEach(p => {
-                    const roleName = p.role_name || (p.role_id == 1 ? 'Super Admin' : (p.role_id == 2 ? 'Admin' : (p.role_id == 3 ? 'Staff' : 'Unknown')));
+                    const roleName = p.role_name || 'Unknown';
                     roles.add(roleName);
                     modules.add(p.module_name);
 

@@ -130,20 +130,19 @@ try {
                 exit;
             }
 
-            // Check if role exists (or is one of the hardcoded ones: 1, 2, 3)
-            if (!in_array($role_id, [1, 2, 3])) {
-                $stmt = $conn->prepare("SELECT role_id FROM user_roles WHERE role_id = ?");
-                $stmt->bind_param("i", $role_id);
-                $stmt->execute();
-                $role = $stmt->get_result()->fetch_assoc();
+            // Verify role exists in user_roles table (handles all role_ids including positions)
+            $stmt = $conn->prepare("SELECT role_id FROM user_roles WHERE role_id = ?");
+            $stmt->bind_param("i", $role_id);
+            $stmt->execute();
+            $role_check = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
 
-                if (!$role) {
-                    echo json_encode([
-                        'success' => false,
-                        'message' => 'Selected role does not exist'
-                    ]);
-                    exit;
-                }
+            if (!$role_check) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Selected role/position does not exist'
+                ]);
+                exit;
             }
 
             // Check for duplicate (same role + module)

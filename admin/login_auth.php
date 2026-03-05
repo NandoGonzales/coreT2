@@ -52,9 +52,11 @@ if ($result->num_rows === 1) {
     // ✅ Successful login
     session_regenerate_id(true);
     $_SESSION['userdata'] = [
-        'user_id' => $user['user_id'],
-        'full_name' => $user['full_name'] ?? 'User',
-        'role' => $user['role'] ?? 'Member'
+        'user_id'  => $user['user_id'],
+        'username' => $user['username'] ?? '',
+        'full_name'=> $user['full_name'] ?? 'User',
+        'role'     => $user['role'] ?? 'Staff',
+        'position' => $user['position'] ?? ''
     ];
 
     log_audit($user['user_id'], 'Login', 'Authentication', null, 'User logged in successfully.');
