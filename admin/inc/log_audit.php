@@ -193,8 +193,8 @@ function autoLogoutJS()
         window.addEventListener('touchstart', resetInactivityTimer);
         window.addEventListener('mousedown', resetInactivityTimer);
 
-        // Also reset when window gets focus
-        window.addEventListener('focus', resetInactivityTimer);
+        // NOTE: 'focus' intentionally removed — it resets the timer
+        // when Swal popups close, which prevents logout from firing
     </script>
 <?php
 }

@@ -7,6 +7,13 @@ if (session_status() == PHP_SESSION_NONE) {
     session_start();
 }
 
+// ── Prevent browser from caching any admin page ──────────────
+// This ensures back button after logout shows login form, not cached admin page
+header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+header("Expires: Thu, 01 Jan 1970 00:00:00 GMT");
+
 // Session timeout configuration (2 minutes = 120 seconds)
 define('SESSION_TIMEOUT', 120);
 
@@ -147,7 +154,12 @@ function handleInactiveUser()
     // Start fresh session with new ID to prevent session fixation
     session_start();
     session_regenerate_id(true);
-    $_SESSION = []; // clear the new session too
+    // Explicitly unset all session data - extra safety
+    $_SESSION = [];
+    unset($_SESSION['userdata']);
+    unset($_SESSION['last_activity']);
+    unset($_SESSION['session_start']);
+    unset($_SESSION['session_info']);
 
     // ✅ AJAX — return JSON instead of HTML
     if (IS_AJAX) {
@@ -229,7 +241,12 @@ function handleSessionTimeout()
     // Start fresh session with new ID to prevent session fixation
     session_start();
     session_regenerate_id(true);
-    $_SESSION = []; // clear the new session too
+    // Explicitly unset all session data - extra safety
+    $_SESSION = [];
+    unset($_SESSION['userdata']);
+    unset($_SESSION['last_activity']);
+    unset($_SESSION['session_start']);
+    unset($_SESSION['session_info']);
 
     // ✅ AJAX — return JSON instead of HTML
     if (IS_AJAX) {
@@ -313,9 +330,11 @@ if (!isset($_SESSION['userdata']) && !$is_login_page) {
     exit();
 }
 
-if (isset($_SESSION['userdata']) && isset($_SESSION['last_activity']) && $is_login_page) {
+if (isset($_SESSION['userdata']) && !empty($_SESSION['userdata']['user_id']) && isset($_SESSION['last_activity']) && $is_login_page) {
     $elapsed = time() - $_SESSION['last_activity'];
-    if ($elapsed < SESSION_TIMEOUT) {
+    // Only redirect to dashboard if session is genuinely active (not just created)
+    $session_age = isset($_SESSION['session_start']) ? (time() - $_SESSION['session_start']) : SESSION_TIMEOUT;
+    if ($elapsed < SESSION_TIMEOUT && $session_age > 2) {
         log_audit($_SESSION['userdata']['user_id'] ?? 0, 'Re-login Attempt', 'Authentication', null, 'User attempted to visit login page while logged in.');
         $base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'];
         header("Location: $base_url/admin/dashboard.php");
