@@ -79,10 +79,10 @@ if (!empty($_SESSION['userdata']['user_id'])) {
     );
 }
 
-// Destroy session completely
+// Destroy session completely — correct order
 $_SESSION = [];
 session_unset();
-session_destroy();
+
 if (ini_get("session.use_cookies")) {
     $params = session_get_cookie_params();
     setcookie(
@@ -96,7 +96,14 @@ if (ini_get("session.use_cookies")) {
     );
 }
 
-// Prevent caching
+session_destroy();
+
+// Start a clean session with new ID — prevents session fixation attack
+session_start();
+session_regenerate_id(true);
+$_SESSION = []; // ensure new session is empty
+
+// Prevent caching — browser back button will NOT show protected pages
 header("Cache-Control: no-cache, no-store, must-revalidate");
 header("Pragma: no-cache");
 header("Expires: 0");

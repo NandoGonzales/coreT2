@@ -120,7 +120,9 @@ function handleInactiveUser()
         'Warning'
     );
 
-    $_SESSION = array();
+    // Properly destroy session - correct order
+    $_SESSION = [];
+    session_unset();
 
     if (ini_get("session.use_cookies")) {
         $params = session_get_cookie_params();
@@ -130,8 +132,11 @@ function handleInactiveUser()
     }
 
     session_destroy();
+
+    // Start fresh session with new ID to prevent session fixation
     session_start();
     session_regenerate_id(true);
+    $_SESSION = []; // clear the new session too
 
     // ✅ AJAX — return JSON instead of HTML
     if (IS_AJAX) {
@@ -197,7 +202,9 @@ function handleSessionTimeout()
         'Failed'
     );
 
-    $_SESSION = array();
+    // Properly destroy session - correct order
+    $_SESSION = [];
+    session_unset();
 
     if (ini_get("session.use_cookies")) {
         $params = session_get_cookie_params();
@@ -207,8 +214,11 @@ function handleSessionTimeout()
     }
 
     session_destroy();
+
+    // Start fresh session with new ID to prevent session fixation
     session_start();
     session_regenerate_id(true);
+    $_SESSION = []; // clear the new session too
 
     // ✅ AJAX — return JSON instead of HTML
     if (IS_AJAX) {
