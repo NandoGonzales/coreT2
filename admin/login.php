@@ -5,10 +5,28 @@ require_once(__DIR__ . '/inc/send_otp.php');
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// Redirect if already logged in
-if (isset($_SESSION['userdata'])) {
-    header("Location: /admin/dashboard.php");
-    exit();
+// Redirect if already logged in — validate properly
+if (isset($_SESSION['userdata']) && !empty($_SESSION['userdata']['user_id']) && isset($_SESSION['last_activity'])) {
+    // Check session hasn't expired
+    $elapsed = time() - ($_SESSION['last_activity'] ?? 0);
+    $session_age = isset($_SESSION['session_start']) ? (time() - $_SESSION['session_start']) : 999;
+    
+    if ($elapsed < 120 && $session_age > 2) {
+        // Verify user still active in DB
+        if (isset($conn) && $conn && !$conn->connect_error) {
+            $uid = (int)$_SESSION['userdata']['user_id'];
+            $chk = $conn->query("SELECT status FROM users WHERE user_id = $uid LIMIT 1");
+            $usr = $chk ? $chk->fetch_assoc() : null;
+            if ($usr && $usr['status'] === 'Active') {
+                header("Location: /admin/dashboard.php");
+                exit();
+            }
+        }
+    }
+    
+    // Session invalid/expired — clear it
+    $_SESSION = [];
+    session_unset();
 }
 
 $error_message = "";
