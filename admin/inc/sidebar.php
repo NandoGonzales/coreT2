@@ -493,6 +493,10 @@ $default_logo = '/dist/img/default-logo.png';
                         class="submenu-link <?= is_active('compliance_checker', $current_path) ? 'active' : '' ?>">
                         <i class="bi bi-clipboard2-check me-2"></i>Compliance Checker
                     </a>
+                    <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/staff_activity.php"
+                        class="submenu-link <?= is_active('staff_activity', $current_path) ? 'active' : '' ?>">
+                        <i class="bi bi-person-lines-fill me-2"></i>Staff Activity
+                    </a>
                 </div>
             </div>
         <?php endif; ?>
@@ -661,6 +665,10 @@ $default_logo = '/dist/img/default-logo.png';
                     <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/compliance_checker.php"
                         class="submenu-link <?= is_active('compliance_checker', $current_path) ? 'active' : '' ?>">
                         <i class="bi bi-clipboard2-check me-2"></i>Compliance Checker
+                    </a>
+                    <a href="<?= $base_url ?>/Compliance-Audith-Trail-System/staff_activity.php"
+                        class="submenu-link <?= is_active('staff_activity', $current_path) ? 'active' : '' ?>">
+                        <i class="bi bi-person-lines-fill me-2"></i>Staff Activity
                     </a>
                 </div>
             </div>
