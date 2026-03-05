@@ -110,6 +110,9 @@ body { background:#f9fafb; font-family:'Segoe UI',system-ui,sans-serif; }
                 <button class="btn btn-sm btn-outline-light" onclick="syncAll()">
                     <i class="bi bi-arrow-repeat me-1"></i>Sync All Payments
                 </button>
+                <button class="btn btn-sm btn-danger" onclick="applyPenalties()">
+                    <i class="bi bi-dash-circle me-1"></i>Apply Penalties
+                </button>
                 <button class="btn btn-sm btn-warning" onclick="openManualAdd()">
                     <i class="bi bi-plus-circle me-1"></i>Manual Add Points
                 </button>
@@ -415,6 +418,58 @@ async function openManualAdd(memberId = null, name = null) {
         loadData();
     } else {
         Swal.fire('Error', data.message, 'error');
+    }
+}
+
+async function applyPenalties() {
+    const confirm = await Swal.fire({
+        title: '⚠️ Apply Penalties?',
+        html: `
+            <div class="text-start">
+                <p>Mag-a-apply ng point deductions sa mga:</p>
+                <ul>
+                    <li>🔴 <b>-30 pts</b> — Hindi nagbayad ng <b>2 months</b></li>
+                    <li>🚫 <b>-50 pts</b> — Hindi nagbayad ng <b>3+ months</b></li>
+                    <li>🔄 <b>Streak reset</b> — Walang active loan (inactive)</li>
+                </ul>
+                <small class="text-muted">1x per month lang mag-a-apply ang penalty sa bawat member.</small>
+            </div>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        confirmButtonText: '<i class="bi bi-dash-circle"></i> Yes, Apply Penalties',
+        cancelButtonText: 'Cancel'
+    });
+    if (!confirm.isConfirmed) return;
+
+    Swal.fire({ title: 'Applying penalties...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    try {
+        const res = await fetch('rewards_action.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'apply_penalties' })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            const details = (data.details || []).map(d => `<li>${d}</li>`).join('');
+            Swal.fire({
+                icon: data.deducted_count > 0 ? 'warning' : 'info',
+                title: data.deducted_count > 0 ? `Penalties Applied!` : 'No Penalties Needed',
+                html: data.deducted_count > 0
+                    ? `<b>${data.deducted_count}</b> member(s) penalized.<br>Total deducted: <b>-${data.total_deducted} pts</b>
+                       ${details ? '<hr><ul class="text-start small">' + details + '</ul>' : ''}`
+                    : 'Walang member na kailangang parusahan ngayon.',
+                confirmButtonColor: '#ef4444'
+            });
+            loadData();
+        } else {
+            Swal.fire('Failed', data.message || 'Unknown error', 'error');
+        }
+    } catch(e) {
+        Swal.fire('Error', e.message, 'error');
     }
 }
 

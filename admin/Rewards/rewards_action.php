@@ -284,6 +284,128 @@ try {
         exit;
     }
 
+
+    // ── APPLY PENALTIES — deduct points for missed payments / inactive ─
+    if ($action === 'apply_penalties') {
+        set_time_limit(120);
+        $deducted   = 0;
+        $totalDeduct = 0;
+        $log        = [];
+
+        // ── Rule 1: Missed payments — 2 months overdue (-30 pts) ──────
+        $res = $conn->query("
+            SELECT lp.member_id, m.full_name,
+                   COUNT(*) AS missed_count,
+                   MAX(r.next_due) AS last_due
+            FROM loan_portfolio lp
+            INNER JOIN members m ON m.member_id = lp.member_id
+            LEFT JOIN repayments r ON r.loan_id = lp.loan_id
+            WHERE lp.status IN ('Active','Approved')
+              AND r.next_due < DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
+              AND lp.member_id NOT IN (
+                  SELECT DISTINCT lp2.member_id
+                  FROM repayments r2
+                  INNER JOIN loan_portfolio lp2 ON lp2.loan_id = r2.loan_id
+                  WHERE r2.repayment_date >= DATE_SUB(CURDATE(), INTERVAL 2 MONTH)
+              )
+            GROUP BY lp.member_id, m.full_name
+        ");
+
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $memberId = (int)$row['member_id'];
+            $months   = (int)$row['missed_count'];
+            
+            // -30 pts per 2 months missed, -50 pts per 3+ months
+            $penalty  = $months >= 3 ? 50 : 30;
+            $reason   = "Penalty: {$months} missed payment(s) — " . date('Y-m-d');
+
+            // Check if already penalized this month
+            $already = $conn->query("
+                SELECT log_id FROM rewards_log 
+                WHERE member_id = $memberId 
+                  AND reason LIKE 'Penalty: %missed payment%'
+                  AND created_at >= DATE_FORMAT(NOW(),'%Y-%m-01')
+                LIMIT 1
+            ");
+            if ($already && $already->num_rows > 0) continue;
+
+            upsertReward($conn, $memberId, -$penalty, $reason, 0, $userId, $userName);
+            $deducted++;
+            $totalDeduct += $penalty;
+            $log[] = "⚠️ {$row['full_name']}: -{$penalty} pts ({$months} months missed)";
+        }
+
+        // ── Rule 2: 3 months no payment at all (-50 pts) ──────────────
+        $res2 = $conn->query("
+            SELECT lp.member_id, m.full_name
+            FROM loan_portfolio lp
+            INNER JOIN members m ON m.member_id = lp.member_id
+            INNER JOIN member_rewards mr ON mr.member_id = lp.member_id
+            WHERE lp.status IN ('Active','Approved')
+              AND mr.points > 0
+              AND lp.member_id NOT IN (
+                  SELECT DISTINCT lp2.member_id
+                  FROM repayments r2
+                  INNER JOIN loan_portfolio lp2 ON lp2.loan_id = r2.loan_id
+                  WHERE r2.repayment_date >= DATE_SUB(CURDATE(), INTERVAL 3 MONTH)
+              )
+        ");
+
+        if ($res2) while ($row = $res2->fetch_assoc()) {
+            $memberId = (int)$row['member_id'];
+            $reason   = "Penalty: No payment for 3+ months — " . date('Y-m-d');
+
+            $already = $conn->query("
+                SELECT log_id FROM rewards_log 
+                WHERE member_id = $memberId 
+                  AND reason LIKE 'Penalty: No payment%'
+                  AND created_at >= DATE_FORMAT(NOW(),'%Y-%m-01')
+                LIMIT 1
+            ");
+            if ($already && $already->num_rows > 0) continue;
+
+            upsertReward($conn, $memberId, -50, $reason, 0, $userId, $userName);
+            $deducted++;
+            $totalDeduct += 50;
+            $log[] = "🚫 {$row['full_name']}: -50 pts (3+ months no payment)";
+        }
+
+        // ── Rule 3: Inactive members — reset consecutive streak ───────
+        $res3 = $conn->query("
+            SELECT mr.member_id, m.full_name, mr.consecutive_on_time
+            FROM member_rewards mr
+            INNER JOIN members m ON m.member_id = mr.member_id
+            WHERE mr.consecutive_on_time > 0
+              AND mr.member_id NOT IN (
+                  SELECT DISTINCT lp.member_id
+                  FROM loan_portfolio lp
+                  WHERE lp.status IN ('Active','Approved')
+              )
+        ");
+
+        if ($res3) while ($row = $res3->fetch_assoc()) {
+            $memberId = (int)$row['member_id'];
+            // Reset consecutive streak for inactive members
+            $conn->query("UPDATE member_rewards SET consecutive_on_time = 0 WHERE member_id = $memberId");
+            $logStmt = $conn->prepare("INSERT INTO rewards_log (member_id, points, reason, recorded_by, recorded_by_name) VALUES (?,?,?,?,?)");
+            $pts = 0;
+            $rsn = "Streak reset: No active loans — " . date('Y-m-d');
+            $logStmt->bind_param('iisis', $memberId, $pts, $rsn, $userId, $userName);
+            $logStmt->execute();
+            $logStmt->close();
+            $log[] = "🔄 {$row['full_name']}: streak reset (no active loans)";
+        }
+
+        echo json_encode([
+            'success'         => true,
+            'message'         => "Penalties applied to {$deducted} member(s). Total deducted: {$totalDeduct} pts.",
+            'deducted_count'  => $deducted,
+            'total_deducted'  => $totalDeduct,
+            'details'         => $log
+        ]);
+        exit;
+    }
+
     throw new Exception('Invalid action: ' . $action);
 
 } catch (Exception $e) {
