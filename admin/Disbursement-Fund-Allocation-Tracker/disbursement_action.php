@@ -8,6 +8,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once(__DIR__ . '/../../initialize_coreT2.php');
+if (file_exists(__DIR__ . '/../inc/log_staff_action.php')) require_once(__DIR__ . '/../inc/log_staff_action.php');
 
 // Header will be set per action
 
@@ -447,8 +448,9 @@ try {
             $disbursement = $checkResult->fetch_assoc();
             $checkStmt->close();
             
-            if ($disbursement['status'] !== 'Pending') {
-                throw new Exception('Only pending disbursements can be approved');
+            // Allow release from Pending OR Finance Approved
+            if (!in_array($disbursement['status'], ['Pending', 'Finance Approved'])) {
+                throw new Exception('Only Pending or Finance Approved disbursements can be released. Current status: ' . $disbursement['status']);
             }
             
             $loanCode = $disbursement['loan_code'];
@@ -560,11 +562,14 @@ try {
             $conn->commit();
             
             error_log("disbursement_action.php - Disbursement {$disbursementId} approved successfully by user {$userId}" . $syncMessage);
+            if (function_exists('log_staff_action')) {
+                log_staff_action('Disbursement Released', 'Disbursement Tracker', "Disbursement #$disbursementId" . (!empty($loanCode) ? " | Loan: $loanCode" : '') . $syncMessage, (int)$disbursementId);
+            }
             
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode([
                 'status' => 'ok', 
-                'msg' => 'Disbursement approved successfully' . $syncMessage,
+                'msg' => 'Disbursement released successfully' . $syncMessage,
                 'core1_sync' => $syncResult
             ]);
             

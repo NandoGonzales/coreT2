@@ -843,19 +843,24 @@ include(__DIR__ . '/../inc/sidebar.php');
 
         function onApproveDisbursement(e) {
             const id = e.currentTarget.dataset.id;
+            const disb = allDisbursements.find(d => d.disbursement_id == id);
+            const isRelease = disb && disb.status === 'Finance Approved';
+
             Swal.fire({
-                title: 'Approve Disbursement?',
-                text: `Approve disbursement ${id}?`,
+                title: isRelease ? '🚀 Release Disbursement?' : 'Approve Disbursement?',
+                html: isRelease
+                    ? `<b>Disbursement #${id}</b> has been approved by Finance.<br><small class="text-muted">Clicking Release will mark it as Released and sync to Core 1.</small>`
+                    : `Approve disbursement #${id}?`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#198754',
                 cancelButtonColor: '#6c757d',
-                confirmButtonText: 'Yes, approve it!',
+                confirmButtonText: isRelease ? 'Yes, Release!' : 'Yes, approve it!',
                 cancelButtonText: 'Cancel'
             }).then(result => {
                 if (!result.isConfirmed) return;
                 Swal.fire({
-                    title: 'Processing...',
+                    title: isRelease ? 'Releasing...' : 'Processing...',
                     allowOutsideClick: false,
                     didOpen: () => Swal.showLoading()
                 });
@@ -880,13 +885,13 @@ include(__DIR__ . '/../inc/sidebar.php');
                         if (res.status === 'ok') {
                             Swal.fire({
                                 icon: 'success',
-                                title: 'Approved!',
-                                text: 'Disbursement approved.',
-                                timer: 2000,
+                                title: isRelease ? 'Released! 🎉' : 'Approved!',
+                                text: res.msg || (isRelease ? 'Disbursement released and synced to Core 1.' : 'Disbursement approved.'),
+                                timer: 3000,
                                 showConfirmButton: false
                             });
                             loadData();
-                        } else throw new Error(res.msg || 'Failed to approve');
+                        } else throw new Error(res.msg || 'Failed');
                     })
                     .catch(err => Swal.fire({
                         icon: 'error',
