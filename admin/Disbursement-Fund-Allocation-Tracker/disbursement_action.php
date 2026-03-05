@@ -428,7 +428,7 @@ try {
     // APPROVE ACTION
     // ══════════════════════════════════════════════════════════════
     $action = $_POST['action'] ?? '';
-    $disbursementId = $_POST['id'] ?? '';
+    $disbursementId = (int)($_POST['id'] ?? 0);
     
     $userId = $_SESSION['userdata']['user_id'] ?? 0;
     $userName = $_SESSION['userdata']['full_name'] ?? 'Unknown User';
@@ -494,7 +494,7 @@ try {
                 if (!$updateStmt) {
                     throw new Exception("Prepare update failed: " . $conn->error);
                 }
-                $updateStmt->bind_param('is', $userId, $disbursementId);
+                $updateStmt->bind_param('ii', $userId, $disbursementId);
             } else {
                 $updateStmt = $conn->prepare("
                     UPDATE disbursements 
@@ -504,7 +504,7 @@ try {
                 if (!$updateStmt) {
                     throw new Exception("Prepare update failed: " . $conn->error);
                 }
-                $updateStmt->bind_param('s', $disbursementId);
+                $updateStmt->bind_param('i', $disbursementId);
             }
             
             $result = $updateStmt->execute();

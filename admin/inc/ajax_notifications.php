@@ -229,17 +229,17 @@ try {
 
         // 12. Finance Approved disbursements (ready to release)
         $res = $conn->query("
-            SELECT d.disbursement_id, m.full_name, d.amount, d.updated_at
+            SELECT d.disbursement_id, m.full_name, d.amount, d.finance_decided_at
             FROM disbursements d
             LEFT JOIN members m ON m.member_id = d.member_id
             WHERE d.status = 'Finance Approved'
-            ORDER BY d.updated_at DESC LIMIT 5");
+            ORDER BY d.finance_decided_at DESC LIMIT 5");
         if ($res) while ($row = $res->fetch_assoc()) {
             $notifications[] = [
                 'type'    => 'finance',
                 'icon'    => 'bi-bank text-success',
                 'message' => '✅ Finance Approved — Ready to release: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
-                'time'    => $row['updated_at'] ?? date('Y-m-d H:i:s'),
+                'time'    => $row['finance_decided_at'] ?? date('Y-m-d H:i:s'),
                 'link'    => '/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php',
             ];
         }
@@ -443,17 +443,17 @@ try {
 
         // 10. Finance Approved — ready to release
         $res = $conn->query("
-            SELECT d.disbursement_id, m.full_name, d.amount, d.updated_at
+            SELECT d.disbursement_id, m.full_name, d.amount, d.finance_decided_at
             FROM disbursements d
             LEFT JOIN members m ON m.member_id = d.member_id
             WHERE d.status = 'Finance Approved'
-            ORDER BY d.updated_at DESC LIMIT 5");
+            ORDER BY d.finance_decided_at DESC LIMIT 5");
         if ($res) while ($row = $res->fetch_assoc()) {
             $notifications[] = [
                 'type'    => 'finance',
                 'icon'    => 'bi-bank text-success',
                 'message' => '✅ Finance Approved — Ready to release: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
-                'time'    => $row['updated_at'] ?? date('Y-m-d H:i:s'),
+                'time'    => $row['finance_decided_at'] ?? date('Y-m-d H:i:s'),
                 'link'    => '/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php',
             ];
         }
@@ -602,18 +602,18 @@ try {
 
         // 7. Finance Approved — para malaman ng staff na approved na ng Finance
         $res = $conn->query("
-            SELECT d.disbursement_id, m.full_name, d.amount, d.updated_at
+            SELECT d.disbursement_id, m.full_name, d.amount, d.finance_decided_at
             FROM disbursements d
             LEFT JOIN members m ON m.member_id = d.member_id
             WHERE d.status = 'Finance Approved'
-              AND d.updated_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-            ORDER BY d.updated_at DESC LIMIT 3");
+              AND d.finance_decided_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            ORDER BY d.finance_decided_at DESC LIMIT 3");
         if ($res) while ($row = $res->fetch_assoc()) {
             $notifications[] = [
                 'type'    => 'finance',
                 'icon'    => 'bi-bank text-success',
                 'message' => '✅ Finance Approved: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
-                'time'    => $row['updated_at'] ?? date('Y-m-d H:i:s'),
+                'time'    => $row['finance_decided_at'] ?? date('Y-m-d H:i:s'),
                 'link'    => '/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php',
             ];
         }
