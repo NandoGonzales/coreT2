@@ -864,17 +864,17 @@ include(__DIR__ . '/../inc/sidebar.php');
 
                 fetch('send_to_finance.php', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ disbursement_id: id }),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'send', disbursement_ids: [parseInt(id)] }),
                     credentials: 'same-origin'
                 })
                 .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
                 .then(res => {
                     Swal.close();
-                    if (res.status === 'ok' || res.success) {
+                    if (res.success) {
                         Swal.fire({ icon: 'success', title: 'Sent! 📤', text: 'Disbursement forwarded to Finance team.', timer: 2500, showConfirmButton: false });
                         loadData();
-                    } else throw new Error(res.msg || res.message || 'Failed to send');
+                    } else throw new Error(res.message || 'Failed to send');
                 })
                 .catch(err => Swal.fire({ icon: 'error', title: 'Failed!', text: err.message }));
             });
