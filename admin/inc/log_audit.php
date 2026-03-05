@@ -85,6 +85,14 @@ function handleSessionTimeout()
     // Destroy the session
     session_destroy();
 
+    // Start fresh session with new ID
+    session_start();
+    session_regenerate_id(true);
+    $_SESSION = [];
+    unset($_SESSION['userdata']);
+    unset($_SESSION['last_activity']);
+    unset($_SESSION['session_start']);
+
     // Redirect to login
     header("Location: /admin/login.php?timeout=1");
     exit();
@@ -121,20 +129,27 @@ if (!isset($_SESSION['userdata'])) {
 }
 
 // 🔹 2. User already logged in but visiting login.php → redirect to dashboard
-if (isset($_SESSION['userdata']) && $is_login_page) {
-    // Log re-login attempt (SAFE)
-    if (function_exists('log_audit')) {
-        log_audit(
-            $_SESSION['userdata']['user_id'] ?? 0,
-            'Re-login Attempt',
-            'Authentication',
-            null,
-            'User attempted to visit login page while logged in.'
-        );
-    }
+//    But ONLY if session is genuinely active (not just expired)
+if (isset($_SESSION['userdata']) && !empty($_SESSION['userdata']['user_id']) && $is_login_page) {
+    $elapsed     = time() - ($_SESSION['last_activity'] ?? 0);
+    $session_age = isset($_SESSION['session_start']) ? (time() - $_SESSION['session_start']) : 999;
 
-    header("Location: /admin/dashboard.php");
-    exit;
+    // Only redirect if session is fresh and not just created (age > 2s)
+    if ($elapsed < SESSION_TIMEOUT && $session_age > 2) {
+        if (function_exists('log_audit')) {
+            log_audit(
+                $_SESSION['userdata']['user_id'] ?? 0,
+                'Re-login Attempt', 'Authentication', null,
+                'User attempted to visit login page while logged in.'
+            );
+        }
+        header("Location: /admin/dashboard.php");
+        exit;
+    } else {
+        // Session expired — clear it and show login form
+        $_SESSION = [];
+        session_unset();
+    }
 }
 
 
