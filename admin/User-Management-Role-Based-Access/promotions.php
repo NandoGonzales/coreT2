@@ -15,6 +15,13 @@ include(__DIR__ . '/../inc/sidebar.php');
 <style>
 :root { --brand: #0d6efd; }
 
+.main-content {
+    padding: 1.5rem;
+    min-height: 100vh;
+    background: #f8f9fa;
+}
+
+
 .page-header {
     background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
     padding: 1.75rem 2rem;
