@@ -116,6 +116,9 @@ body { background:#f9fafb; font-family:'Segoe UI',system-ui,sans-serif; }
                 <button class="btn btn-sm btn-warning" onclick="openManualAdd()">
                     <i class="bi bi-plus-circle me-1"></i>Manual Add Points
                 </button>
+                <button class="btn btn-sm btn-info text-white" data-bs-toggle="modal" data-bs-target="#rewardsGuideModal">
+                    <i class="bi bi-book me-1"></i>Rewards Guide
+                </button>
             </div>
         </div>
     </div>
@@ -238,6 +241,411 @@ body { background:#f9fafb; font-family:'Segoe UI',system-ui,sans-serif; }
 </div>
 </main>
 </div>
+
+
+<!-- ══════════════════════════════════════════════════════ -->
+<!-- Rewards Guidebook Modal                               -->
+<!-- ══════════════════════════════════════════════════════ -->
+<div class="modal fade" id="rewardsGuideModal" tabindex="-1" aria-labelledby="rewardsGuideLabel" aria-modal="true" role="dialog">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+        <div class="modal-content" style="border-radius:1rem;border:none;">
+
+            <!-- Header -->
+            <div class="modal-header text-white fw-bold" style="background:linear-gradient(135deg,#0f172a,#1e40af);border-radius:1rem 1rem 0 0;">
+                <h5 class="modal-title"><i class="bi bi-book me-2"></i>&#x1F3C6; Member Rewards — Official Guide</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body p-0">
+
+                <!-- Tab Navigation -->
+                <ul class="nav nav-tabs px-4 pt-3 pb-0 bg-light" id="guideTabs" role="tablist" style="border-bottom:2px solid #e5e7eb;">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-overview" type="button">&#x1F4CB; Overview</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-tiers" type="button">&#x1F3C5; Tiers & Benefits</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-streaks" type="button">&#x1F525; Streaks</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-penalties" type="button">&#x26A0;&#xFE0F; Penalties</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-semibold" data-bs-toggle="tab" data-bs-target="#tab-faq" type="button">&#x2753; FAQ</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content p-4">
+
+                    <!-- ── Tab 1: Overview ───────────────────────────── -->
+                    <div class="tab-pane fade show active" id="tab-overview">
+                        <h6 class="fw-bold text-primary mb-3">&#x1F4E2; What is the Member Rewards Program?</h6>
+                        <p class="text-muted small mb-3">The Member Rewards Program recognizes members who consistently pay on time, complete their loans, and maintain good financial standing. Earn points, climb tiers, and unlock exclusive benefits.</p>
+
+                        <h6 class="fw-bold mb-2">How to Earn Points</h6>
+                        <div class="table-responsive mb-4">
+                            <table class="table table-bordered table-sm align-middle">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Action</th>
+                                        <th class="text-center">Points</th>
+                                        <th>When Awarded</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="badge bg-success me-1">+10</span> On-Time Payment</td>
+                                        <td class="text-center fw-bold text-success">+10 pts</td>
+                                        <td class="small text-muted">Payment made on or before due date</td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <td><span class="badge bg-primary me-1">+20</span> Early Payment Bonus</td>
+                                        <td class="text-center fw-bold text-primary">+20 pts</td>
+                                        <td class="small text-muted">Payment made before due date — stacks with on-time (+30 total)</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="badge bg-warning text-dark me-1">+50</span> Full Loan Completion</td>
+                                        <td class="text-center fw-bold text-warning">+50 pts</td>
+                                        <td class="small text-muted">Upon completing all loan payments</td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <td><span class="badge bg-secondary me-1">+?</span> Manual Admin Award</td>
+                                        <td class="text-center fw-bold text-secondary">Up to +500 pts</td>
+                                        <td class="small text-muted">Discretionary award by management</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <h6 class="fw-bold mb-2">Tier Overview</h6>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <div class="card border-0 h-100" style="background:linear-gradient(135deg,#fef3c7,#fde68a);">
+                                    <div class="card-body text-center p-3">
+                                        <div style="font-size:2rem;">&#x1F949;</div>
+                                        <div class="fw-bold" style="color:#92400e;">Bronze</div>
+                                        <div class="small text-muted">0 – 199 pts</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card border-0 h-100" style="background:linear-gradient(135deg,#f1f5f9,#e2e8f0);">
+                                    <div class="card-body text-center p-3">
+                                        <div style="font-size:2rem;">&#x1F948;</div>
+                                        <div class="fw-bold" style="color:#475569;">Silver</div>
+                                        <div class="small text-muted">200 – 499 pts</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card border-0 h-100" style="background:linear-gradient(135deg,#fffbeb,#fef08a);">
+                                    <div class="card-body text-center p-3">
+                                        <div style="font-size:2rem;">&#x1F947;</div>
+                                        <div class="fw-bold" style="color:#854d0e;">Gold</div>
+                                        <div class="small text-muted">500 – 999 pts</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card border-0 h-100" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);">
+                                    <div class="card-body text-center p-3">
+                                        <div style="font-size:2rem;">&#x1F4CD;</div>
+                                        <div class="fw-bold" style="color:#5b21b6;">Platinum</div>
+                                        <div class="small text-muted">1,000+ pts</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── Tab 2: Tiers & Benefits ───────────────────── -->
+                    <div class="tab-pane fade" id="tab-tiers">
+
+                        <!-- Bronze -->
+                        <div class="card border-0 mb-3" style="background:linear-gradient(135deg,#fef3c7,#fde68a);">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-1" style="color:#92400e;">&#x1F949; Bronze Tier — 0 to 199 points</h6>
+                                <p class="small text-muted mb-2">Starting tier for all new members.</p>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered bg-white mb-0">
+                                        <thead><tr class="table-warning"><th>Benefit</th><th>Details</th></tr></thead>
+                                        <tbody>
+                                            <tr><td class="small">&#x1F4CA; Rewards Tracking</td><td class="small text-muted">Points and streak tracked from first payment</td></tr>
+                                            <tr><td class="small">&#x1F3C6; Leaderboard Access</td><td class="small text-muted">See your ranking among all members</td></tr>
+                                            <tr><td class="small">&#x1F4DC; Payment History</td><td class="small text-muted">Full history of on-time and early payments</td></tr>
+                                            <tr><td class="small">&#x1F4C8; Progress Bar</td><td class="small text-muted">Visual tracker toward Silver tier</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Silver -->
+                        <div class="card border-0 mb-3" style="background:linear-gradient(135deg,#f8fafc,#e2e8f0);">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-1" style="color:#475569;">&#x1F948; Silver Tier — 200 to 499 points</h6>
+                                <p class="small text-muted mb-2">Consistent payer — earning trust with the cooperative.</p>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered bg-white mb-0">
+                                        <thead><tr class="table-secondary"><th>Benefit</th><th>Details</th></tr></thead>
+                                        <tbody>
+                                            <tr><td class="small">&#x1F4B0; Late Fee Waiver</td><td class="small text-muted">One (1) late fee waiver on your next loan</td></tr>
+                                            <tr><td class="small">&#x1F525; Streak Recognition</td><td class="small text-muted">On-time streak displayed on member profile</td></tr>
+                                            <tr><td class="small">&#x23F3; Priority Queue</td><td class="small text-muted">Faster processing on loan applications</td></tr>
+                                            <tr><td class="small">&#x1F4C8; Progress Bar</td><td class="small text-muted">Visual tracker toward Gold tier</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gold -->
+                        <div class="card border-0 mb-3" style="background:linear-gradient(135deg,#fffbeb,#fef9c3);">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-1" style="color:#854d0e;">&#x1F947; Gold Tier — 500 to 999 points</h6>
+                                <p class="small text-muted mb-2">Trusted member with excellent payment record.</p>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered bg-white mb-0">
+                                        <thead><tr class="table-warning"><th>Benefit</th><th>Details</th></tr></thead>
+                                        <tbody>
+                                            <tr><td class="small">&#x1F4B3; Service Fee Discount</td><td class="small text-muted">Discounted service fee on loan releases</td></tr>
+                                            <tr><td class="small">&#x2705; Late Fee Waiver</td><td class="small text-muted">Automatic late fee waiver on qualifying payments</td></tr>
+                                            <tr><td class="small">&#x26A1; Priority Processing</td><td class="small text-muted">Loan applications moved to front of queue</td></tr>
+                                            <tr><td class="small">&#x1F9D1; Dedicated Support</td><td class="small text-muted">Dedicated staff support for account inquiries</td></tr>
+                                            <tr><td class="small">&#x1F4C8; Progress Bar</td><td class="small text-muted">Visual tracker toward Platinum tier</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Platinum -->
+                        <div class="card border-0" style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);">
+                            <div class="card-body">
+                                <h6 class="fw-bold mb-1" style="color:#5b21b6;">&#x1F4CD; Platinum Tier — 1,000+ points</h6>
+                                <p class="small text-muted mb-2">Elite member — top of the cooperative.</p>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered bg-white mb-0">
+                                        <thead><tr style="background:#7c3aed;color:white;"><th>Benefit</th><th>Details</th></tr></thead>
+                                        <tbody>
+                                            <tr><td class="small">&#x1F4B9; Interest Discount</td><td class="small text-muted">Exclusive interest rate discount on new loans</td></tr>
+                                            <tr><td class="small">&#x1F7E2; Service Fee Waiver</td><td class="small text-muted">Full service fee waiver on qualifying releases</td></tr>
+                                            <tr><td class="small">&#x2705; Auto Late Fee Waiver</td><td class="small text-muted">Automatic — no need to request</td></tr>
+                                            <tr><td class="small">&#x1F451; VIP Priority</td><td class="small text-muted">Highest priority for all transactions</td></tr>
+                                            <tr><td class="small">&#x1F3C6; Exclusive Recognition</td><td class="small text-muted">Featured on leaderboard as top member</td></tr>
+                                            <tr><td class="small">&#x1F4E6; All Lower Tier Benefits</td><td class="small text-muted">All Bronze, Silver, and Gold benefits included</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── Tab 3: Streaks ────────────────────────────── -->
+                    <div class="tab-pane fade" id="tab-streaks">
+                        <h6 class="fw-bold text-success mb-3">&#x1F525; Consecutive Payment Streaks</h6>
+                        <p class="small text-muted mb-3">A streak is the number of consecutive on-time payments without missing a due date. Streaks are tracked separately from total points.</p>
+
+                        <div class="table-responsive mb-4">
+                            <table class="table table-bordered table-sm align-middle">
+                                <thead class="table-success">
+                                    <tr>
+                                        <th>Streak Length</th>
+                                        <th class="text-center">Label</th>
+                                        <th>What It Means</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="fw-semibold">1 – 4 payments</td>
+                                        <td class="text-center"><span class="badge bg-secondary">Building</span></td>
+                                        <td class="small text-muted">You're getting started — keep it up!</td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <td class="fw-semibold">5 – 9 payments</td>
+                                        <td class="text-center"><span class="badge bg-info text-dark">On a Roll</span></td>
+                                        <td class="small text-muted">Consistent payer — great financial habit</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">10 – 24 payments</td>
+                                        <td class="text-center"><span class="badge bg-primary">Reliable</span></td>
+                                        <td class="small text-muted">Trusted member with excellent payment record</td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <td class="fw-semibold">25+ payments</td>
+                                        <td class="text-center"><span class="badge bg-warning text-dark">&#x1F451; Elite Payer</span></td>
+                                        <td class="small text-muted">Outstanding member — top of the cooperative</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card border-success border-opacity-25 h-100">
+                                    <div class="card-body">
+                                        <h6 class="fw-bold text-success">&#x1F4AA; Your Best Streak</h6>
+                                        <p class="small text-muted mb-0">Your all-time best streak is permanently saved on your profile even if your current streak resets. This gives you permanent recognition for your historical payment discipline.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-danger border-opacity-25 h-100">
+                                    <div class="card-body">
+                                        <h6 class="fw-bold text-danger">&#x26A0;&#xFE0F; What Resets Your Streak?</h6>
+                                        <ul class="small text-muted mb-0 ps-3">
+                                            <li>Missing a loan payment past the due date</li>
+                                            <li>A late payment recorded by your collector</li>
+                                            <li>Your account becomes inactive (no active loans)</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── Tab 4: Penalties ──────────────────────────── -->
+                    <div class="tab-pane fade" id="tab-penalties">
+                        <h6 class="fw-bold text-danger mb-3">&#x26A0;&#xFE0F; Point Deductions & Penalties</h6>
+                        <p class="small text-muted mb-3">Penalties are applied to members who miss payments or become inactive. Applied at most <strong>once per month</strong> per member.</p>
+
+                        <div class="table-responsive mb-4">
+                            <table class="table table-bordered table-sm align-middle">
+                                <thead class="table-danger">
+                                    <tr>
+                                        <th>Reason</th>
+                                        <th class="text-center">Deduction</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="fw-semibold">Missed 2 months of payments</td>
+                                        <td class="text-center"><span class="badge bg-danger">-30 pts</span></td>
+                                        <td class="small text-muted">Active loan, no payments for 2 consecutive months</td>
+                                    </tr>
+                                    <tr class="table-light">
+                                        <td class="fw-semibold">Missed 3+ months of payments</td>
+                                        <td class="text-center"><span class="badge bg-danger">-50 pts</span></td>
+                                        <td class="small text-muted">Active loan, no payments for 3 or more months</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="fw-semibold">No active loan (inactive)</td>
+                                        <td class="text-center"><span class="badge bg-warning text-dark">Streak Reset</span></td>
+                                        <td class="small text-muted">Consecutive streak resets to 0 — total points NOT affected</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="alert alert-warning d-flex align-items-start gap-2 mb-3">
+                            <i class="bi bi-info-circle-fill mt-1 flex-shrink-0"></i>
+                            <div class="small">
+                                <strong>Important:</strong> Points can never go below <strong>0</strong>. Streak reset does NOT reduce your total points. Your best streak record is never affected by resets.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── Tab 5: FAQ ─────────────────────────────────── -->
+                    <div class="tab-pane fade" id="tab-faq">
+                        <h6 class="fw-bold text-primary mb-3">&#x2753; Frequently Asked Questions</h6>
+
+                        <div class="accordion accordion-flush" id="faqAccordion">
+
+                            <div class="accordion-item border mb-2 rounded">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed fw-semibold small" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                                        How do I check my current points and tier?
+                                    </button>
+                                </h2>
+                                <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body small text-muted">Your points and tier badge are visible on the Member Rewards page. You can also ask any staff member to look up your current standing.</div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item border mb-2 rounded">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed fw-semibold small" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                                        When do I receive my points?
+                                    </button>
+                                </h2>
+                                <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body small text-muted">Points are automatically awarded when your payment is recorded in the system. On-time and early payments are processed immediately upon recording.</div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item border mb-2 rounded">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed fw-semibold small" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                                        Can I lose my tier?
+                                    </button>
+                                </h2>
+                                <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body small text-muted">Yes. If your points drop below the threshold for your current tier due to penalties, your tier will be downgraded. For example, if you are Silver (200 pts) and lose 30 points, you will drop back to Bronze.</div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item border mb-2 rounded">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed fw-semibold small" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                                        Are early payment bonuses stacked with on-time points?
+                                    </button>
+                                </h2>
+                                <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body small text-muted">Yes! Paying early gives you +10 (on-time) + +20 (early bonus) = <strong>+30 points total</strong> for that payment.</div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item border mb-2 rounded">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed fw-semibold small" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
+                                        What happens when I fully pay off a loan?
+                                    </button>
+                                </h2>
+                                <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body small text-muted">You earn +50 bonus completion points on top of your regular on-time payment points for the final payment — the largest single-payment reward available.</div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item border mb-2 rounded">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed fw-semibold small" type="button" data-bs-toggle="collapse" data-bs-target="#faq6">
+                                        How do I redeem my rewards like fee waivers?
+                                    </button>
+                                </h2>
+                                <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body small text-muted">Benefits like late fee waivers and service fee discounts are applied automatically when you are eligible. You do not need to manually request them.</div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item border mb-2 rounded">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed fw-semibold small" type="button" data-bs-toggle="collapse" data-bs-target="#faq7">
+                                        Can staff manually add or adjust my points?
+                                    </button>
+                                </h2>
+                                <div id="faq7" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body small text-muted">Yes. Management and admin staff can manually award up to 500 points per action for special recognition such as referrals, community participation, or exceptional circumstances.</div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div><!-- end tab-content -->
+            </div><!-- end modal-body -->
+
+            <div class="modal-footer bg-light" style="border-radius:0 0 1rem 1rem;">
+                <small class="text-muted me-auto"><i class="bi bi-info-circle me-1"></i>Microfinance EIS — Member Rewards Program v1.0</small>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+<!-- End Rewards Guidebook Modal -->
 
 <!-- Log Modal -->
 <div class="modal fade" id="logModal" tabindex="-1" aria-labelledby="logModalLabel" aria-modal="true" role="dialog">
