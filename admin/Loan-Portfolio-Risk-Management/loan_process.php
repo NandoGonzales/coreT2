@@ -1527,4 +1527,48 @@ $user_role = $_SESSION['userdata']['role'] ?? 'Staff';
         if (r === 'Failed') return 'sbadge-ci-failed';
         return 'sbadge-pending';
     }
+
+        // ── Real-Time Polling: loans ──────────────────────────
+        (function() {
+            let lastPollTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+            function pollNewLoans() {
+                fetch('/admin/inc/poll_new_records.php?module=loans&since=' + encodeURIComponent(lastPollTime), {
+                    credentials: 'same-origin', cache: 'no-store'
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.count || data.count === 0) return;
+
+                    // Update poll time
+                    lastPollTime = data.polled_at;
+
+                    // Reload table silently
+                    loadApplications();
+
+                    // Toast per record
+                    data.records.forEach(r => {
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'info',
+                            title: '📋 New Loan Application!',
+                            html: `<b>${r.member_name || 'Unknown'}</b><br><small class="text-muted">${r.loan_code || r.app_code || r.transaction_type || r.request_type || ''} ${r.amount ? '₱' + parseFloat(r.amount).toLocaleString('en-PH', {minimumFractionDigits:2}) : ''}</small>`,
+                            showConfirmButton: false,
+                            timer: 7000,
+                            timerProgressBar: true,
+                            didOpen: (toast) => {
+                                toast.addEventListener('mouseenter', Swal.stopTimer);
+                                toast.addEventListener('mouseleave', Swal.resumeTimer);
+                            }
+                        });
+                    });
+                })
+                .catch(() => {});
+            }
+
+            // Poll every 30 seconds
+            setInterval(pollNewLoans, 30000);
+        })();
+
 </script>

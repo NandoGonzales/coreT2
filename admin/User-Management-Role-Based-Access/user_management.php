@@ -1101,4 +1101,40 @@ include(__DIR__ . '/../inc/sidebar.php');
 
   /* ── Init ── */
   loadUsers();
+
+  // ── Real-Time Polling: approvals ──────────────────────────
+  (function() {
+      let lastPollTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+      function pollNewApprovals() {
+          fetch('/admin/inc/poll_new_records.php?module=approvals&since=' + encodeURIComponent(lastPollTime), {
+              credentials: 'same-origin', cache: 'no-store'
+          })
+          .then(r => r.json())
+          .then(data => {
+              if (!data.count || data.count === 0) return;
+              lastPollTime = data.polled_at;
+              loadUsers();
+              data.records.forEach(r => {
+                  Swal.fire({
+                      toast: true,
+                      position: 'top-end',
+                      icon: 'info',
+                      title: '👤 New Approval Request!',
+                      html: `<b>${r.member_name || 'Unknown'}</b><br><small class="text-muted">${r.request_type || ''}</small>`,
+                      showConfirmButton: false,
+                      timer: 7000,
+                      timerProgressBar: true,
+                      didOpen: (toast) => {
+                          toast.addEventListener('mouseenter', Swal.stopTimer);
+                          toast.addEventListener('mouseleave', Swal.resumeTimer);
+                      }
+                  });
+              });
+          })
+          .catch(() => {});
+      }
+
+      setInterval(pollNewApprovals, 30000);
+  })();
 </script>

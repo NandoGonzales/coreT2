@@ -1589,6 +1589,43 @@ function toggleEmailRecords() {
         : '<i class="bi bi-x-circle me-1"></i>Hide Email Records';
     if (!visible) loadEmailRecords();
 }
+
+        // ── Real-Time Polling: repayments ──────────────────────────
+        (function() {
+            let lastPollTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+            function pollNewRepayments() {
+                fetch('/admin/inc/poll_new_records.php?module=repayments&since=' + encodeURIComponent(lastPollTime), {
+                    credentials: 'same-origin', cache: 'no-store'
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.count || data.count === 0) return;
+                    lastPollTime = data.polled_at;
+                    loadData();
+                    data.records.forEach(r => {
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'info',
+                            title: '💰 New Payment Recorded!',
+                            html: `<b>${r.member_name || 'Unknown'}</b><br><small class="text-muted">${r.loan_code || ''} ${r.amount ? '₱' + parseFloat(r.amount).toLocaleString('en-PH', {minimumFractionDigits:2}) : ''}</small>`,
+                            showConfirmButton: false,
+                            timer: 7000,
+                            timerProgressBar: true,
+                            didOpen: (toast) => {
+                                toast.addEventListener('mouseenter', Swal.stopTimer);
+                                toast.addEventListener('mouseleave', Swal.resumeTimer);
+                            }
+                        });
+                    });
+                })
+                .catch(() => {});
+            }
+
+            setInterval(pollNewRepayments, 30000);
+        })();
+
 </script>
 
 <?php include(__DIR__ . '/../inc/footer.php'); ?>
