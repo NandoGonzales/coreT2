@@ -98,7 +98,7 @@ include(__DIR__ . '/../inc/sidebar.php');
     .table { margin-bottom: 0; }
     .table thead { background: #1f2937 !important; }
     .table thead th {
-        color: white !important; font-weight: 700; font-size: 0.875rem;
+        color: #1f2937 !important; font-weight: 700; font-size: 0.875rem;
         padding: 1rem 0.75rem; border: none; text-transform: uppercase; letter-spacing: 0.025em;
     }
 
