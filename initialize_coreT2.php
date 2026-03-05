@@ -77,15 +77,29 @@ function log_audit($user_id, $action_type, $module = null, $reference_id = null,
     $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
 
     try {
+        // ── 1. Log to audit_trail (main compliance & staff activity table) ──
         $stmt = $conn->prepare("
+            INSERT INTO audit_trail (user_id, action_type, module_name, record_id, ip_address, remarks, compliance_status)
+            VALUES (?, ?, ?, ?, ?, ?, 'Compliant')
+        ");
+        if ($stmt) {
+            $stmt->bind_param("ississ", $user_id, $action_type, $module, $reference_id, $ip_address, $details);
+            $stmt->execute();
+            $stmt->close();
+        }
+
+        // ── 2. Log to audit_trial (legacy table, kept for compatibility) ──
+        $stmt2 = $conn->prepare("
             INSERT INTO audit_trial (user_id, action_type, module, reference_id, details, ip_address, user_agent)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ");
-        $stmt->bind_param("ississs", $user_id, $action_type, $module, $reference_id, $details, $ip_address, $user_agent);
-        $stmt->execute();
-        $stmt->close();
+        if ($stmt2) {
+            $stmt2->bind_param("ississs", $user_id, $action_type, $module, $reference_id, $details, $ip_address, $user_agent);
+            $stmt2->execute();
+            $stmt2->close();
+        }
+
     } catch (Exception $e) {
-        // Optional: log to PHP error log if needed
         error_log("Audit log failed: " . $e->getMessage());
     }
 }
