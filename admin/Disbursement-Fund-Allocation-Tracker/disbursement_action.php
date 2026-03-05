@@ -146,24 +146,28 @@ function outputPdfDownload($pdf, string $filename): void {
 // ── Real-time Finance Approval Check (polling) ───────────────────
 if (isset($_GET['check_finance_approved'])) {
     header('Content-Type: application/json; charset=utf-8');
-    $res = $conn->query("
-        SELECT d.disbursement_id, d.amount, d.status,
-               m.full_name AS member_name
-        FROM disbursements d
-        LEFT JOIN members m ON d.member_id = m.member_id
-        WHERE d.status = 'Finance Approved'
-        ORDER BY d.created_at DESC
-        LIMIT 20
-    ");
-    $ids = [];
-    $records = [];
-    if ($res) {
-        while ($row = $res->fetch_assoc()) {
-            $ids[] = $row['disbursement_id'];
-            $records[] = $row;
+    try {
+        $res = $conn->query("
+            SELECT d.disbursement_id, d.amount, d.status,
+                   m.full_name AS member_name
+            FROM disbursements d
+            LEFT JOIN members m ON d.member_id = m.member_id
+            WHERE d.status = 'Finance Approved'
+            ORDER BY d.created_at DESC
+            LIMIT 20
+        ");
+        $ids = [];
+        $records = [];
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $ids[] = $row['disbursement_id'];
+                $records[] = $row;
+            }
         }
+        echo json_encode(['ids' => $ids, 'records' => $records]);
+    } catch (Throwable $e) {
+        echo json_encode(['ids' => [], 'records' => []]);
     }
-    echo json_encode(['ids' => $ids, 'records' => $records]);
     exit;
 }
 
@@ -428,14 +432,14 @@ try {
     // APPROVE ACTION
     // ══════════════════════════════════════════════════════════════
     $action = $_POST['action'] ?? '';
-    $disbursementId = (int)($_POST['id'] ?? 0);
+    $disbursementId = intval($_POST['id'] ?? 0);
     
-    $userId = $_SESSION['userdata']['user_id'] ?? 0;
+    $userId = intval($_SESSION['userdata']['user_id'] ?? 0);
     $userName = $_SESSION['userdata']['full_name'] ?? 'Unknown User';
     
     error_log("disbursement_action.php - Action: {$action}, ID: {$disbursementId}, User: {$userId} ({$userName})");
     
-    if (empty($disbursementId)) {
+    if ($disbursementId <= 0) {
         throw new Exception('Disbursement ID is required');
     }
     
@@ -460,7 +464,7 @@ try {
                 throw new Exception("Prepare failed: " . $conn->error);
             }
             
-            $checkStmt->bind_param('s', $disbursementId);
+            $checkStmt->bind_param('i', $disbursementId);
             $checkStmt->execute();
             $checkResult = $checkStmt->get_result();
             
@@ -586,8 +590,12 @@ try {
             $conn->commit();
             
             error_log("disbursement_action.php - Disbursement {$disbursementId} approved successfully by user {$userId}" . $syncMessage);
-            if (function_exists('log_staff_action')) {
-                log_staff_action('Disbursement Released', 'Disbursement Tracker', "Disbursement #$disbursementId" . (!empty($loanCode) ? " | Loan: $loanCode" : '') . $syncMessage, (int)$disbursementId);
+            try {
+                if (function_exists('log_staff_action')) {
+                    log_staff_action('Disbursement Released', 'Disbursement Tracker', "Disbursement #$disbursementId" . (!empty($loanCode) ? " | Loan: $loanCode" : '') . $syncMessage, (int)$disbursementId);
+                }
+            } catch (Throwable $logErr) {
+                error_log("log_staff_action error: " . $logErr->getMessage());
             }
             
             header('Content-Type: application/json; charset=utf-8');
