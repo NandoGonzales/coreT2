@@ -1278,5 +1278,41 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('applyInterestBtn')?.addEventListener('click', () => {
         checkAndApplyInterest(true);
     });
+
+    // ── Real-Time Polling: savings ──────────────────────────
+    (function() {
+        let lastSavingId = 0; // track by ID since savings has no created_at
+
+        function pollNewSavings() {
+            fetch('/admin/inc/poll_new_records.php?module=savings&last_id=' + encodeURIComponent(lastSavingId), {
+                credentials: 'same-origin', cache: 'no-store'
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.count || data.count === 0) return;
+                if (data.records.length > 0) lastSavingId = Math.max(...data.records.map(r => r.saving_id));
+                loadData();
+                data.records.forEach(r => {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'info',
+                        title: '🏦 New Savings Transaction!',
+                        html: `<b>${r.member_name || 'Unknown'}</b><br><small class="text-muted">${r.transaction_type || ''} ${r.amount ? '₱' + parseFloat(r.amount).toLocaleString('en-PH', {minimumFractionDigits:2}) : ''}</small>`,
+                        showConfirmButton: false,
+                        timer: 7000,
+                        timerProgressBar: true,
+                        didOpen: (toast) => {
+                            toast.addEventListener('mouseenter', Swal.stopTimer);
+                            toast.addEventListener('mouseleave', Swal.resumeTimer);
+                        }
+                    });
+                });
+            })
+            .catch(() => {});
+        }
+
+        setInterval(pollNewSavings, 30000);
+    })();
 });
 </script>
