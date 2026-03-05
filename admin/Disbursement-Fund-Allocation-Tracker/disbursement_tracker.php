@@ -777,11 +777,11 @@ include(__DIR__ . '/../inc/sidebar.php');
                                 <i class="bi bi-eye"></i>
                             </button>
                             ${d.status === 'Pending' ? `
-                            <button class="btn btn-sm btn-warning approve-btn" data-id="${d.disbursement_id}" title="Send to Finance">
-                                <i class="bi bi-send"></i>
+                            <button class="btn btn-sm btn-warning send-finance-btn" data-id="${d.disbursement_id}" title="Send to Finance">
+                                <i class="bi bi-send"></i> Send
                             </button>` : ''}
                             ${d.status === 'Finance Approved' ? `
-                            <button class="btn btn-sm btn-success approve-btn" data-id="${d.disbursement_id}" title="Release to Core 1">
+                            <button class="btn btn-sm btn-success release-btn" data-id="${d.disbursement_id}" title="Release to Core 1">
                                 <i class="bi bi-check-circle-fill"></i> Release
                             </button>` : ''}
                         </div>
@@ -789,7 +789,8 @@ include(__DIR__ . '/../inc/sidebar.php');
                     tbody.appendChild(row);
                 });
                 document.querySelectorAll('.view-disb-btn').forEach(btn => btn.addEventListener('click', onViewDisbursement));
-                document.querySelectorAll('.approve-btn').forEach(btn => btn.addEventListener('click', onApproveDisbursement));
+                document.querySelectorAll('.send-finance-btn').forEach(btn => btn.addEventListener('click', onSendToFinance));
+                document.querySelectorAll('.release-btn').forEach(btn => btn.addEventListener('click', onReleaseDisbursement));
             } else {
                 const fm = currentFilters.cardFilter !== 'all' ? ` matching "${filterIndicator.textContent}"` : '';
                 tbody.innerHTML = `<tr><td colspan="11" class="text-center text-muted"><i class="bi bi-inbox"></i> No disbursements found${fm}</td></tr>`;
@@ -841,63 +842,79 @@ include(__DIR__ . '/../inc/sidebar.php');
             new bootstrap.Modal(document.getElementById('disbModal')).show();
         }
 
-        function onApproveDisbursement(e) {
+        // ── Send to Finance (Pending → For Finance Approval) ────────
+        function onSendToFinance(e) {
             const id = e.currentTarget.dataset.id;
             const disb = allDisbursements.find(d => d.disbursement_id == id);
-            const isRelease = disb && disb.status === 'Finance Approved';
+            const member = disb?.member_name || '';
+            const amount = disb ? '₱' + parseFloat(disb.amount).toLocaleString('en-PH', {minimumFractionDigits:2}) : '';
 
             Swal.fire({
-                title: isRelease ? '🚀 Release Disbursement?' : 'Approve Disbursement?',
-                html: isRelease
-                    ? `<b>Disbursement #${id}</b> has been approved by Finance.<br><small class="text-muted">Clicking Release will mark it as Released and sync to Core 1.</small>`
-                    : `Approve disbursement #${id}?`,
+                title: '📤 Send to Finance?',
+                html: `<b>Disbursement #${id}</b><br>${member} ${amount}<br><small class="text-muted">This will forward the request to the Finance team for approval.</small>`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#f59e0b',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Yes, Send to Finance!',
+                cancelButtonText: 'Cancel'
+            }).then(result => {
+                if (!result.isConfirmed) return;
+                Swal.fire({ title: 'Sending...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+                fetch('send_to_finance.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ disbursement_id: id }),
+                    credentials: 'same-origin'
+                })
+                .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+                .then(res => {
+                    Swal.close();
+                    if (res.status === 'ok' || res.success) {
+                        Swal.fire({ icon: 'success', title: 'Sent! 📤', text: 'Disbursement forwarded to Finance team.', timer: 2500, showConfirmButton: false });
+                        loadData();
+                    } else throw new Error(res.msg || res.message || 'Failed to send');
+                })
+                .catch(err => Swal.fire({ icon: 'error', title: 'Failed!', text: err.message }));
+            });
+        }
+
+        // ── Release Disbursement (Finance Approved → Released) ────
+        function onReleaseDisbursement(e) {
+            const id = e.currentTarget.dataset.id;
+            const disb = allDisbursements.find(d => d.disbursement_id == id);
+            const member = disb?.member_name || '';
+            const amount = disb ? '₱' + parseFloat(disb.amount).toLocaleString('en-PH', {minimumFractionDigits:2}) : '';
+
+            Swal.fire({
+                title: '🚀 Release Disbursement?',
+                html: `<b>Disbursement #${id}</b><br>${member} ${amount}<br><small class="text-muted">Finance has approved this. Clicking Release will mark it as Released and sync to Core 1.</small>`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#198754',
                 cancelButtonColor: '#6c757d',
-                confirmButtonText: isRelease ? 'Yes, Release!' : 'Yes, approve it!',
+                confirmButtonText: 'Yes, Release!',
                 cancelButtonText: 'Cancel'
             }).then(result => {
                 if (!result.isConfirmed) return;
-                Swal.fire({
-                    title: isRelease ? 'Releasing...' : 'Processing...',
-                    allowOutsideClick: false,
-                    didOpen: () => Swal.showLoading()
-                });
+                Swal.fire({ title: 'Releasing...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
                 fetch('disbursement_action.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                            'X-Requested-With': 'XMLHttpRequest'
-                        },
-                        body: new URLSearchParams({
-                            action: 'approve',
-                            id
-                        }),
-                        credentials: 'same-origin'
-                    })
-                    .then(r => {
-                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                        return r.json();
-                    })
-                    .then(res => {
-                        Swal.close();
-                        if (res.status === 'ok') {
-                            Swal.fire({
-                                icon: 'success',
-                                title: isRelease ? 'Released! 🎉' : 'Approved!',
-                                text: res.msg || (isRelease ? 'Disbursement released and synced to Core 1.' : 'Disbursement approved.'),
-                                timer: 3000,
-                                showConfirmButton: false
-                            });
-                            loadData();
-                        } else throw new Error(res.msg || 'Failed');
-                    })
-                    .catch(err => Swal.fire({
-                        icon: 'error',
-                        title: 'Failed!',
-                        text: err.message
-                    }));
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new URLSearchParams({ action: 'approve', id }),
+                    credentials: 'same-origin'
+                })
+                .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+                .then(res => {
+                    Swal.close();
+                    if (res.status === 'ok') {
+                        Swal.fire({ icon: 'success', title: 'Released! 🎉', text: res.msg || 'Disbursement released and synced to Core 1.', timer: 3000, showConfirmButton: false });
+                        loadData();
+                    } else throw new Error(res.msg || 'Failed');
+                })
+                .catch(err => Swal.fire({ icon: 'error', title: 'Failed!', text: err.message }));
             });
         }
 
