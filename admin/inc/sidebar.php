@@ -46,6 +46,7 @@
         }
     }
 
+    /* Brand Section */
     .brand-link {
         transition: all 0.3s ease;
     }
@@ -82,6 +83,7 @@
         transition: color 0.3s ease;
     }
 
+    /* Menu Heading */
     .menu-heading {
         font-size: 0.75rem;
         font-weight: 700;
@@ -97,6 +99,7 @@
         margin-top: 0.5rem;
     }
 
+    /* Menu Buttons */
     .menu-btn {
         border-radius: 1rem;
         font-weight: 600;
@@ -148,6 +151,7 @@
         transform: scale(1.1) rotate(5deg);
     }
 
+    /* Active Menu State */
     .menu-active {
         background: var(--brand-primary) !important;
         color: #fff !important;
@@ -168,6 +172,7 @@
         color: #fff !important;
     }
 
+    /* Submenu Styles */
     .submenu-container {
         margin-top: 0.25rem;
         padding-left: 0;
@@ -203,6 +208,7 @@
         font-weight: 600;
     }
 
+    /* Collapse Arrow */
     .collapse-arrow {
         transition: transform 0.3s ease;
         color: var(--brand-primary);
@@ -214,6 +220,7 @@
         transform: rotate(180deg);
     }
 
+    /* System Status */
     .system-status {
         margin-top: auto;
         padding: 1rem 0.75rem;
@@ -257,6 +264,7 @@
         color: var(--brand-text-secondary);
     }
 
+    /* Scrollbar */
     .sidebar-desktop::-webkit-scrollbar {
         width: 6px;
     }
@@ -274,10 +282,12 @@
         background: rgba(0, 0, 0, 0.15);
     }
 
+    /* Mobile Offcanvas adjustments */
     .offcanvas {
         width: var(--sidebar-width) !important;
     }
 
+    /* Responsive */
     @media (max-width: 767px) {
         .main-wrap {
             padding-left: 0;
@@ -286,58 +296,89 @@
 </style>
 
 <?php
-$base_url    = '/admin';
+// Base URL to your project root
+$base_url = '/admin';
 $current_page = basename($_SERVER['PHP_SELF']);
 $current_path = $_SERVER['REQUEST_URI'];
 
+// Function to check if a path is active
 function is_active($path, $current_path)
 {
     return strpos($current_path, $path) !== false;
 }
+
+// Function to get active class
 function get_active_class($path, $current_path)
 {
     return is_active($path, $current_path) ? 'menu-active' : '';
 }
 
-$sidebar_logo  = 'dist/img/Golden.png';
-$login_logo    = 'dist/img/logo.jpg';
-$system_name   = 'Microfinance EIS';
+// ✅ DUAL LOGO SUPPORT: Different logos for different purposes
+// Sidebar/Dashboard logo (Golden.png)
+$sidebar_logo = 'dist/img/Golden.png';
+// Login page logo (logo.jpg) - stored separately
+$login_logo = 'dist/img/logo.jpg';
+
+$system_name = 'Microfinance EIS';
 $system_tagline = 'Integrated Loan, Savings, and Collection Monitoring';
 
 try {
+    // Include database connection
     if (file_exists(__DIR__ . '/../classes/DBConnection.php')) {
         require_once __DIR__ . '/../classes/DBConnection.php';
-        $db   = new DBConnection();
+        $db = new DBConnection();
         $conn = $db->conn;
-        $stmt = $conn->prepare("SELECT meta_field, meta_value FROM system_info WHERE meta_field IN ('logo','login_logo','system_name','system_tagline')");
+
+        // Get system info from database including BOTH logos
+        $stmt = $conn->prepare("SELECT meta_field, meta_value FROM system_info WHERE meta_field IN ('logo', 'login_logo', 'system_name', 'system_tagline')");
         $stmt->execute();
         $result = $stmt->get_result();
+
         while ($row = $result->fetch_assoc()) {
             switch ($row['meta_field']) {
                 case 'logo':
-                    $sidebar_logo   = $row['meta_value'];
+                    // This is the sidebar/dashboard logo
+                    $sidebar_logo = $row['meta_value'];
                     break;
                 case 'login_logo':
-                    $login_logo     = $row['meta_value'];
+                    // This is the login page logo
+                    $login_logo = $row['meta_value'];
                     break;
                 case 'system_name':
-                    $system_name    = $row['meta_value'];
+                    $system_name = $row['meta_value'];
                     break;
                 case 'system_tagline':
                     $system_tagline = $row['meta_value'];
                     break;
             }
         }
+
         $stmt->close();
     }
 } catch (Exception $e) {
+    // Use defaults if database connection fails
     error_log("Sidebar: Could not load system info - " . $e->getMessage());
 }
 
+// ✅ FIXED: Build logo paths using absolute paths from web root
+// Remove any leading slashes from database paths
 $sidebar_logo = ltrim($sidebar_logo, '/');
-$login_logo   = ltrim($login_logo, '/');
-$sidebar_logo_path = str_starts_with($sidebar_logo, 'http') ? $sidebar_logo : '/' . $sidebar_logo;
-$login_logo_path   = str_starts_with($login_logo,   'http') ? $login_logo   : '/' . $login_logo;
+$login_logo = ltrim($login_logo, '/');
+
+// Build the full paths - use root-relative paths (works from any subdirectory)
+if (!str_starts_with($sidebar_logo, 'http')) {
+    $sidebar_logo_path = '/' . $sidebar_logo;
+} else {
+    $sidebar_logo_path = $sidebar_logo;
+}
+
+if (!str_starts_with($login_logo, 'http')) {
+    $login_logo_path = '/' . $login_logo;
+} else {
+    $login_logo_path = $login_logo;
+}
+
+// Create fallback default logo path (also using absolute path)
 $default_logo = '/dist/img/default-logo.png';
 ?>
 
@@ -347,9 +388,10 @@ $default_logo = '/dist/img/default-logo.png';
     <div class="border-bottom px-3" style="height:4rem; display:flex; align-items:center;">
         <a href="<?= $base_url ?>/dashboard.php"
             class="brand-link d-flex align-items-center gap-3 text-decoration-none w-100 rounded-4 px-2 py-2">
+            <!-- ✅ SIDEBAR LOGO (Golden.png) with ABSOLUTE PATH -->
             <img src="<?= htmlspecialchars($sidebar_logo_path) ?>" alt="<?= htmlspecialchars($system_name) ?> Logo"
-                width="40" height="40" class="flex-shrink-0" style="object-fit:contain;"
-                onerror="this.onerror=null;this.src='<?= $default_logo ?>';">
+                width="40" height="40" class="flex-shrink-0" style="object-fit: contain;"
+                onerror="this.onerror=null; this.src='<?= $default_logo ?>';">
             <div class="lh-sm">
                 <div class="brand-title"><?= htmlspecialchars($system_name) ?></div>
                 <div class="brand-subtitle"><?= htmlspecialchars($system_tagline) ?></div>
@@ -361,14 +403,13 @@ $default_logo = '/dist/img/default-logo.png';
     <div class="px-3 py-3 overflow-auto flex-grow-1">
         <div class="menu-heading">Main Menu</div>
 
-        <!-- 1. Dashboard -->
         <a href="<?= $base_url ?>/dashboard.php"
             class="btn menu-btn <?= $current_page == 'dashboard.php' ? 'menu-active' : '' ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
             <span class="icon-box"><i class="bi bi-speedometer2"></i></span>
             <span>Dashboard</span>
         </a>
 
-        <!-- 2. Loan Portfolio -->
+        <!-- Loan Portfolio with Submenu -->
         <button class="btn menu-btn <?= get_active_class('Loan-Portfolio', $current_path) ?> w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
             data-bs-toggle="collapse" data-bs-target="#loanPortfolioSubmenu"
             aria-expanded="<?= get_active_class('Loan-Portfolio', $current_path) ? 'true' : 'false' ?>">
@@ -393,11 +434,10 @@ $default_logo = '/dist/img/default-logo.png';
 
         <div class="menu-heading">Transactions</div>
 
-        <!-- 3. Collection Monitoring -->
+        <!-- Collection Monitoring Submenu -->
         <?php $isCollection = strpos($current_path, 'Repayment-Tracker') !== false; ?>
         <button class="btn menu-btn <?= $isCollection ? 'active' : '' ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3"
-            data-bs-toggle="collapse" data-bs-target="#collectionSubmenu"
-            aria-expanded="<?= $isCollection ? 'true' : 'false' ?>">
+            data-bs-toggle="collapse" data-bs-target="#collectionSubmenu" aria-expanded="<?= $isCollection ? 'true' : 'false' ?>">
             <span class="icon-box"><i class="bi bi-cash-stack"></i></span>
             <span class="flex-grow-1">Collection Monitoring</span>
             <i class="bi bi-chevron-down small"></i>
@@ -405,31 +445,34 @@ $default_logo = '/dist/img/default-logo.png';
         <div class="collapse <?= $isCollection ? 'show' : '' ?>" id="collectionSubmenu">
             <div class="ps-4 pe-2 pb-1">
                 <a href="<?= $base_url ?>/Repayment-Tracker/repayments.php"
-                    class="btn menu-btn <?= strpos($current_path, 'repayments') !== false ? 'active' : '' ?> w-100 text-start d-flex align-items-center gap-2 mt-1 px-3 py-2" style="font-size:.875rem;">
+                    class="btn menu-btn <?= strpos($current_path,'repayments') !== false ? 'active' : '' ?> w-100 text-start d-flex align-items-center gap-2 mt-1 px-3 py-2" style="font-size:.875rem;">
                     <i class="bi bi-table me-1"></i><span>Loan Monitoring</span>
                 </a>
                 <a href="<?= $base_url ?>/Repayment-Tracker/email_history.php"
-                    class="btn menu-btn <?= strpos($current_path, 'email_history') !== false ? 'active' : '' ?> w-100 text-start d-flex align-items-center gap-2 mt-1 px-3 py-2" style="font-size:.875rem;">
+                    class="btn menu-btn <?= strpos($current_path,'email_history') !== false ? 'active' : '' ?> w-100 text-start d-flex align-items-center gap-2 mt-1 px-3 py-2" style="font-size:.875rem;">
                     <i class="bi bi-envelope-check me-1"></i><span>Email History</span>
                 </a>
             </div>
         </div>
 
-        <!-- 4. Disbursement Tracker -->
+        <a href="<?= $base_url ?>/Saving-Collection-Monitoring/savings_monitoring.php"
+            class="btn menu-btn <?= get_active_class('Saving-Collection', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
+            <span class="icon-box"><i class="bi bi-piggy-bank"></i></span>
+            <span>Savings Monitoring</span>
+        </a>
+
         <a href="<?= $base_url ?>/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php"
             class="btn menu-btn <?= get_active_class('Disbursement', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
             <span class="icon-box"><i class="bi bi-send"></i></span>
             <span>Disbursement Tracker</span>
         </a>
 
-        <!-- 5. Member Rewards -->
+
         <a href="<?= $base_url ?>/Rewards/member_rewards.php"
             class="btn menu-btn <?= get_active_class('Rewards', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
             <span class="icon-box"><i class="bi bi-trophy-fill"></i></span>
             <span>Member Rewards</span>
         </a>
-
-        <!-- 6. Compliance & Audit -->
         <?php if ($_SESSION['userdata']['role'] !== 'Staff'): ?>
             <button class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
                 data-bs-toggle="collapse" data-bs-target="#complianceSubmenu"
@@ -458,16 +501,10 @@ $default_logo = '/dist/img/default-logo.png';
             </div>
         <?php endif; ?>
 
-        <!-- 7. Savings Monitoring -->
-        <a href="<?= $base_url ?>/Saving-Collection-Monitoring/savings_monitoring.php"
-            class="btn menu-btn <?= get_active_class('Saving-Collection', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
-            <span class="icon-box"><i class="bi bi-piggy-bank"></i></span>
-            <span>Savings Monitoring</span>
-        </a>
-
-        <!-- 8. User Management (Admin only) -->
         <?php if (in_array($_SESSION['userdata']['role'], ['Super Admin', 'Admin'])): ?>
             <div class="menu-heading">System Admin</div>
+
+            <!-- User Management with Submenu -->
             <button class="btn menu-btn w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
                 data-bs-toggle="collapse" data-bs-target="#userManagementSubmenu" aria-expanded="false">
                 <span class="d-flex align-items-center gap-3">
@@ -476,6 +513,7 @@ $default_logo = '/dist/img/default-logo.png';
                 </span>
                 <span class="collapse-arrow">▾</span>
             </button>
+
             <div class="collapse submenu-container" id="userManagementSubmenu">
                 <div class="submenu-items">
                     <?php if ($_SESSION['userdata']['role'] === 'Super Admin'): ?>
@@ -523,9 +561,10 @@ $default_logo = '/dist/img/default-logo.png';
     <div class="offcanvas-header border-bottom">
         <a href="<?= $base_url ?>/dashboard.php"
             class="brand-link d-flex align-items-center gap-3 text-decoration-none w-100 rounded-4 px-2 py-2">
+            <!-- ✅ SIDEBAR LOGO (Golden.png) with ABSOLUTE PATH -->
             <img src="<?= htmlspecialchars($sidebar_logo_path) ?>" alt="<?= htmlspecialchars($system_name) ?> Logo"
-                width="40" height="40" style="object-fit:contain;"
-                onerror="this.onerror=null;this.src='<?= $default_logo ?>';">
+                width="40" height="40" style="object-fit: contain;"
+                onerror="this.onerror=null; this.src='<?= $default_logo ?>';">
             <div class="lh-sm">
                 <div class="brand-title"><?= htmlspecialchars($system_name) ?></div>
                 <div class="brand-subtitle"><?= htmlspecialchars($system_tagline) ?></div>
@@ -535,16 +574,16 @@ $default_logo = '/dist/img/default-logo.png';
     </div>
 
     <div class="offcanvas-body">
+        <!-- Same menu structure as desktop -->
         <div class="menu-heading mt-0">Main Menu</div>
 
-        <!-- 1. Dashboard -->
         <a href="<?= $base_url ?>/dashboard.php"
             class="btn menu-btn <?= $current_page == 'dashboard.php' ? 'menu-active' : '' ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
             <span class="icon-box"><i class="bi bi-speedometer2"></i></span>
             <span>Dashboard</span>
         </a>
 
-        <!-- 2. Loan Portfolio -->
+        <!-- Loan Portfolio with Submenu -->
         <button class="btn menu-btn <?= get_active_class('Loan-Portfolio', $current_path) ?> w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
             data-bs-toggle="collapse" data-bs-target="#loanPortfolioSubmenuMobile"
             aria-expanded="<?= get_active_class('Loan-Portfolio', $current_path) ? 'true' : 'false' ?>">
@@ -569,11 +608,10 @@ $default_logo = '/dist/img/default-logo.png';
 
         <div class="menu-heading">Transactions</div>
 
-        <!-- 3. Collection Monitoring -->
+        <!-- Collection Monitoring Mobile Submenu -->
         <?php $isCollectionM = strpos($current_path, 'Repayment-Tracker') !== false; ?>
         <button class="btn menu-btn <?= $isCollectionM ? 'active' : '' ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3"
-            data-bs-toggle="collapse" data-bs-target="#collectionSubmenuMobile"
-            aria-expanded="<?= $isCollectionM ? 'true' : 'false' ?>">
+            data-bs-toggle="collapse" data-bs-target="#collectionSubmenuMobile" aria-expanded="<?= $isCollectionM ? 'true' : 'false' ?>">
             <span class="icon-box"><i class="bi bi-cash-stack"></i></span>
             <span class="flex-grow-1">Collection Monitoring</span>
             <i class="bi bi-chevron-down small"></i>
@@ -590,24 +628,26 @@ $default_logo = '/dist/img/default-logo.png';
                 </a>
             </div>
         </div>
+        <a href="<?= $base_url ?>/Saving-Collection-Monitoring/savings_monitoring.php"
+            class="btn menu-btn <?= get_active_class('Saving-Collection', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
+            <span class="icon-box"><i class="bi bi-piggy-bank"></i></span>
+            <span>Savings Monitoring</span>
+        </a>
 
-        <!-- 4. Disbursement Tracker -->
         <a href="<?= $base_url ?>/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php"
             class="btn menu-btn <?= get_active_class('Disbursement', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
             <span class="icon-box"><i class="bi bi-send"></i></span>
             <span>Disbursement Tracker</span>
         </a>
 
-        <!-- 5. Member Rewards -->
+        <?php if ($_SESSION['userdata']['role'] !== 'Staff'): ?>
+    
         <a href="<?= $base_url ?>/Rewards/member_rewards.php"
             class="btn menu-btn <?= get_active_class('Rewards', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
             <span class="icon-box"><i class="bi bi-trophy-fill"></i></span>
             <span>Member Rewards</span>
         </a>
-
-        <!-- 6. Compliance & Audit -->
-        <?php if ($_SESSION['userdata']['role'] !== 'Staff'): ?>
-            <button class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
+        <button class="btn menu-btn <?= get_active_class('Compliance', $current_path) ?> w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
                 data-bs-toggle="collapse" data-bs-target="#complianceSubmenuMobile"
                 aria-expanded="<?= get_active_class('Compliance', $current_path) ? 'true' : 'false' ?>">
                 <span class="d-flex align-items-center gap-3">
@@ -634,16 +674,9 @@ $default_logo = '/dist/img/default-logo.png';
             </div>
         <?php endif; ?>
 
-        <!-- 7. Savings Monitoring -->
-        <a href="<?= $base_url ?>/Saving-Collection-Monitoring/savings_monitoring.php"
-            class="btn menu-btn <?= get_active_class('Saving-Collection', $current_path) ?> w-100 text-start d-flex align-items-center gap-3 mt-2 px-3 py-3">
-            <span class="icon-box"><i class="bi bi-piggy-bank"></i></span>
-            <span>Savings Monitoring</span>
-        </a>
-
-        <!-- 8. User Management (Admin only) -->
         <?php if (in_array($_SESSION['userdata']['role'], ['Super Admin', 'Admin'])): ?>
             <div class="menu-heading">System Admin</div>
+
             <button class="btn menu-btn w-100 text-start d-flex align-items-center justify-content-between mt-2 px-3 py-3"
                 data-bs-toggle="collapse" data-bs-target="#userManagementSubmenuMobile" aria-expanded="false">
                 <span class="d-flex align-items-center gap-3">
@@ -652,6 +685,7 @@ $default_logo = '/dist/img/default-logo.png';
                 </span>
                 <span class="collapse-arrow">▾</span>
             </button>
+
             <div class="collapse submenu-container" id="userManagementSubmenuMobile">
                 <div class="submenu-items">
                     <?php if ($_SESSION['userdata']['role'] === 'Super Admin'): ?>
@@ -695,15 +729,17 @@ $default_logo = '/dist/img/default-logo.png';
 
 <!-- Toggle Sidebar Script -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const sidebarToggle = document.getElementById('sidebarToggle');
         const desktopSidebar = document.getElementById('desktopSidebar');
         const mainWrap = document.querySelector('.main-wrap');
 
         if (sidebarToggle && desktopSidebar && mainWrap) {
-            sidebarToggle.addEventListener('click', function() {
+            sidebarToggle.addEventListener('click', function () {
                 desktopSidebar.classList.toggle('collapsed');
                 mainWrap.classList.toggle('expanded');
+
+                // Add smooth bounce effect
                 this.style.transform = 'scale(0.9)';
                 setTimeout(() => {
                     this.style.transform = 'scale(1)';
