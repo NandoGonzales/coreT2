@@ -57,7 +57,9 @@
                 allowOutsideClick: false,
                 allowEscapeKey: false
             }).then(function() {
-                window.location.href = redirectUrl || '/admin/login.php';
+                // Go through logout.php to destroy server session first
+                // Prevents login.php from redirecting back to dashboard
+                window.location.replace('/admin/logout.php?auto=1');
             });
         }
     };
@@ -127,33 +129,36 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Debounce: only ping server every 30s, not on every mousemove
+    let lastServerUpdate = 0;
+    const SERVER_UPDATE_INTERVAL = 30000; // 30 seconds
+
     // Reset activity timer on user interaction
     function resetActivityTimer() {
         if (window.sessionManager.isLoggingOut) return;
         
         lastActivity = Date.now();
-        
+
+        // Only update server every 30 seconds to avoid hammering it
+        const now = Date.now();
+        if (now - lastServerUpdate < SERVER_UPDATE_INTERVAL) return;
+        lastServerUpdate = now;
+
         // Send AJAX request to update session
         fetch('/admin/inc/update_session_activity.php', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                action: 'update_activity'
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'update_activity' })
         })
         .then(response => response.json())
         .then(data => {
-            // ✅ Check if session is still valid
+            // Session expired on server - force logout
             if (data.session_valid === false && window.sessionManager.canShowAlert()) {
                 clearInterval(countdownInterval);
                 window.sessionManager.showExpiredAlert('/admin/login.php');
             }
         })
-        .catch(() => {
-            // Silently fail if server not reachable
-        });
+        .catch(() => {});
     }
 
     // Check session timeout (client-side)

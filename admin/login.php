@@ -5,14 +5,15 @@ require_once(__DIR__ . '/inc/send_otp.php');
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-// Redirect if already logged in — validate properly
-if (isset($_SESSION['userdata']) && !empty($_SESSION['userdata']['user_id']) && isset($_SESSION['last_activity'])) {
-    // Check session hasn't expired
+// If user came via logout or session expiry, always show login form
+// Only redirect to dashboard if session is explicitly valid (not via expiry route)
+$coming_from_logout = isset($_GET['logout']) || isset($_GET['timeout']) || isset($_GET['auto']);
+
+if (!$coming_from_logout && isset($_SESSION['userdata']) && !empty($_SESSION['userdata']['user_id']) && isset($_SESSION['last_activity'])) {
     $elapsed = time() - ($_SESSION['last_activity'] ?? 0);
     $session_age = isset($_SESSION['session_start']) ? (time() - $_SESSION['session_start']) : 999;
     
     if ($elapsed < 120 && $session_age > 2) {
-        // Verify user still active in DB
         if (isset($conn) && $conn && !$conn->connect_error) {
             $uid = (int)$_SESSION['userdata']['user_id'];
             $chk = $conn->query("SELECT status FROM users WHERE user_id = $uid LIMIT 1");
@@ -23,8 +24,10 @@ if (isset($_SESSION['userdata']) && !empty($_SESSION['userdata']['user_id']) && 
             }
         }
     }
-    
-    // Session invalid/expired — clear it
+}
+
+// Always clear session on login page if coming from logout/timeout
+if ($coming_from_logout) {
     $_SESSION = [];
     session_unset();
 }
