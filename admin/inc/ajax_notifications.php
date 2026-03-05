@@ -210,6 +210,75 @@ try {
             ];
         }
 
+        // 11. New loan applications (last 24 hrs)
+        $res = $conn->query("
+            SELECT la.app_id, la.app_code, m.full_name, la.principal_amount, la.created_at
+            FROM loan_applications la
+            LEFT JOIN members m ON m.member_id = la.member_id
+            WHERE la.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            ORDER BY la.created_at DESC LIMIT 5");
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $notifications[] = [
+                'type'    => 'loan_app',
+                'icon'    => 'bi-file-earmark-plus text-primary',
+                'message' => 'New loan application: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['principal_amount']),
+                'time'    => $row['created_at'],
+                'link'    => '/admin/Loan-Portfolio-Risk-Management/loan_process.php',
+            ];
+        }
+
+        // 12. Finance Approved disbursements (ready to release)
+        $res = $conn->query("
+            SELECT d.disbursement_id, m.full_name, d.amount, d.updated_at
+            FROM disbursements d
+            LEFT JOIN members m ON m.member_id = d.member_id
+            WHERE d.status = 'Finance Approved'
+            ORDER BY d.updated_at DESC LIMIT 5");
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $notifications[] = [
+                'type'    => 'finance',
+                'icon'    => 'bi-bank text-success',
+                'message' => '✅ Finance Approved — Ready to release: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
+                'time'    => $row['updated_at'] ?? date('Y-m-d H:i:s'),
+                'link'    => '/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php',
+            ];
+        }
+
+        // 13. New savings transactions (last 24 hrs) — use saving_id since no created_at
+        $res = $conn->query("
+            SELECT s.saving_id, s.transaction_type, s.amount, s.transaction_date,
+                   m.full_name
+            FROM savings s
+            LEFT JOIN members m ON m.member_id = s.member_id
+            WHERE s.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+            ORDER BY s.saving_id DESC LIMIT 5");
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $notifications[] = [
+                'type'    => 'savings',
+                'icon'    => 'bi-piggy-bank text-info',
+                'message' => 'Savings ' . htmlspecialchars($row['transaction_type']) . ': ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
+                'time'    => $row['transaction_date'],
+                'link'    => '/admin/Saving-Collection-Monitoring/savings_monitoring.php',
+            ];
+        }
+
+        // 14. For Finance Approval (pending with Finance team)
+        $res = $conn->query("
+            SELECT d.disbursement_id, m.full_name, d.amount, d.sent_to_finance_at
+            FROM disbursements d
+            LEFT JOIN members m ON m.member_id = d.member_id
+            WHERE d.status = 'For Finance Approval'
+            ORDER BY d.sent_to_finance_at DESC LIMIT 3");
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $notifications[] = [
+                'type'    => 'pending_finance',
+                'icon'    => 'bi-hourglass-split text-warning',
+                'message' => 'Awaiting Finance approval: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
+                'time'    => $row['sent_to_finance_at'] ?? date('Y-m-d H:i:s'),
+                'link'    => '/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php',
+            ];
+        }
+
     // ══════════════════════════════════════════════════════════════
     // ADMIN
     // ══════════════════════════════════════════════════════════════
@@ -355,6 +424,58 @@ try {
             ];
         }
 
+        // 9. New loan applications (last 24 hrs)
+        $res = $conn->query("
+            SELECT la.app_id, la.app_code, m.full_name, la.principal_amount, la.created_at
+            FROM loan_applications la
+            LEFT JOIN members m ON m.member_id = la.member_id
+            WHERE la.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            ORDER BY la.created_at DESC LIMIT 5");
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $notifications[] = [
+                'type'    => 'loan_app',
+                'icon'    => 'bi-file-earmark-plus text-primary',
+                'message' => 'New loan application: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['principal_amount']),
+                'time'    => $row['created_at'],
+                'link'    => '/admin/Loan-Portfolio-Risk-Management/loan_process.php',
+            ];
+        }
+
+        // 10. Finance Approved — ready to release
+        $res = $conn->query("
+            SELECT d.disbursement_id, m.full_name, d.amount, d.updated_at
+            FROM disbursements d
+            LEFT JOIN members m ON m.member_id = d.member_id
+            WHERE d.status = 'Finance Approved'
+            ORDER BY d.updated_at DESC LIMIT 5");
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $notifications[] = [
+                'type'    => 'finance',
+                'icon'    => 'bi-bank text-success',
+                'message' => '✅ Finance Approved — Ready to release: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
+                'time'    => $row['updated_at'] ?? date('Y-m-d H:i:s'),
+                'link'    => '/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php',
+            ];
+        }
+
+        // 11. New savings transactions (last 24 hrs)
+        $res = $conn->query("
+            SELECT s.saving_id, s.transaction_type, s.amount, s.transaction_date,
+                   m.full_name
+            FROM savings s
+            LEFT JOIN members m ON m.member_id = s.member_id
+            WHERE s.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+            ORDER BY s.saving_id DESC LIMIT 5");
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $notifications[] = [
+                'type'    => 'savings',
+                'icon'    => 'bi-piggy-bank text-info',
+                'message' => 'Savings ' . htmlspecialchars($row['transaction_type']) . ': ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
+                'time'    => $row['transaction_date'],
+                'link'    => '/admin/Saving-Collection-Monitoring/savings_monitoring.php',
+            ];
+        }
+
     // ══════════════════════════════════════════════════════════════
     // STAFF
     // ══════════════════════════════════════════════════════════════
@@ -452,6 +573,50 @@ try {
             ];
         }
     }
+
+        // 6. Loan application status update — para malaman ng staff kung approved/rejected
+        $stmt2 = $conn->prepare("
+            SELECT la.app_id, la.app_code, la.status, la.action_at, m.full_name
+            FROM loan_applications la
+            LEFT JOIN members m ON m.member_id = la.member_id
+            WHERE la.created_by = ?
+              AND la.status IN ('Approved','Rejected','CI In Progress','Evaluated')
+              AND la.action_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            ORDER BY la.action_at DESC LIMIT 3");
+        if ($stmt2 && $stmt2->bind_param('i', $user_id)) {
+            $stmt2->execute();
+            $res2 = $stmt2->get_result();
+            while ($row = $res2->fetch_assoc()) {
+                $icon = $row['status'] === 'Approved' ? 'bi-check-circle-fill text-success' : 
+                        ($row['status'] === 'Rejected' ? 'bi-x-circle text-danger' : 'bi-info-circle text-info');
+                $notifications[] = [
+                    'type'    => 'loan_status',
+                    'icon'    => $icon,
+                    'message' => 'Loan ' . htmlspecialchars($row['app_code']) . ' is now ' . htmlspecialchars($row['status']) . ': ' . htmlspecialchars($row['full_name']),
+                    'time'    => $row['action_at'],
+                    'link'    => '/admin/Loan-Portfolio-Risk-Management/loan_process.php',
+                ];
+            }
+            $stmt2->close();
+        }
+
+        // 7. Finance Approved — para malaman ng staff na approved na ng Finance
+        $res = $conn->query("
+            SELECT d.disbursement_id, m.full_name, d.amount, d.updated_at
+            FROM disbursements d
+            LEFT JOIN members m ON m.member_id = d.member_id
+            WHERE d.status = 'Finance Approved'
+              AND d.updated_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            ORDER BY d.updated_at DESC LIMIT 3");
+        if ($res) while ($row = $res->fetch_assoc()) {
+            $notifications[] = [
+                'type'    => 'finance',
+                'icon'    => 'bi-bank text-success',
+                'message' => '✅ Finance Approved: ' . htmlspecialchars($row['full_name']) . ' — ₱' . number_format($row['amount'], 2),
+                'time'    => $row['updated_at'] ?? date('Y-m-d H:i:s'),
+                'link'    => '/admin/Disbursement-Fund-Allocation-Tracker/disbursement_tracker.php',
+            ];
+        }
 
     // ── Sort newest first, limit 10 ───────────────────────────────
     usort($notifications, fn($a, $b) => strtotime($b['time']) - strtotime($a['time']));
