@@ -143,6 +143,30 @@ function outputPdfDownload($pdf, string $filename): void {
     exit;
 }
 
+// ── Real-time Finance Approval Check (polling) ───────────────────
+if (isset($_GET['check_finance_approved'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    $res = $conn->query("
+        SELECT d.disbursement_id, d.amount, d.status,
+               m.full_name AS member_name
+        FROM disbursements d
+        LEFT JOIN members m ON d.member_id = m.member_id
+        WHERE d.status = 'Finance Approved'
+        ORDER BY d.created_at DESC
+        LIMIT 20
+    ");
+    $ids = [];
+    $records = [];
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $ids[] = $row['disbursement_id'];
+            $records[] = $row;
+        }
+    }
+    echo json_encode(['ids' => $ids, 'records' => $records]);
+    exit;
+}
+
 try {
     // ══════════════════════════════════════════════════════════════
     // PDF EXPORT

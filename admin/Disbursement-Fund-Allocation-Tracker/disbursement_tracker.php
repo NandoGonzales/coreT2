@@ -1238,5 +1238,64 @@ include(__DIR__ . '/../inc/sidebar.php');
 
         // Initial load
         loadData();
+
+        // ── Real-time Finance Approval Polling ───────────────────
+        let lastFinanceApprovedIds = new Set();
+
+        function checkFinanceApprovals() {
+            fetch('disbursement_action.php?check_finance_approved=1', {
+                credentials: 'same-origin',
+                cache: 'no-store'
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.ids || data.ids.length === 0) return;
+
+                const newIds = data.ids.filter(id => !lastFinanceApprovedIds.has(id));
+                if (newIds.length === 0) return;
+
+                // Update tracking set
+                data.ids.forEach(id => lastFinanceApprovedIds.add(id));
+
+                // Reload table silently
+                loadData();
+
+                // Show toast notification
+                newIds.forEach(id => {
+                    const disb = data.records?.find(r => r.disbursement_id == id);
+                    const member = disb?.member_name || 'Unknown';
+                    const amount = disb ? '₱' + parseFloat(disb.amount).toLocaleString('en-PH', {minimumFractionDigits:2}) : '';
+
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-end',
+                        icon: 'success',
+                        title: '✅ Finance Approved!',
+                        html: `<b>Disbursement #${id}</b><br>${member} ${amount}<br><small class="text-muted">Ready to Release → Core 1</small>`,
+                        showConfirmButton: false,
+                        timer: 8000,
+                        timerProgressBar: true,
+                        didOpen: (toast) => {
+                            toast.addEventListener('mouseenter', Swal.stopTimer);
+                            toast.addEventListener('mouseleave', Swal.resumeTimer);
+                        }
+                    });
+                });
+            })
+            .catch(() => {}); // Silent fail — no annoying errors
+        }
+
+        // Initialize tracking set from current data
+        setTimeout(() => {
+            lastFinanceApprovedIds = new Set(
+                allDisbursements
+                    .filter(d => d.status === 'Finance Approved')
+                    .map(d => d.disbursement_id)
+            );
+        }, 2000);
+
+        // Poll every 30 seconds
+        setInterval(checkFinanceApprovals, 30000);
+
     });
 </script>
