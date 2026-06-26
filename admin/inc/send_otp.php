@@ -66,7 +66,6 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp)
     error_log("✅ First call for this email+OTP combo - proceeding to send");
 
     $mail = new PHPMailer(true);
-    $mail->SMTPDebug = 2;
 
     try {
         error_log("📤 Initializing PHPMailer...");
