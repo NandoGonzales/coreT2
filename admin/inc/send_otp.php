@@ -72,13 +72,13 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
         $mail->isSMTP();
         $mail->Host       = 'smtp.gmail.com';
         $mail->SMTPAuth   = true;
-        $mail->Username   = 'microfinancecore@gmail.com';
-        $mail->Password   = 'qsxundgxdiabhmpg';
+        $mail->Username   = 'microfinancecmpy@gmail.com';
+        $mail->Password   = 'pbigcshkcmkeevxv';
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = 587;
 
         // Recipients
-        $mail->setFrom('microfinancecore@gmail.com', 'CORET2 System');
+        $mail->setFrom('microfinancecmpy@gmail.com', 'CORET2 System');
         $mail->addAddress($recipientEmail, $recipientName);
 
         // Email content
