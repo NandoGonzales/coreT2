@@ -75,7 +75,7 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp)
         $mail->Host       = 'smtp.gmail.com';
         $mail->SMTPAuth   = true;
         $mail->Username   = 'microfinancecmpy@gmail.com';
-        $mail->Password   = 'gvrfhrwkguhxjdmf';
+        $mail->Password   = 'bsuegwpvkyoigwbl';
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port       = 587;
 
