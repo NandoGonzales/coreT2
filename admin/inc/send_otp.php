@@ -21,7 +21,8 @@ use PHPMailer\PHPMailer\Exception;
 /**
  * Generate random OTP
  */
-function generateOTP($length = 6) {
+function generateOTP($length = 6)
+{
     $otp = rand(pow(10, $length - 1), pow(10, $length) - 1);
     error_log("🔢 generateOTP() called - Generated: $otp");
     return $otp;
@@ -30,7 +31,8 @@ function generateOTP($length = 6) {
 /**
  * Send OTP Email with AGGRESSIVE duplicate prevention
  */
-function sendOTPEmail($recipientEmail, $recipientName, $otp) {
+function sendOTPEmail($recipientEmail, $recipientName, $otp)
+{
     // ✅ LOG EVERY CALL
     error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     error_log("📧 sendOTPEmail() CALLED");
@@ -38,7 +40,7 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
     error_log("   Name: $recipientName");
     error_log("   OTP: $otp");
     error_log("   Time: " . date('Y-m-d H:i:s'));
-    
+
     // Log who called this function
     $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
     error_log("   Called from:");
@@ -46,11 +48,11 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
         if ($i === 0) continue; // Skip self
         error_log("     [$i] " . ($trace['file'] ?? 'unknown') . " line " . ($trace['line'] ?? '?'));
     }
-    
+
     // ✅ STATIC GUARD - Prevent same email from being sent twice
     static $email_sent = [];
     $key = $recipientEmail . '_' . $otp;
-    
+
     if (isset($email_sent[$key])) {
         error_log("❌ DUPLICATE EMAIL BLOCKED!");
         error_log("   Already sent this exact OTP to this email in this request");
@@ -58,16 +60,16 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
         error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         return true; // Already sent
     }
-    
+
     // Mark as sent IMMEDIATELY (before sending, to prevent race condition)
     $email_sent[$key] = microtime(true);
     error_log("✅ First call for this email+OTP combo - proceeding to send");
-    
+
     $mail = new PHPMailer(true);
 
     try {
         error_log("📤 Initializing PHPMailer...");
-        
+
         // Server settings
         $mail->isSMTP();
         $mail->Host       = 'smtp.gmail.com';
@@ -84,7 +86,7 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
         // Email content
         $mail->isHTML(true);
         $mail->Subject = 'Your Login OTP - CORET2 System';
-        
+
         // HTML email template
         $mail->Body = '
         <!DOCTYPE html>
@@ -242,23 +244,22 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
 
         // Plain text version
         $mail->AltBody = "Hello $recipientName,\n\n"
-                       . "Your OTP for CORET2 System login is: $otp\n\n"
-                       . "This code will expire in 2 minutes.\n\n"
-                       . "Security Reminders:\n"
-                       . "- Never share this OTP with anyone\n"
-                       . "- CORET2 will never ask for your OTP\n"
-                       . "- If you did not request this, please ignore this email\n\n"
-                       . "Best regards,\n"
-                       . "CORET2 System Team\n\n"
-                       . "This is an automated email. Please do not reply.";
+            . "Your OTP for CORET2 System login is: $otp\n\n"
+            . "This code will expire in 2 minutes.\n\n"
+            . "Security Reminders:\n"
+            . "- Never share this OTP with anyone\n"
+            . "- CORET2 will never ask for your OTP\n"
+            . "- If you did not request this, please ignore this email\n\n"
+            . "Best regards,\n"
+            . "CORET2 System Team\n\n"
+            . "This is an automated email. Please do not reply.";
 
         error_log("📤 Calling mail->send()...");
         $mail->send();
         error_log("✅ Email sent successfully!");
         error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        
+
         return true;
-        
     } catch (Exception $e) {
         error_log("❌ PHPMailer Error: {$mail->ErrorInfo}");
         error_log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -269,13 +270,14 @@ function sendOTPEmail($recipientEmail, $recipientName, $otp) {
 /**
  * Store OTP in database
  */
-function storeOTP($user_id, $otp, $conn) {
+function storeOTP($user_id, $otp, $conn)
+{
     error_log("💾 storeOTP() called for user_id: $user_id");
-    
+
     try {
         $otp_hash = password_hash($otp, PASSWORD_DEFAULT);
         $expiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
-        
+
         $stmt = $conn->prepare("
             UPDATE users 
             SET otp_code = ?, 
@@ -286,13 +288,13 @@ function storeOTP($user_id, $otp, $conn) {
         $stmt->bind_param('ssi', $otp_hash, $expiry, $user_id);
         $success = $stmt->execute();
         $stmt->close();
-        
+
         if ($success) {
             error_log("✅ OTP stored in database successfully");
         } else {
             error_log("❌ Failed to store OTP in database");
         }
-        
+
         return $success;
     } catch (Exception $e) {
         error_log("❌ Store OTP Error: " . $e->getMessage());
@@ -301,4 +303,3 @@ function storeOTP($user_id, $otp, $conn) {
 }
 
 error_log("✅ send_otp.php fully loaded - all functions defined");
-?>
